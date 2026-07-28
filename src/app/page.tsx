@@ -916,10 +916,11 @@ export default function Home() {
           }}
         >
           {/*
-            FS65 — Game Boy shell host (CSS-gated mobile portrait only).
-            Nest: .pov-stage + diegetic chrome inside .gb-shell__screen.
-            Outside LCD: .sys-header (above) + ReceiptToolbar (below).
-            Shell controls are decorative (pointer-events: none in CSS).
+            FS65/FS67 — Game Boy shell (CSS-gated mobile portrait only).
+            Nest: .pov-stage + diegetic in full battery/screen housing
+            (.gb-shell__screen-cont), not tiny inner glass only.
+            Outside plastic: .sys-header (above) + ReceiptToolbar (below).
+            Shell controls decorative (pointer-events: none in CSS). De-branded.
           */}
           <div className="gb-shell-slot">
             <div className="gb-shell-scale">
@@ -929,12 +930,11 @@ export default function Home() {
                 </div>
                 <div className="gb-shell__screen-cont">
                   <div className="gb-shell__power" aria-hidden="true" />
-                  <div className="gb-shell__screen">
-                    <div className="gb-shell__header" aria-hidden="true">
-                      DOT MATRIX WITH STEREO SOUND
-                    </div>
-                    <div className="gb-shell__playfield">
-                      {/* POV STAGE — receipt printer embedded top-right (FS56: no nested amber frame) */}
+                  <div className="gb-shell__header" aria-hidden="true">
+                    DOT MATRIX WITH STEREO SOUND
+                  </div>
+                  <div className="gb-shell__playfield">
+                      {/* POV STAGE — fills battery/screen housing (FS67) */}
                       <section className="pov-shell-section">
                         <PovStageShell
                           openCategory={openCategory}
@@ -1174,7 +1174,6 @@ export default function Home() {
                           ) : null}
                         </PovStageShell>
                       </section>
-                    </div>
                   </div>
                 </div>
                 <div className="gb-shell__controls" aria-hidden="true">
@@ -1182,8 +1181,14 @@ export default function Home() {
                     <div className="gb-shell__btn-direction-v" />
                     <div className="gb-shell__btn-direction-h" />
                   </div>
-                  <div className="gb-shell__btn-ab" />
-                  <div className="gb-shell__btn-start-select" />
+                  <div className="gb-shell__btn-ab">
+                    <span className="gb-shell__btn-b" data-label="B" />
+                    <span className="gb-shell__btn-a" data-label="A" />
+                  </div>
+                  <div className="gb-shell__btn-start-select">
+                    <span className="gb-shell__btn-select">SELECT</span>
+                    <span className="gb-shell__btn-start">START</span>
+                  </div>
                 </div>
                 <div className="gb-shell__speakers" aria-hidden="true" />
                 <div className="gb-shell__phones" aria-hidden="true">

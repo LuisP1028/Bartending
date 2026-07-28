@@ -22,57 +22,19 @@
         background: #0a0a0c;
         font-family: system-ui, -apple-system, Segoe UI, sans-serif;
       }
+      /* FS67: full-bleed iframe — no host header bar */
       .shell {
         display: flex;
         flex-direction: column;
         height: 100%;
         min-height: 100dvh;
       }
-      header {
-        flex: 0 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        padding: 0.35rem 0.65rem;
-        background: #121218;
-        border-bottom: 1px solid #2a2a35;
-        color: #e8e8ef;
-        font-size: 0.8rem;
-      }
-      header strong {
-        letter-spacing: 0.04em;
-      }
-      header a {
-        color: #9ecbff;
-        text-decoration: none;
-        white-space: nowrap;
-      }
-      header a:hover {
-        text-decoration: underline;
-      }
-      /* FS58: free iframe height on short / landscape phones */
-      @media (orientation: landscape), (max-height: 520px) {
-        header {
-          padding: 0.2rem 0.5rem;
-          font-size: 0.7rem;
-        }
-        header strong {
-          font-size: 0.7rem;
-        }
-      }
-      @media (orientation: landscape) and (max-height: 420px) {
-        header strong {
-          display: none;
-        }
-        header {
-          justify-content: flex-end;
-        }
-      }
       .frame-wrap {
         flex: 1 1 auto;
         position: relative;
         min-height: 0;
+        width: 100%;
+        height: 100%;
       }
       iframe {
         position: absolute;
@@ -103,25 +65,12 @@
   </head>
   <body>
     <div class="shell">
-      <header>
-        <strong>DITHER-OS · Bartending</strong>
-        <a id="open-direct" href="#" target="_blank" rel="noopener noreferrer"
-          >Open full screen ↗</a
-        >
-      </header>
       <div class="frame-wrap">
         <p class="hint">
           Loading game from Hugging Face…<br />
           If this stays blank, set <code>SPACE_URL</code> in
           <code>docs/index.html</code> and wait for the Space to wake.
         </p>
-        <!--
-          After your Space is live, set SPACE_URL below.
-          Embed form is usually:
-            https://<username>-<space-name>.hf.space
-          Example for user ChoppedCheese / space dither-os-bartending:
-            https://choppedcheese-dither-os-bartending.hf.space
-        -->
         <iframe
           id="game"
           title="DITHER-OS Bartending"
@@ -133,14 +82,11 @@
       </div>
     </div>
     <script>
-      // >>> EDIT THIS after the Hugging Face Space is deployed <<<
       const SPACE_URL =
         "https://choppedcheese-dither-os-bartending.hf.space";
 
       const frame = document.getElementById("game");
-      const link = document.getElementById("open-direct");
       frame.src = SPACE_URL;
-      link.href = SPACE_URL;
     </script>
   </body>
 </html>
