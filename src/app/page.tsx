@@ -24,7 +24,9 @@ import { CocktailRecipe } from '@/data/RecipeManager';
 import { ModePayload } from '@/data/ModePayload';
 import { loadMode } from '@/lib/validation/modeLoader';
 import { resolveDisplayName } from '@/lib/receipt/displayNameRegistry';
-import MagnificationCarousel from '@/components/MagnificationCarousel';
+import MagnificationCarousel, {
+  type MagnificationCarouselHandle,
+} from '@/components/MagnificationCarousel';
 import CategoryOverlay from '@/components/CategoryOverlay';
 import JiggerPourControl from '@/components/JiggerPourControl';
 import DrinkBuildCard from '@/components/DrinkBuildCard';
@@ -491,6 +493,8 @@ export default function Home() {
   const frameRef = useRef<HTMLDivElement>(null);
   const povStageRef = useRef<HTMLDivElement>(null);
   const vesselSlotRef = useRef<HTMLDivElement>(null);
+  /** FS77: open local MagnificationCarousel for shell D-pad item nav */
+  const shellCarouselRef = useRef<MagnificationCarouselHandle | null>(null);
 
   useEffect(() => {
     if (!state.vessel && drinkBuildCardOpen) {
@@ -612,9 +616,24 @@ export default function Home() {
     setShellFocusZoneId(zoneId);
   }, [openCategory, activeZoneId, closeOverlay]);
 
-  /** FS71: D-pad — move shell focus among navigable category hotspots. */
-  const shellNavigateHotspot = useCallback(
+  /**
+   * FS71/FS77: D-pad — hotspot browse when carousel closed; carousel item
+   * nav when open (←/→ step, ↑ first, ↓ last). Does not pan on focus alone.
+   */
+  const shellDpad = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right') => {
+      // FS77 carousel mode
+      if (openCategory !== null) {
+        const car = shellCarouselRef.current;
+        if (!car) return;
+        if (dir === 'left') car.step(-1);
+        else if (dir === 'right') car.step(1);
+        else if (dir === 'up') car.goFirst();
+        else if (dir === 'down') car.goLast();
+        return;
+      }
+
+      // FS71 hotspot browse mode
       const list = shellNavigableHotspots;
       if (list.length === 0) return;
 
@@ -663,7 +682,13 @@ export default function Home() {
           : list[(idx + 1) % list.length];
       setShellFocusZoneId(next.zoneId);
     },
-    [shellNavigableHotspots, shellFocusZoneId, hotspotOffsets, shellHotspotAnchor]
+    [
+      openCategory,
+      shellNavigableHotspots,
+      shellFocusZoneId,
+      hotspotOffsets,
+      shellHotspotAnchor,
+    ]
   );
 
   /** FS71: A — open carousel for focused hotspot (does not toggle-close). */
@@ -981,7 +1006,7 @@ export default function Home() {
       case 'syrups': {
         const overlayItems = getOverlayBottleItems(zoneId, category);
         return (
-          <MagnificationCarousel layout="local">
+          <MagnificationCarousel ref={shellCarouselRef} layout="local">
             {overlayItems.map(item => (
               <BottleAsset
                 key={item.id}
@@ -1001,7 +1026,7 @@ export default function Home() {
       }
       case 'garnishes':
         return (
-          <MagnificationCarousel layout="local">
+          <MagnificationCarousel ref={shellCarouselRef} layout="local">
             {garnishes.map(garnish => (
               <GarnishAsset
                 key={garnish.id}
@@ -1019,7 +1044,7 @@ export default function Home() {
         );
       case 'glassware':
         return (
-          <MagnificationCarousel layout="local">
+          <MagnificationCarousel ref={shellCarouselRef} layout="local">
             {glasses.map(glass => (
               <GlassAsset
                 key={glass.id}
@@ -1038,7 +1063,7 @@ export default function Home() {
         );
       case 'rims':
         return (
-          <MagnificationCarousel layout="local">
+          <MagnificationCarousel ref={shellCarouselRef} layout="local">
             {rims.map(rim => (
               <RimmingAsset
                 key={rim.id}
@@ -1054,7 +1079,7 @@ export default function Home() {
       case 'hardware': {
         const overlayHardware = getOverlayHardwareItems(zoneId);
         return (
-          <MagnificationCarousel layout="local">
+          <MagnificationCarousel ref={shellCarouselRef} layout="local">
             {overlayHardware.map(tool => (
               <HardwareAsset
                 key={tool.id}
@@ -1476,26 +1501,26 @@ export default function Home() {
                     <button
                       type="button"
                       className="gb-shell__dpad gb-shell__dpad--up"
-                      aria-label="Focus previous hotspot up"
-                      onClick={() => shellNavigateHotspot('up')}
+                      aria-label="Carousel first item or previous hotspot up"
+                      onClick={() => shellDpad('up')}
                     />
                     <button
                       type="button"
                       className="gb-shell__dpad gb-shell__dpad--down"
-                      aria-label="Focus next hotspot down"
-                      onClick={() => shellNavigateHotspot('down')}
+                      aria-label="Carousel last item or next hotspot down"
+                      onClick={() => shellDpad('down')}
                     />
                     <button
                       type="button"
                       className="gb-shell__dpad gb-shell__dpad--left"
-                      aria-label="Focus previous hotspot left"
-                      onClick={() => shellNavigateHotspot('left')}
+                      aria-label="Carousel previous item or previous hotspot left"
+                      onClick={() => shellDpad('left')}
                     />
                     <button
                       type="button"
                       className="gb-shell__dpad gb-shell__dpad--right"
-                      aria-label="Focus next hotspot right"
-                      onClick={() => shellNavigateHotspot('right')}
+                      aria-label="Carousel next item or next hotspot right"
+                      onClick={() => shellDpad('right')}
                     />
                   </div>
                   <div className="gb-shell__btn-ab">

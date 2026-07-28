@@ -1,6 +1,11 @@
 "use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, {
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 
 interface MagnificationCarouselProps {
   children: React.ReactNode;
@@ -11,7 +16,60 @@ interface MagnificationCarouselProps {
   layout?: 'page' | 'overlay' | 'local';
 }
 
-export default function MagnificationCarousel({ children, layout = 'page' }: MagnificationCarouselProps) {
+/** FS77: shell D-pad control of the open local carousel */
+export type MagnificationCarouselHandle = {
+  /** -1 previous, +1 next; wraps at ends */
+  step: (delta: -1 | 1) => void;
+  goFirst: () => void;
+  goLast: () => void;
+};
+
+function getWrappers(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll('.carousel-item-wrapper')
+  ) as HTMLElement[];
+}
+
+function scrollWrapperToCenter(
+  container: HTMLElement,
+  wrapper: HTMLElement,
+  smooth = false
+) {
+  const cRect = container.getBoundingClientRect();
+  const wRect = wrapper.getBoundingClientRect();
+  const delta =
+    wRect.left + wRect.width / 2 - (cRect.left + cRect.width / 2);
+  const target = container.scrollLeft + delta;
+  if (smooth) {
+    container.scrollTo({ left: target, behavior: 'smooth' });
+  } else {
+    container.scrollLeft = target;
+  }
+}
+
+function nearestWrapperIndex(container: HTMLElement): number {
+  const wrappers = getWrappers(container);
+  if (!wrappers.length) return -1;
+  const cRect = container.getBoundingClientRect();
+  const center = cRect.left + cRect.width / 2;
+  let best = 0;
+  let bestDist = Infinity;
+  wrappers.forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+    const mid = r.left + r.width / 2;
+    const d = Math.abs(mid - center);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+const MagnificationCarousel = forwardRef<
+  MagnificationCarouselHandle,
+  MagnificationCarouselProps
+>(function MagnificationCarousel({ children, layout = 'page' }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   /** Persist scroll across remeasures (parent re-renders must not restart controller). */
   const scrollLeftRef = useRef(0);
@@ -21,6 +79,49 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
   const layoutRef = useRef(layout);
   /** Last observed wrapper count — remeasure when inventory DOM changes without effect restart. */
   const wrapperCountRef = useRef(0);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      step(delta: -1 | 1) {
+        const container = containerRef.current;
+        if (!container) return;
+        const wrappers = getWrappers(container);
+        if (!wrappers.length) return;
+        const cur = nearestWrapperIndex(container);
+        if (cur < 0) return;
+        const next =
+          (cur + delta + wrappers.length) % wrappers.length;
+        scrollWrapperToCenter(container, wrappers[next], false);
+        scrollLeftRef.current = container.scrollLeft;
+        // Fire scroll so focus glow updates
+        container.dispatchEvent(new Event('scroll'));
+      },
+      goFirst() {
+        const container = containerRef.current;
+        if (!container) return;
+        const wrappers = getWrappers(container);
+        if (!wrappers[0]) return;
+        scrollWrapperToCenter(container, wrappers[0], false);
+        scrollLeftRef.current = container.scrollLeft;
+        container.dispatchEvent(new Event('scroll'));
+      },
+      goLast() {
+        const container = containerRef.current;
+        if (!container) return;
+        const wrappers = getWrappers(container);
+        if (!wrappers.length) return;
+        scrollWrapperToCenter(
+          container,
+          wrappers[wrappers.length - 1],
+          false
+        );
+        scrollLeftRef.current = container.scrollLeft;
+        container.dispatchEvent(new Event('scroll'));
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -39,11 +140,8 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       wrapperCountRef.current = 0;
     }
 
-    const getWrappers = () =>
-      Array.from(container.querySelectorAll('.carousel-item-wrapper')) as HTMLElement[];
-
     const syncLayoutMetrics = () => {
-      const wrappers = getWrappers();
+      const wrappers = getWrappers(container);
       if (!wrappers.length) return;
 
       wrappers.forEach((el) => {
@@ -99,38 +197,15 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       container.style.paddingBottom = isLocal ? '4px' : layout === 'page' ? '40px' : '16px';
     };
 
-    const scrollWrapperToCenter = (wrapper: HTMLElement, smooth = false) => {
-      const c = container;
-      const cRect = c.getBoundingClientRect();
-      const wRect = wrapper.getBoundingClientRect();
-      const delta =
-        wRect.left + wRect.width / 2 - (cRect.left + cRect.width / 2);
-      const target = c.scrollLeft + delta;
-      if (smooth) {
-        c.scrollTo({ left: target, behavior: 'smooth' });
-      } else {
-        c.scrollLeft = target;
-      }
-      scrollLeftRef.current = c.scrollLeft;
+    const scrollToCenter = (wrapper: HTMLElement, smooth = false) => {
+      scrollWrapperToCenter(container, wrapper, smooth);
+      scrollLeftRef.current = container.scrollLeft;
     };
 
     const nearestWrapper = (): HTMLElement | null => {
-      const wrappers = getWrappers();
-      if (!wrappers.length) return null;
-      const cRect = container.getBoundingClientRect();
-      const center = cRect.left + cRect.width / 2;
-      let best: HTMLElement | null = null;
-      let bestDist = Infinity;
-      wrappers.forEach((el) => {
-        const r = el.getBoundingClientRect();
-        const mid = r.left + r.width / 2;
-        const d = Math.abs(mid - center);
-        if (d < bestDist) {
-          bestDist = d;
-          best = el;
-        }
-      });
-      return best;
+      const wrappers = getWrappers(container);
+      const i = nearestWrapperIndex(container);
+      return i >= 0 ? wrappers[i] ?? null : null;
     };
 
     const handleScroll = () => {
@@ -140,7 +215,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       const containerRect = c.getBoundingClientRect();
       const containerCenter = containerRect.left + containerRect.width / 2;
 
-      getWrappers().forEach((el) => {
+      getWrappers(c).forEach((el) => {
         const childRect = el.getBoundingClientRect();
         const childCenter = childRect.left + childRect.width / 2;
         const distance = Math.abs(containerCenter - childCenter);
@@ -189,7 +264,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       settleTimer = setTimeout(() => {
         const near = nearestWrapper();
         if (near) {
-          scrollWrapperToCenter(near, false);
+          scrollToCenter(near, false);
           handleScroll();
         }
       }, 80);
@@ -198,10 +273,10 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
     /** First mount only: center first item. */
     const remeasureAndCenterFirst = () => {
       syncLayoutMetrics();
-      const wrappers = getWrappers();
+      const wrappers = getWrappers(container);
       wrapperCountRef.current = wrappers.length;
       if (wrappers[0]) {
-        scrollWrapperToCenter(wrappers[0], false);
+        scrollToCenter(wrappers[0], false);
       } else {
         container.scrollLeft = 0;
         scrollLeftRef.current = 0;
@@ -215,7 +290,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
      */
     const remeasureAndRestore = () => {
       syncLayoutMetrics();
-      const wrappers = getWrappers();
+      const wrappers = getWrappers(container);
       wrapperCountRef.current = wrappers.length;
       if (!wrappers.length) {
         handleScroll();
@@ -232,7 +307,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       container.scrollLeft = scrollLeftRef.current;
       const near = nearestWrapper();
       if (near) {
-        scrollWrapperToCenter(near, false);
+        scrollToCenter(near, false);
       } else {
         container.scrollLeft = scrollLeftRef.current;
       }
@@ -244,7 +319,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       const near = nearestWrapper();
       syncLayoutMetrics();
       if (near) {
-        scrollWrapperToCenter(near, false);
+        scrollToCenter(near, false);
       } else if (hasMountedRef.current) {
         container.scrollLeft = scrollLeftRef.current;
       } else {
@@ -258,7 +333,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
 
     /** When wrapper count changes (catalog swap without effect re-run), remeasure. */
     const onDomInventoryChange = () => {
-      const wrappers = getWrappers();
+      const wrappers = getWrappers(container);
       const count = wrappers.length;
       wrappers.forEach((w) => ro?.observe(w));
       if (count === wrapperCountRef.current) return;
@@ -277,7 +352,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
     window.addEventListener('resize', onResize);
 
     ro?.observe(container);
-    getWrappers().forEach((w) => ro?.observe(w));
+    getWrappers(container).forEach((w) => ro?.observe(w));
 
     const mo =
       typeof MutationObserver !== 'undefined'
@@ -296,7 +371,7 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       cancelAnimationFrame(t1);
       clearTimeout(t2);
       if (settleTimer) clearTimeout(settleTimer);
-      getWrappers().forEach((el) => {
+      getWrappers(container).forEach((el) => {
         el.style.minWidth = '';
         el.style.width = '';
         el.style.boxShadow = '';
@@ -380,4 +455,6 @@ export default function MagnificationCarousel({ children, layout = 'page' }: Mag
       ))}
     </div>
   );
-}
+});
+
+export default MagnificationCarousel;
