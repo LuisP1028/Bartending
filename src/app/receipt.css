@@ -265,7 +265,7 @@
   pointer-events: auto;
   transform-origin: top center;
   cursor: grab;
-  /* Drag on wrapper; pan-y allowed on inner .receipt-paper */
+  /* Summary: JS owns drag. Expanded overrides to pan-y (FS62). */
   touch-action: none;
   overflow: hidden;
   box-sizing: border-box;
@@ -676,6 +676,16 @@
   max-height: var(--receipt-paper-h);
   overflow: hidden !important;
   transform: none !important;
+  /* FS62: allow vertical pan to reach paper scrollport (override touch-action: none) */
+  touch-action: pan-y;
+  cursor: default;
+}
+
+.receipt-wrapper.state-inspected .receipt-paper--full {
+  touch-action: pan-y;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 /* Context menu */

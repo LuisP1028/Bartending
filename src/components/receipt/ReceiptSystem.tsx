@@ -21,6 +21,13 @@ type DragState = {
   startY: number;
   initLeft: number;
   initTop: number;
+  /** Expanded (full face) when gesture began — FS62: allow body scroll, no paper-drag. */
+  wasInspected: boolean;
+  /** True when wrapper captured the pointer (summary drag path only). */
+  captured: boolean;
+  pointerId: number;
+  /** Full-face scrollport scrollTop at pointerdown (detect real scroll vs tap). */
+  startScrollTop: number;
 } | null;
 
 export type PatronReceiptMeta = {
@@ -221,8 +228,13 @@ export function ReceiptProvider({
   const [activeZ, setActiveZ] = useState(501);
   const [toast, setToast] = useState<string | null>(null);
   const dragRef = useRef<DragState>(null);
-  /** True once pointer moved past drag threshold (real drag, not a click). */
+  /** True once pointer moved past drag threshold (real paper drag, not a click). */
   const dragMovedRef = useRef(false);
+  /**
+   * FS62: true when expanded-face gesture moved enough to count as scroll/pan
+   * (suppresses toggle-collapse on pointerup).
+   */
+  const scrollGestureRef = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const printQueueRef = useRef<QueuedPrint[]>([]);
   const printingRef = useRef(false);
@@ -628,6 +640,54 @@ export function ReceiptProvider({
     [allocZ, positionForInspect, selectFreeReceipt]
   );
 
+  const endPointerGesture = useCallback(
+    (
+      instanceId: string,
+      opts?: {
+        releaseTarget?: EventTarget | null;
+        pointerId?: number;
+        /** Live scrollport for scrollTop delta check */
+        scrollEl?: HTMLElement | null;
+      }
+    ) => {
+      const drag = dragRef.current;
+      if (!drag || drag.instanceId !== instanceId) return;
+
+      if (drag.captured && opts?.releaseTarget && opts.pointerId != null) {
+        try {
+          (opts.releaseTarget as HTMLElement).releasePointerCapture?.(opts.pointerId);
+        } catch {
+          /* already released */
+        }
+      }
+
+      const wasDrag = dragMovedRef.current;
+      const scrollDelta =
+        opts?.scrollEl != null
+          ? Math.abs(opts.scrollEl.scrollTop - drag.startScrollTop)
+          : 0;
+      const wasScroll = scrollGestureRef.current || scrollDelta > 1;
+      const wasInspected = drag.wasInspected;
+      dragRef.current = null;
+      dragMovedRef.current = false;
+      scrollGestureRef.current = false;
+
+      if (wasInspected) {
+        // Pure short tap (no pan / no scrollTop change) → collapse
+        if (!wasScroll) {
+          toggleExpand(instanceId);
+        }
+        return;
+      }
+
+      // Summary: pure click (no drag) → expand
+      if (!wasDrag) {
+        toggleExpand(instanceId);
+      }
+    },
+    [toggleExpand]
+  );
+
   const onPointerDown = useCallback(
     (instanceId: string, e: React.PointerEvent) => {
       if (e.button !== 0) return;
@@ -643,29 +703,94 @@ export function ReceiptProvider({
       // Focus/select free receipt → mat shows this order’s parked build
       selectFreeReceipt(instanceId);
 
-      e.currentTarget.setPointerCapture(e.pointerId);
       dragMovedRef.current = false;
+      scrollGestureRef.current = false;
+
+      const wasInspected = !!entity.inspected;
+      const pointerId = e.pointerId;
+      const scrollEl =
+        (e.target instanceof Element
+          ? e.target.closest('.receipt-paper--full')
+          : null) as HTMLElement | null;
+      const startScrollTop = scrollEl?.scrollTop ?? 0;
+
+      /*
+       * FS62 — Expanded full face: do NOT capture or start paper-drag.
+       * Let .receipt-paper--full own pan-y scroll; pure short tap still collapses on up.
+       * Window listeners finish the gesture if the finger lifts outside the wrapper.
+       */
+      if (wasInspected) {
+        dragRef.current = {
+          instanceId,
+          startX: e.clientX,
+          startY: e.clientY,
+          initLeft: entity.position.left,
+          initTop: entity.position.top,
+          wasInspected: true,
+          captured: false,
+          pointerId,
+          startScrollTop,
+        };
+        bumpZ(instanceId, { clearInspect: false });
+
+        const onPaperScroll = () => {
+          scrollGestureRef.current = true;
+        };
+        scrollEl?.addEventListener('scroll', onPaperScroll, { passive: true });
+
+        const onWinMove = (ev: PointerEvent) => {
+          const d = dragRef.current;
+          if (!d || d.instanceId !== instanceId || d.pointerId !== ev.pointerId) return;
+          const dx = ev.clientX - d.startX;
+          const dy = ev.clientY - d.startY;
+          if (Math.abs(dx) >= 4 || Math.abs(dy) >= 4) {
+            scrollGestureRef.current = true;
+          }
+        };
+        const onWinUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== pointerId) return;
+          window.removeEventListener('pointermove', onWinMove);
+          window.removeEventListener('pointerup', onWinUp);
+          window.removeEventListener('pointercancel', onWinUp);
+          scrollEl?.removeEventListener('scroll', onPaperScroll);
+          endPointerGesture(instanceId, { scrollEl });
+        };
+        window.addEventListener('pointermove', onWinMove);
+        window.addEventListener('pointerup', onWinUp);
+        window.addEventListener('pointercancel', onWinUp);
+        return;
+      }
+
+      // Summary face: capture for drag-to-move / click-to-expand
+      e.currentTarget.setPointerCapture(pointerId);
       dragRef.current = {
         instanceId,
         startX: e.clientX,
         startY: e.clientY,
         initLeft: entity.position.left,
         initTop: entity.position.top,
+        wasInspected: false,
+        captured: true,
+        pointerId,
+        startScrollTop: 0,
       };
-      // Raise stack; keep expand until a real drag (or click toggle on up)
       bumpZ(instanceId, { clearInspect: false });
     },
-    [receipts, bumpZ, selectFreeReceipt]
+    [receipts, bumpZ, selectFreeReceipt, endPointerGesture]
   );
 
   const onPointerMove = useCallback(
     (instanceId: string, e: React.PointerEvent) => {
       const drag = dragRef.current;
       if (!drag || drag.instanceId !== instanceId) return;
+      // Expanded gestures are tracked on window (no capture) — ignore wrapper moves
+      if (drag.wasInspected) return;
+
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
-      // Drag threshold — real drag contracts to summary and moves paper
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+
+      // Summary: real drag moves paper
       dragMovedRef.current = true;
       const pos = clampPosition(drag.initLeft + dx, drag.initTop + dy);
       setReceipts((prev) =>
@@ -679,21 +804,15 @@ export function ReceiptProvider({
 
   const onPointerUp = useCallback(
     (instanceId: string, e: React.PointerEvent) => {
-      if (dragRef.current?.instanceId !== instanceId) return;
-      try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      } catch {
-        /* already released */
-      }
-      const wasDrag = dragMovedRef.current;
-      dragRef.current = null;
-      dragMovedRef.current = false;
-      // Pure click (no drag) → expand / contract
-      if (!wasDrag) {
-        toggleExpand(instanceId);
-      }
+      const drag = dragRef.current;
+      // Expanded: finished via window listeners
+      if (drag?.wasInspected) return;
+      endPointerGesture(instanceId, {
+        releaseTarget: e.currentTarget,
+        pointerId: e.pointerId,
+      });
     },
-    [toggleExpand]
+    [endPointerGesture]
   );
 
   /** Suppress browser context menu; no receipt action popup. */
