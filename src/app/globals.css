@@ -1065,6 +1065,8 @@ body {
     justify-content: center;
     box-sizing: border-box;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.55));
+    /* FS64: allow ice/sprig/rim-lock overhang outside slot on mobile */
+    overflow: visible;
 }
 
 .pov-active-vessel .asset-under-label {
@@ -1083,8 +1085,13 @@ body {
     display: flex !important;
     align-items: flex-end !important;
     justify-content: center !important;
+    overflow: visible !important;
 }
 
+/*
+ * FS64: art-root is always 64∶96 so SVG viewBox meet maps 1:1 to the content box
+ * (no letterbox desync for co-registered liquid/garnish layers).
+ */
 .pov-active-vessel .asset-art-root {
     width: min(100%, 72px) !important;
     max-width: 100% !important;
@@ -1093,13 +1100,15 @@ body {
     aspect-ratio: 64 / 96 !important;
     margin-bottom: 0 !important;
     flex: 0 1 auto !important;
+    overflow: visible !important;
 }
 
-/* Glass SVG liquid+outline — fill the art root without non-uniform stretch */
+/* Glass SVG scene (liquid + ice + outline + garnishes) fills the art root */
 .pov-active-vessel .asset-art-root > svg {
     width: 100%;
     height: 100%;
     display: block;
+    overflow: visible;
 }
 
 /* Drink-build card — pad-anchored, scene-clear, levitate (FS36); shell glass package */

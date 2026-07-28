@@ -44,6 +44,144 @@ function resolveGlassMetrics(vesselId?: string | null, label?: string) {
   return null;
 }
 
+/**
+ * FS64: garnish/ice/rim in the same SVG viewBox as liquid/outline so mobile
+ * art-root letterboxing cannot desync HTML % layers from the glass.
+ */
+function SvgIce({
+  iceType,
+  rimLeftX,
+  rimRightX,
+  floorY,
+  garnishScale,
+}: {
+  iceType: string;
+  rimLeftX: number;
+  rimRightX: number;
+  floorY: number;
+  garnishScale: number;
+}) {
+  const cx = (rimLeftX + rimRightX) / 2;
+  const s = garnishScale;
+  // 64×64 symbol box, bottom-center on floor, scaled about bottom center
+  return (
+    <g transform={`translate(${cx}, ${floorY}) scale(${s}) translate(-32, -64)`}>
+      <svg x={0} y={0} width={64} height={64} viewBox="0 0 64 64" overflow="visible">
+        <use href={`#${iceType}`} />
+      </svg>
+    </g>
+  );
+}
+
+function SvgRimStrip({
+  rimId,
+  rimLeftX,
+  rimRightX,
+  rimY,
+}: {
+  rimId: string;
+  rimLeftX: number;
+  rimRightX: number;
+  rimY: number;
+}) {
+  const w = Math.max(1, rimRightX - rimLeftX);
+  const h = 16;
+  // Vertically centered on rimY (was translateY(-50%) in HTML)
+  return (
+    <svg
+      x={rimLeftX}
+      y={rimY - h / 2}
+      width={w}
+      height={h}
+      viewBox="0 0 60 16"
+      preserveAspectRatio="none"
+      overflow="visible"
+    >
+      <use href={`#${rimId}`} />
+    </svg>
+  );
+}
+
+function SvgGarnishItem({
+  g,
+  topY,
+}: {
+  g: {
+    type?: string;
+    x?: number;
+    y?: number;
+    scale?: number;
+    rotation?: number;
+    height?: number;
+    svgHref?: string;
+    rindColor?: string;
+    pulpColor?: string;
+  };
+  topY: number;
+}) {
+  const x = g.x ?? 32;
+  const y = topY;
+  const s = g.scale ?? 1;
+  const rot = g.rotation ?? 0;
+  const href = g.svgHref ? `#${g.svgHref}` : '';
+
+  if (!href) return null;
+
+  // Sprig: tall stem, bottom-center at (x,y), optional rotation; width ~64*scale
+  if (g.type === 'sprig') {
+    const sh = g.height || 100;
+    const sw = 64 * s;
+    return (
+      <g transform={`translate(${x}, ${y}) rotate(${rot}) translate(${-sw / 2}, ${-sh})`}>
+        <svg
+          x={0}
+          y={0}
+          width={sw}
+          height={sh}
+          viewBox="0 0 64 64"
+          preserveAspectRatio="none"
+          overflow="visible"
+          style={
+            {
+              ...(g.rindColor ? { ['--rind' as string]: g.rindColor } : {}),
+              ...(g.pulpColor ? { ['--pulp' as string]: g.pulpColor } : {}),
+            } as React.CSSProperties
+          }
+        >
+          <use href={href} />
+        </svg>
+      </g>
+    );
+  }
+
+  // floating / rim-lock: center of 64×64 at (x,y)
+  // sinker / default: bottom-center of 64×64 at (x,y)
+  const centerAnchor = g.type === 'floating' || g.type === 'rim-lock';
+  const ox = -32;
+  const oy = centerAnchor ? -32 : -64;
+
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${s}) translate(${ox}, ${oy})`}>
+      <svg
+        x={0}
+        y={0}
+        width={64}
+        height={64}
+        viewBox="0 0 64 64"
+        overflow="visible"
+        style={
+          {
+            ...(g.rindColor ? { ['--rind' as string]: g.rindColor } : {}),
+            ...(g.pulpColor ? { ['--pulp' as string]: g.pulpColor } : {}),
+          } as React.CSSProperties
+        }
+      >
+        <use href={href} />
+      </svg>
+    </g>
+  );
+}
+
 export default function GlassAsset({
   outlineId,
   clipId,
@@ -138,6 +276,45 @@ export default function GlassAsset({
   const foamH =
     foamHeightPx > 0 ? Math.min(foamHeightPx, liquidY - foamY) : 0;
 
+  // Paint order: under-outline garnishes, liquid, ice, outline, rim + rim-lock
+  const underOutline = (garnishes || []).filter(
+    (g) =>
+      g.type === 'sprig' ||
+      g.type === 'floating' ||
+      g.type === 'sinker'
+  );
+  const overOutline = (garnishes || []).filter(
+    (g) =>
+      g.type &&
+      g.type !== 'coating' &&
+      g.type !== 'rim' &&
+      g.type !== 'sprig' &&
+      g.type !== 'floating' &&
+      g.type !== 'sinker'
+  );
+
+  const renderGarnishList = (list: any[]) =>
+    list.map((g, idx) => {
+      if (g.type === 'coating' || g.type === 'rim') return null;
+      let topY = g.y ?? 0;
+      if (g.type === 'floating' && metrics) {
+        const fillPercentage = Math.min(
+          (effectiveVisualVolumeOz / maxOz) * 100,
+          95
+        );
+        const fluidPx =
+          (metrics.floorY - metrics.rimY) * (fillPercentage / 100);
+        topY = metrics.floorY - fluidPx;
+      }
+      return (
+        <SvgGarnishItem
+          key={`${g.type || 'g'}-${g.svgHref || idx}-${idx}`}
+          g={g}
+          topY={topY}
+        />
+      );
+    });
+
   return (
     <div
       onClick={onClick}
@@ -160,7 +337,8 @@ export default function GlassAsset({
         boxShadow: bare ? 'none' : 'clamp(4px, 1vmin, 8px) clamp(4px, 1vmin, 8px) 0 #000',
         cursor: onClick ? 'pointer' : undefined,
         boxSizing: 'border-box',
-        overflow: isOverlay ? 'hidden' : undefined,
+        /* FS64: do not clip vessel garnish overhangs on mobile overlay */
+        overflow: isOverlay ? 'visible' : undefined,
         gap: isOverlay ? 2 : 0,
         lineHeight: 0,
       }}
@@ -169,9 +347,9 @@ export default function GlassAsset({
         className={`asset-art-root${animClass ? ` ${animClass}` : ''}`}
         style={{
           position: 'relative',
-          width: isOverlay ? 'min(100%, 56px)' : 'clamp(80px, 18vw, 160px)',
+          width: isOverlay ? 'min(100%, 72px)' : 'clamp(80px, 18vw, 160px)',
           maxWidth: isOverlay ? '100%' : undefined,
-          maxHeight: isOverlay ? '70%' : undefined,
+          maxHeight: isOverlay ? '100%' : undefined,
           aspectRatio: '64 / 96',
           transformOrigin: isOverlay ? 'center center' : 'bottom center',
           marginBottom: isOverlay ? 0 : 'clamp(8px, 2vh, 16px)',
@@ -182,12 +360,13 @@ export default function GlassAsset({
           boxShadow: 'none',
           boxSizing: 'border-box',
           minHeight: 0,
-          flex: isOverlay ? '1 1 auto' : undefined,
+          flex: isOverlay ? '0 1 auto' : undefined,
+          overflow: 'visible',
         }}
       >
         {/*
-          FS63: pure SVG liquid under glass clipPath (no foreignObject).
-          FO + CSS .liquid → solid square tile on mobile Safari (same class as pre-FS57 bottles).
+          FS63 liquid + FS64 ice/rim/garnishes: one SVG viewBox 0 0 64 96.
+          Eliminates HTML % vs SVG meet letterbox mismatch on small mobile slots.
         */}
         <svg
           style={{
@@ -198,11 +377,14 @@ export default function GlassAsset({
             height: '100%',
             zIndex: 2,
             pointerEvents: 'none',
-            overflow: 'hidden',
+            overflow: 'visible',
           }}
           viewBox="0 0 64 96"
           preserveAspectRatio="xMidYMid meet"
         >
+          {/* Under-outline garnishes (sprig / floating / sinker) */}
+          {metrics ? renderGarnishList(underOutline) : null}
+
           {clipId && (hasVisibleLiquid || foamH > 0) ? (
             <g clipPath={`url(#${clipId})`}>
               {hasVisibleLiquid && liquidH > 0 ? (
@@ -215,7 +397,6 @@ export default function GlassAsset({
                     fill={liquidColor || 'transparent'}
                     opacity={0.88}
                   />
-                  {/* Soft highlight (replaces CSS liquid gradient) */}
                   {liquidH > 2 ? (
                     <rect
                       x={0}
@@ -240,105 +421,31 @@ export default function GlassAsset({
               ) : null}
             </g>
           ) : null}
+
+          {iceType && metrics ? (
+            <SvgIce
+              iceType={iceType}
+              rimLeftX={metrics.rimLeftX}
+              rimRightX={metrics.rimRightX}
+              floorY={metrics.floorY}
+              garnishScale={metrics.garnishScale}
+            />
+          ) : null}
+
           {outlineId ? <use href={`#${outlineId}`} /> : null}
+
+          {rim && metrics ? (
+            <SvgRimStrip
+              rimId={rim}
+              rimLeftX={metrics.rimLeftX}
+              rimRightX={metrics.rimRightX}
+              rimY={metrics.rimY}
+            />
+          ) : null}
+
+          {/* Rim-lock and other over-outline garnishes */}
+          {metrics ? renderGarnishList(overOutline) : null}
         </svg>
-
-        {iceType && metrics && (
-          <div
-            className="dynamic-garnish"
-            style={{
-              position: 'absolute',
-              pointerEvents: 'none',
-              zIndex: 1,
-              width: '100%',
-              height: `${(64 / 96) * 100}%`,
-              left: `${((metrics.rimLeftX + metrics.rimRightX) / 2 / 64) * 100}%`,
-              top: `${(metrics.floorY / 96) * 100}%`,
-              transformOrigin: 'bottom center',
-              transform: `translate(-50%, -100%) scale(${metrics.garnishScale})`,
-            }}
-          >
-            <svg style={{ width: '100%', height: '100%' }}>
-              <use href={`#${iceType}`} />
-            </svg>
-          </div>
-        )}
-        {rim && metrics && (
-          <div
-            className="dynamic-garnish"
-            style={{
-              position: 'absolute',
-              pointerEvents: 'none',
-              zIndex: 4,
-              top: `${(metrics.rimY / 96) * 100}%`,
-              left: `${(metrics.rimLeftX / 64) * 100}%`,
-              width: `${((metrics.rimRightX - metrics.rimLeftX) / 64) * 100}%`,
-              height: `${(16 / 96) * 100}%`,
-              transformOrigin: 'top left',
-              transform: 'translateY(-50%)',
-            }}
-          >
-            <svg
-              viewBox="0 0 60 16"
-              style={{ width: '100%', height: '100%', overflow: 'visible' }}
-              preserveAspectRatio="none"
-            >
-              <use href={`#${rim}`} />
-            </svg>
-          </div>
-        )}
-        {garnishes.map((g, idx) => {
-          if (g.type === 'coating' || g.type === 'rim') return null;
-
-          let top = g.y;
-          if (g.type === 'floating' && metrics) {
-            const fillPercentage = Math.min((effectiveVisualVolumeOz / maxOz) * 100, 95);
-            const fluidPx = (metrics.floorY - metrics.rimY) * (fillPercentage / 100);
-            top = metrics.floorY - fluidPx;
-          }
-
-          const trX = g.type === 'floating' ? '-50%' : g.type === 'rim-lock' ? '-50%' : '-50%';
-          const trY = g.type === 'floating' ? '-50%' : g.type === 'rim-lock' ? '-50%' : '-100%';
-          const r = g.rotation ? ` rotate(${g.rotation}deg)` : '';
-
-          return (
-            <div
-              key={idx}
-              className="dynamic-garnish"
-              style={{
-                position: 'absolute',
-                pointerEvents: 'none',
-                zIndex:
-                  g.type === 'rim-lock'
-                    ? 4
-                    : g.type === 'sprig' || g.type === 'floating' || g.type === 'sinker'
-                      ? 1
-                      : 3,
-                left: `${(g.x / 64) * 100}%`,
-                top: `${(top / 96) * 100}%`,
-                width: g.type === 'sprig' ? `${((64 * (g.scale || 1)) / 64) * 100}%` : '100%',
-                height:
-                  g.type === 'sprig'
-                    ? `${((g.height || 100) / 96) * 100}%`
-                    : `${(64 / 96) * 100}%`,
-                transformOrigin: g.type === 'sprig' ? 'bottom center' : 'center',
-                transform: `translate(${trX}, ${trY}) ${
-                  g.type !== 'sprig' ? `scale(${g.scale || 1})` : ''
-                }${r}`.trim(),
-                ...(g.rindColor ? ({ '--rind': g.rindColor } as React.CSSProperties) : {}),
-                ...(g.pulpColor ? ({ '--pulp': g.pulpColor } as React.CSSProperties) : {}),
-              }}
-            >
-              <svg
-                style={{ width: '100%', height: '100%' }}
-                viewBox="0 0 64 64"
-                preserveAspectRatio={g.type === 'sprig' ? 'none' : undefined}
-              >
-                <use href={`#${g.svgHref}`} />
-              </svg>
-            </div>
-          );
-        })}
       </div>
       {label ? <div className="asset-under-label">{label}</div> : null}
     </div>
