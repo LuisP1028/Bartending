@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import GlobalSVGDefs from '@/components/GlobalSVGDefs';
-import BootIntro from '@/components/BootIntro';
 import BottleAsset from '@/components/BottleAsset';
 import GlassAsset from '@/components/GlassAsset';
 import GarnishAsset from '@/components/GarnishAsset';
@@ -1108,14 +1107,6 @@ export default function Home() {
       }
     }
   };
-
-  /** FS79: boot cinematic on Game Boy screen before interactive game */
-  const [bootComplete, setBootComplete] = useState(false);
-  const onBootComplete = useCallback(() => setBootComplete(true), []);
-
-  if (!bootComplete) {
-    return <BootIntro onComplete={onBootComplete} />;
-  }
 
   if (!mode || !manifest) {
     return (
