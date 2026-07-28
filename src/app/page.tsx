@@ -28,11 +28,13 @@ import MagnificationCarousel from '@/components/MagnificationCarousel';
 import CategoryOverlay from '@/components/CategoryOverlay';
 import JiggerPourControl from '@/components/JiggerPourControl';
 import DrinkBuildCard from '@/components/DrinkBuildCard';
-import HotspotPlacementEditor, {
+import {
   pathWithStoredOffset,
 } from '@/components/HotspotPlacementEditor';
 import PatronLayer from '@/components/PatronLayer';
-import PatronPlacementEditor from '@/components/PatronPlacementEditor';
+// FS72: authoring editors commented out of UI — restore imports to re-enable
+// import HotspotPlacementEditor from '@/components/HotspotPlacementEditor';
+// import PatronPlacementEditor from '@/components/PatronPlacementEditor';
 import PatronSignupForm from '@/components/PatronSignupForm';
 import {
   CategoryKey,
@@ -405,9 +407,10 @@ export default function Home() {
   const [vesselSlotStyle, setVesselSlotStyle] = useState<StageFrameStyle | null>(null);
   /** Hotspot placement editor offsets (localStorage-backed) */
   const [hotspotOffsets, setHotspotOffsets] = useState<Record<string, HotspotOffset>>({});
-  /** Patron layout overrides (PATRON EDIT / localStorage) */
-  const [patronLayouts, setPatronLayouts] = useState<Record<string, PatronLayout>>({});
-  const [patronEditOpen, setPatronEditOpen] = useState(false);
+  /** Patron layout overrides (PATRON EDIT / localStorage when editor re-enabled) */
+  const [patronLayouts] = useState<Record<string, PatronLayout>>({});
+  /** FS72: PATRON EDIT UI commented out — always false until editor restored */
+  const patronEditOpen = false;
   const [patronSignupOpen, setPatronSignupOpen] = useState(false);
   /** Active character id (registry); drives assets + layout for PatronLayer */
   const [activeCharacterId, setActiveCharacterId] = useState(CHARACTER_ELDER.id);
@@ -1157,6 +1160,11 @@ export default function Home() {
                             ))}
                           </svg>
 
+                          {/*
+                            FS72: HOTSPOT EDIT + PATRON EDIT UI commented out for play.
+                            Uncomment mounts (+ imports above) to restore authoring tools.
+                          */}
+                          {/*
                           <HotspotPlacementEditor
                             onOffsetsChange={setHotspotOffsets}
                           />
@@ -1166,6 +1174,7 @@ export default function Home() {
                             onOpenChange={setPatronEditOpen}
                             onCharacterChange={setActiveCharacterId}
                           />
+                          */}
 
                           {/* Diegetic receipt printer + paper (top-right, asset-only) */}
                           <ReceiptStageOverlay />
