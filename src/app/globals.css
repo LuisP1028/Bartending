@@ -357,6 +357,38 @@ body {
     margin-bottom: 0.25rem;
 }
 
+/*
+ * FS58 — Landscape: compact chrome so stage contain gains vertical share.
+ * Does not reintroduce frames or disable browser-window fill.
+ */
+@media (orientation: landscape) {
+    .sys-header {
+        padding-bottom: 0;
+        margin-bottom: 0.1rem;
+    }
+
+    .mode-btn--obelisco,
+    .mode-btn--classics {
+        --mode-logo-box-w: clamp(3rem, 12vmin, 5.5rem);
+        --mode-logo-box-h: clamp(1.25rem, 5vmin, 2.25rem);
+        padding: 2px 4px;
+    }
+
+    .receipt-toolbar {
+        margin-top: 0.1rem;
+    }
+
+    .receipt-toolbar .btn-8bit {
+        padding: 0.3em 0.65em;
+        font-size: clamp(0.7rem, 2.4vmin, 0.95rem);
+    }
+
+    .receipt-controls {
+        margin-bottom: 0.1rem;
+        gap: 0.25rem;
+    }
+}
+
 /* POV stage: carousel open — hard clip so assets never spill past stage box */
 .pov-stage--carousel-open {
     overflow: hidden;
@@ -1227,8 +1259,8 @@ body {
 /* Japanese jigger pour volume — frosted glass; stage-proportional (FS52) */
 .jigger-pour-control {
     /* Unitless scale: length÷length. clamp(0.54, 100cqi/1184, 1) is invalid (mixed types). */
-    /* FS57: raised touch floor (was 0.54 → ~35px trigger; 0.78 → ~50px class) */
-    --jigger-ui-scale: clamp(0.78, calc(100cqi / 1184px), 1);
+    /* FS58: touch floor ~0.92 + absolute min hit target (FS57 was 0.78) */
+    --jigger-ui-scale: clamp(0.92, calc(100cqi / 1184px), 1);
     position: absolute;
     right: clamp(6px, 1.35cqi, 16px);
     bottom: clamp(6px, 1.35cqi, 16px);
@@ -1245,7 +1277,8 @@ body {
     flex-direction: column;
     align-items: center;
     gap: calc(2px * var(--jigger-ui-scale, 1));
-    min-width: calc(64px * var(--jigger-ui-scale, 1));
+    min-width: max(48px, calc(64px * var(--jigger-ui-scale, 1)));
+    min-height: max(48px, calc(56px * var(--jigger-ui-scale, 1)));
     padding: calc(6px * var(--jigger-ui-scale, 1)) calc(8px * var(--jigger-ui-scale, 1))
         calc(8px * var(--jigger-ui-scale, 1));
     cursor: pointer;

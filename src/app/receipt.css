@@ -46,11 +46,12 @@
   background: transparent;
   border: none;
   overflow: visible;
-  /* Paper ~21.96% stage W / ~34.09% stage H; chrome scale tracks stage width */
-  --receipt-paper-w: clamp(140px, 21.96cqi, 260px);
-  --receipt-paper-h: clamp(160px, 34.09cqb, 300px);
+  /* FS58: higher paper + UI scale floors so mobile receipts stay readable */
+  /* Paper tracks stage; floors raised from FS52 140/160 @ 0.54 */
+  --receipt-paper-w: clamp(180px, 26cqi, 280px);
+  --receipt-paper-h: clamp(200px, 38cqb, 320px);
   /* Unitless: length÷length. clamp(number, cqi, number) is invalid. */
-  --receipt-ui-scale: clamp(0.54, calc(100cqi / 1184px), 1);
+  --receipt-ui-scale: clamp(0.78, calc(100cqi / 1184px), 1);
 }
 
 /* Inspected Full face may paint above stage chrome; host raises stacking */
