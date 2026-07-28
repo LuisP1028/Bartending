@@ -113,18 +113,93 @@ type ReceiptProviderProps = {
   children: React.ReactNode;
 };
 
-/** Design-max paper width (px) at full POV stage; clamp/fallback ceiling (FS52). */
-const PAPER_W = 260;
+/** Design-max paper width (px) at full POV stage; clamp/fallback ceiling (FS52/FS60). */
+const PAPER_W = 280;
 /**
  * Design-max paper height (px) at full POV stage; inspect outer bound ceiling.
- * Fallbacks use stage size, not viewport (FS52).
+ * Fallbacks use stage size with coverage caps (FS60).
  */
-const PAPER_H = 300;
-/** POV design width / height — match PovStageShell aspect + hotspot viewBox. */
+const PAPER_H = 320;
+/** POV design width — match PovStageShell aspect + hotspot viewBox. */
 const STAGE_DESIGN_W = 1184;
-const STAGE_DESIGN_H = 880;
-const PAPER_W_MIN = 140;
-const PAPER_H_MIN = 160;
+/** Soft absolute floors (under coverage caps) — mirror receipt.css FS60. */
+const PAPER_W_SOFT_MIN = 120;
+const PAPER_H_SOFT_MIN = 100;
+/** FS60 stage-coverage budgets (must match receipt.css). */
+const PAPER_W_STAGE_FRAC = 0.32;
+const PAPER_H_STAGE_FRAC = 0.42;
+const PAPER_W_CQ_FRAC = 0.26;
+const PAPER_H_CQ_FRAC = 0.38;
+
+/**
+ * Probe computed CSS custom props on .receipt-system--pov (canonical size source).
+ * Falls back to FS60 JS mirror of coverage-capped hybrid math.
+ */
+function readCssPaperMetrics(
+  stage: HTMLElement
+): { w: number; h: number; scale: number } | null {
+  const sys =
+    (stage.closest('.receipt-system--pov') as HTMLElement | null) ??
+    (stage.parentElement?.closest('.receipt-system--pov') as HTMLElement | null) ??
+    (document.querySelector('.receipt-system--pov') as HTMLElement | null);
+  if (!sys) return null;
+
+  const probe = document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText =
+    'position:absolute;visibility:hidden;pointer-events:none;left:0;top:0;' +
+    'width:var(--receipt-paper-w);height:var(--receipt-paper-h);' +
+    'font-size:calc(100px * var(--receipt-ui-scale, 1));';
+  sys.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const w = parseFloat(cs.width);
+  const h = parseFloat(cs.height);
+  const scalePx = parseFloat(cs.fontSize);
+  probe.remove();
+
+  if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) return null;
+  const scale =
+    Number.isFinite(scalePx) && scalePx > 0 ? Math.min(1, Math.max(0.45, scalePx / 100)) : NaN;
+  return {
+    w: Math.round(w),
+    h: Math.round(h),
+    scale: Number.isFinite(scale) ? scale : NaN,
+  };
+}
+
+/** FS60 mirror when CSS probe unavailable — coverage caps win over viewport floors. */
+function computePaperMetricsFromStage(
+  stageW: number,
+  stageH: number
+): { w: number; h: number; scale: number } {
+  /* Mirror CSS: clamp(0.45, stageW/1184 + 0.05, 1) */
+  const scale = Math.min(1, Math.max(0.45, stageW / STAGE_DESIGN_W + 0.05));
+
+  const vwFloor =
+    typeof window !== 'undefined'
+      ? Math.min(window.innerWidth * 0.5, 240)
+      : 240;
+  const vhFloor =
+    typeof window !== 'undefined'
+      ? Math.min(window.innerHeight * 0.42, 280)
+      : 280;
+
+  const w = Math.round(
+    Math.min(
+      PAPER_W,
+      stageW * PAPER_W_STAGE_FRAC,
+      Math.max(stageW * PAPER_W_CQ_FRAC, vwFloor, PAPER_W_SOFT_MIN)
+    )
+  );
+  const h = Math.round(
+    Math.min(
+      PAPER_H,
+      stageH * PAPER_H_STAGE_FRAC,
+      Math.max(stageH * PAPER_H_CQ_FRAC, vhFloor, PAPER_H_SOFT_MIN)
+    )
+  );
+  return { w: Math.max(1, w), h: Math.max(1, h), scale };
+}
 
 /** Match CSS transition (~0.9s) + small buffer before remove. */
 export const RECEIPT_HANDOFF_EXIT_MS = 1000;
@@ -184,30 +259,29 @@ export function ReceiptProvider({
     if (!stage) return PAPER_W;
     const paperEl = stage.querySelector('.receipt-wrapper') as HTMLElement | null;
     if (paperEl?.offsetWidth && paperEl.offsetWidth > 0) return paperEl.offsetWidth;
-    // Stage-proportional: ~21.96% of stage width, clamped to [140, 260]
-    const w = stage.clientWidth;
-    return Math.round(
-      Math.min(PAPER_W, Math.max(PAPER_W_MIN, w * (PAPER_W / STAGE_DESIGN_W)))
-    );
+    const probed = readCssPaperMetrics(stage);
+    if (probed) return probed.w;
+    return computePaperMetricsFromStage(stage.clientWidth, stage.clientHeight).w;
   }, []);
 
   const resolvePaperHeight = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return PAPER_H;
+    // Prefer live free-paper painted height when present (summary is content-sized).
     const paperEl = stage.querySelector('.receipt-wrapper') as HTMLElement | null;
     if (paperEl?.offsetHeight && paperEl.offsetHeight > 0) return paperEl.offsetHeight;
-    // Stage-proportional: ~34.09% of stage height, clamped to [160, 300] — not window vh
-    const h = stage.clientHeight;
-    return Math.round(
-      Math.min(PAPER_H, Math.max(PAPER_H_MIN, h * (PAPER_H / STAGE_DESIGN_H)))
-    );
+    const probed = readCssPaperMetrics(stage);
+    if (probed) return probed.h;
+    return computePaperMetricsFromStage(stage.clientWidth, stage.clientHeight).h;
   }, []);
 
-  /** Stage UI scale for printer-aligned release offsets (matches CSS --receipt-ui-scale). */
+  /** Stage UI scale for printer-aligned release offsets (matches CSS --receipt-ui-scale FS60). */
   const stageUiScale = useCallback(() => {
     const stage = stageRef.current;
     if (!stage || stage.clientWidth <= 0) return 1;
-    return Math.min(1, Math.max(0.54, stage.clientWidth / STAGE_DESIGN_W));
+    const probed = readCssPaperMetrics(stage);
+    if (probed && Number.isFinite(probed.scale)) return probed.scale;
+    return computePaperMetricsFromStage(stage.clientWidth, stage.clientHeight).scale;
   }, []);
 
   const clampPosition = useCallback(

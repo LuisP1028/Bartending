@@ -36,7 +36,7 @@
   box-sizing: border-box;
 }
 
-/* Full-stage overlay host inside Obelisco POV — stage-proportional tokens (FS52) */
+/* Full-stage overlay host inside Obelisco POV — FS60 coverage-capped hybrid */
 .receipt-system--pov {
   position: absolute;
   inset: 0;
@@ -47,30 +47,40 @@
   border: none;
   overflow: visible;
   /*
-   * FS59 hybrid diegetic sizing (map-050):
-   * — Stage-proportional term (cqi/cqb) when stage is large
-   * — Phone-relative floors (vw/vh + px) when stage is small
-   * — Design caps so desktop does not explode
-   * Do not "fix" by only raising stage floors again (FS58 was insufficient).
+   * FS60 diegetic sizing (mobile-render-debug map):
+   * — Stage-proportional primary (cqi/cqb) as a single unitless clamp
+   *   (nested min/max vars break `Npx * var(--receipt-ui-scale)` in some engines)
+   * — Soft +0.05 boost via addition inside clamp, never pinned at 0.92 on tiny stages
+   * — HARD stage-coverage caps so chrome cannot occlude play
+   * Pure viewport floors without coverage caps are forbidden (FS59 overshoot).
    */
-  --receipt-ui-scale: min(1, max(0.92, calc(100cqi / 1184px)));
-  /* max(stage cqi, phone vw floor, px floor), cap 280 */
+  --receipt-ui-scale: clamp(0.45, calc(100cqi / 1184px + 0.05), 1);
+  /*
+   * Paper width: design max 280; coverage cap 32% stage; soft floor under cap.
+   * Outer min ensures coverage wins over vw floors.
+   */
   --receipt-paper-w: min(
     280px,
-    max(26cqi, max(180px, min(50vw, 240px)))
+    calc(100cqi * 0.32),
+    max(26cqi, min(50vw, 240px), 120px)
   );
+  /*
+   * Paper height token (mask / inspect bound): coverage cap 42% stage —
+   * must stay strictly below stage height (never raw 280px floor on ~290px stage).
+   */
   --receipt-paper-h: min(
     320px,
-    max(38cqb, max(200px, min(42vh, 280px)))
+    calc(100cqb * 0.42),
+    max(38cqb, min(42vh, 280px), 100px)
   );
-  /* Phone-readable type floors (inherit hybrid scale) */
-  --r-fs-xs: max(11px, calc(12px * var(--receipt-ui-scale, 1)));
-  --r-fs-sm: max(12px, calc(13px * var(--receipt-ui-scale, 1)));
-  --r-fs-md: max(13px, calc(14px * var(--receipt-ui-scale, 1)));
-  --r-fs-lg: max(14px, calc(16px * var(--receipt-ui-scale, 1)));
-  --r-fs-xl: max(15px, calc(18px * var(--receipt-ui-scale, 1)));
-  --r-fs-2xl: max(16px, calc(21px * var(--receipt-ui-scale, 1)));
-  --r-fs-3xl: max(17px, calc(22px * var(--receipt-ui-scale, 1)));
+  /* Type floors track scale; lower absolute mins so dense phones fit paper */
+  --r-fs-xs: max(9px, calc(12px * var(--receipt-ui-scale, 1)));
+  --r-fs-sm: max(10px, calc(13px * var(--receipt-ui-scale, 1)));
+  --r-fs-md: max(11px, calc(14px * var(--receipt-ui-scale, 1)));
+  --r-fs-lg: max(12px, calc(16px * var(--receipt-ui-scale, 1)));
+  --r-fs-xl: max(13px, calc(18px * var(--receipt-ui-scale, 1)));
+  --r-fs-2xl: max(14px, calc(21px * var(--receipt-ui-scale, 1)));
+  --r-fs-3xl: max(15px, calc(22px * var(--receipt-ui-scale, 1)));
 }
 
 /* Inspected Full face may paint above stage chrome; host raises stacking */
@@ -89,15 +99,17 @@
   overflow: visible;
 }
 
-/* Printer cluster — top-right, width tracks paper; chrome scales with stage (FS52) */
+/* Printer cluster — top-right; non-zero box always (FS60 — was 0×0 when calc failed) */
 .receipt-hardware-cluster {
   position: absolute;
-  top: calc(6px * var(--receipt-ui-scale, 1));
-  right: calc(8px * var(--receipt-ui-scale, 1));
-  width: calc(var(--receipt-paper-w) + 20px * var(--receipt-ui-scale, 1));
-  height: calc(52px * var(--receipt-ui-scale, 1));
+  top: max(4px, calc(6px * var(--receipt-ui-scale, 1)));
+  right: max(4px, calc(8px * var(--receipt-ui-scale, 1)));
+  /* Track paper + pad; height from stage cqb (scale multiply is unreliable with cqi ratios) */
+  width: max(80px, calc(var(--receipt-paper-w) + 16px));
+  height: max(36px, min(52px, calc(100cqb * 0.075)));
   z-index: 1000;
   pointer-events: none;
+  min-height: 36px;
 }
 
 .receipt-hardware-wall {
@@ -269,6 +281,14 @@
   box-sizing: border-box;
 }
 
+/*
+ * FS60 — free summary must not exceed stage-coverage budget (~28% stage H).
+ * Narrow phone paper wraps text → content height would otherwise cover most of the stage.
+ */
+.receipt-wrapper:not(.state-inspected):not(.anim-printing):not(.receipt-wrapper--handoff-exit) {
+  max-height: min(var(--receipt-paper-h), calc(100cqb * 0.28));
+}
+
 .receipt-wrapper:active {
   cursor: grabbing;
 }
@@ -364,11 +384,12 @@
   height: 0;
 }
 
-/* Summary: compact — height follows content, no tall empty box */
+/* Summary: compact — height follows content, capped by wrapper budget (FS60) */
 .receipt-paper--summary {
   height: auto;
-  max-height: none;
-  overflow: visible;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: var(--r-pad-summary);
   font-size: var(--r-fs-md);
 }

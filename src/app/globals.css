@@ -1257,15 +1257,15 @@ body {
 }
 
 /*
- * Japanese jigger — FS52 stage-proportional + FS59 hybrid phone floors.
- * Matched internal mins so icon/type are not stubby inside a larger shell.
+ * Japanese jigger — FS60 stage-coverage-capped hybrid.
+ * Stage-proportional primary; soft boost; hard caps ≤12% W / ≤18% H of stage.
  */
 .jigger-pour-control {
-    /* Hybrid: stage cqi scale, floor 0.95 for phone, cap 1 for desktop */
-    --jigger-ui-scale: min(1, max(0.95, calc(100cqi / 1184px)));
+    /* Single unitless clamp so `Npx * var(--jigger-ui-scale)` resolves reliably */
+    --jigger-ui-scale: clamp(0.45, calc(100cqi / 1184px + 0.05), 1);
     position: absolute;
-    right: clamp(6px, 1.35cqi, 16px);
-    bottom: clamp(6px, 1.35cqi, 16px);
+    right: clamp(4px, 1.35cqi, 16px);
+    bottom: clamp(4px, 1.35cqi, 16px);
     z-index: 25;
     pointer-events: auto;
     display: flex;
@@ -1279,11 +1279,21 @@ body {
     flex-direction: column;
     align-items: center;
     gap: calc(2px * var(--jigger-ui-scale, 1));
-    /* Phone-relative + absolute + scaled design size */
-    min-width: max(52px, 12vmin, calc(64px * var(--jigger-ui-scale, 1)));
-    min-height: max(52px, 12vmin, calc(56px * var(--jigger-ui-scale, 1)));
-    padding: calc(6px * var(--jigger-ui-scale, 1)) calc(8px * var(--jigger-ui-scale, 1))
-        calc(8px * var(--jigger-ui-scale, 1));
+    /* Coverage caps win over soft touch floors (FS60) */
+    min-width: min(
+        calc(100cqi * 0.12),
+        max(calc(64px * var(--jigger-ui-scale, 1)), min(44px, calc(100cqi * 0.12)))
+    );
+    min-height: min(
+        calc(100cqb * 0.18),
+        max(calc(56px * var(--jigger-ui-scale, 1)), min(44px, calc(100cqb * 0.18)))
+    );
+    max-width: calc(100cqi * 0.12);
+    max-height: calc(100cqb * 0.18);
+    padding: calc(4px * var(--jigger-ui-scale, 1)) calc(6px * var(--jigger-ui-scale, 1))
+        calc(6px * var(--jigger-ui-scale, 1));
+    box-sizing: border-box;
+    overflow: hidden;
     cursor: pointer;
     color: #ffe08a;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -1329,12 +1339,13 @@ body {
         inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
-/* FS59 matched internal mins — not stubby glyph in larger shell */
+/* Matched internals — scale with stage; no absolute floors that ignore stage (FS60) */
 .jigger-pour-icon {
     display: block;
     margin: 0 auto;
-    width: max(28px, calc(36px * var(--jigger-ui-scale, 1)));
-    height: max(36px, calc(48px * var(--jigger-ui-scale, 1)));
+    width: min(calc(36px * var(--jigger-ui-scale, 1)), calc(100cqi * 0.07));
+    height: min(calc(48px * var(--jigger-ui-scale, 1)), calc(100cqb * 0.1));
+    flex-shrink: 1;
     image-rendering: pixelated;
     filter: drop-shadow(
         0 0 calc(6px * var(--jigger-ui-scale, 1)) rgba(255, 200, 80, 0.35)
@@ -1342,7 +1353,7 @@ body {
 }
 
 .jigger-pour-caption {
-    font-size: max(11px, calc(9px * var(--jigger-ui-scale, 1)));
+    font-size: max(8px, calc(9px * var(--jigger-ui-scale, 1)));
     font-weight: 700;
     letter-spacing: 0.06em;
     text-shadow: 0 0 calc(8px * var(--jigger-ui-scale, 1)) rgba(255, 200, 60, 0.45),
@@ -1350,7 +1361,7 @@ body {
 }
 
 .jigger-pour-current {
-    font-size: max(12px, calc(10px * var(--jigger-ui-scale, 1)));
+    font-size: max(9px, calc(10px * var(--jigger-ui-scale, 1)));
     color: rgba(255, 255, 255, 0.92);
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -1360,10 +1371,12 @@ body {
     position: absolute;
     right: 0;
     bottom: calc(100% + 8px * var(--jigger-ui-scale, 1));
-    /* FS59: phone-readable panel floor + stage scale */
-    min-width: max(160px, 42vw, calc(148px * var(--jigger-ui-scale, 1)));
+    /* Stage-capped panel — no large vw floors that dominate tiny stages (FS60) */
+    min-width: min(calc(148px * var(--jigger-ui-scale, 1)), calc(100cqi * 0.4), 160px);
     width: max-content;
-    max-width: min(240px, max(40cqi, 56vw));
+    max-width: min(240px, calc(100cqi * 0.45), 56vw);
+    max-height: min(50cqb, 240px);
+    overflow-y: auto;
     padding: calc(10px * var(--jigger-ui-scale, 1)) calc(8px * var(--jigger-ui-scale, 1))
         calc(8px * var(--jigger-ui-scale, 1));
     display: flex;
@@ -1394,7 +1407,7 @@ body {
 
 .jigger-pour-panel-title {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: max(11px, calc(9px * var(--jigger-ui-scale, 1)));
+    font-size: max(9px, calc(9px * var(--jigger-ui-scale, 1)));
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
     letter-spacing: 0.08em;
@@ -1409,10 +1422,10 @@ body {
 .jigger-pour-option {
     width: 100%;
     box-sizing: border-box;
-    min-height: max(40px, calc(36px * var(--jigger-ui-scale, 1)));
+    min-height: max(32px, calc(36px * var(--jigger-ui-scale, 1)));
     padding: calc(8px * var(--jigger-ui-scale, 1)) calc(10px * var(--jigger-ui-scale, 1));
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: max(12px, calc(12px * var(--jigger-ui-scale, 1)));
+    font-size: max(11px, calc(12px * var(--jigger-ui-scale, 1)));
     font-weight: 600;
     text-align: center;
     cursor: pointer;
