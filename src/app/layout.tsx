@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description: "DITHER-OS lounge bartender simulator",
 };
 
-/** FS55: device-width + cover so safe-area env() works on notched phones */
+/** FS56: device-width + cover so safe-area env() works for browser-window fill */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

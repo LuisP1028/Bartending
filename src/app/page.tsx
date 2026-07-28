@@ -102,8 +102,8 @@ function PovStageShell({
             ? 'pov-stage pov-stage--receipt-inspect'
             : 'pov-stage'
       }
-      /* Geometry (width / aspect) lives in globals.css so FS55 mobile landscape
-         contain rules can override; only dynamic overflow stays inline. */
+      /* Geometry (width / aspect / contain) lives in globals.css (FS56 browser-window
+         fill, all presentations); only dynamic overflow stays inline. */
       style={{ overflow }}
     >
       {children}
@@ -804,7 +804,7 @@ export default function Home() {
 
   if (!mode || !manifest) {
     return (
-      <div className="terminal-frame" style={{ padding: 24 }}>
+      <div className="terminal-frame">
         <div className="sys-header">
           {modeLoadError
             ? `>> MODE LOAD ERROR: ${modeLoadError}`
@@ -915,14 +915,8 @@ export default function Home() {
             return mode.getRecipeManager().getRandomTicket();
           }}
         >
-          {/* POV STAGE — receipt printer embedded top-right */}
-          <section
-            className="pov-shell-section"
-            style={{
-              marginBottom: '16px',
-              border: 'clamp(2px, 0.5vmin, 4px) solid var(--glass-amber)',
-            }}
-          >
+          {/* POV STAGE — receipt printer embedded top-right (FS56: no nested amber frame) */}
+          <section className="pov-shell-section">
             <PovStageShell openCategory={openCategory} povStageRef={povStageRef}>
               <img
                 src="/OBELISCO_POV.jpg"
