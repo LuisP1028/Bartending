@@ -23,14 +23,29 @@ Space page: `https://huggingface.co/spaces/ChoppedCheese/dither-os-bartending`
 
 Do **not** upload `aaa*`, `Assets_*`, `wayfinder`, raw `drinks/`, etc. Use the repo `.gitignore` and only stage runtime files (see checklist below).
 
-### 3. Push to the Space
+### 3. Upload to the Space (recommended)
+
+Hugging Face rejects plain git pushes of raw PNGs/JPGs unless you use **Git LFS / Xet**. Easiest path:
 
 ```bash
+# From a clean deploy folder (or the repo root with excludes)
+hf upload ChoppedCheese/dither-os-bartending /path/to/deploy-folder . \
+  --repo-type space \
+  --commit-message "Deploy bartender app"
+```
+
+If you prefer git:
+
+```bash
+git lfs install
+git lfs track "*.png" "*.jpg" "*.jpeg" "*.webp"
+git add .gitattributes
+# re-add binaries so they become LFS pointers, then:
 git remote add hf https://huggingface.co/spaces/ChoppedCheese/dither-os-bartending
 git push hf main
 ```
 
-If the Space default branch is `main` and yours matches, you’re set. First build can take several minutes (npm install + Next build + native `better-sqlite3`).
+First Docker build can take several minutes (`npm ci` + Next build + native `better-sqlite3`).
 
 ### 4. Confirm the app URL
 
