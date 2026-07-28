@@ -45,9 +45,28 @@ function resolveGlassMetrics(vesselId?: string | null, label?: string) {
 }
 
 /**
- * FS64: garnish/ice/rim in the same SVG viewBox as liquid/outline so mobile
- * art-root letterboxing cannot desync HTML % layers from the glass.
+ * FS64/FS76: garnish/ice/rim in the same SVG viewBox as liquid/outline.
+ * FS76: avoid nested <svg><use/></svg> — WebKit often drops nested-svg paints
+ * of external defs on mobile; use transform + <use> in the parent scene SVG.
  */
+function UseDef({
+  href,
+  style,
+}: {
+  href: string;
+  style?: React.CSSProperties;
+}) {
+  // Dual href for older WebKit (xlinkHref) + modern href
+  return (
+    <use
+      href={href}
+      // eslint-disable-next-line react/no-unknown-property
+      xlinkHref={href}
+      style={style}
+    />
+  );
+}
+
 function SvgIce({
   iceType,
   rimLeftX,
@@ -66,9 +85,7 @@ function SvgIce({
   // 64×64 symbol box, bottom-center on floor, scaled about bottom center
   return (
     <g transform={`translate(${cx}, ${floorY}) scale(${s}) translate(-32, -64)`}>
-      <svg x={0} y={0} width={64} height={64} viewBox="0 0 64 64" overflow="visible">
-        <use href={`#${iceType}`} />
-      </svg>
+      <UseDef href={`#${iceType}`} />
     </g>
   );
 }
@@ -86,19 +103,13 @@ function SvgRimStrip({
 }) {
   const w = Math.max(1, rimRightX - rimLeftX);
   const h = 16;
-  // Vertically centered on rimY (was translateY(-50%) in HTML)
+  // Stretch 60×16 symbol across rim width (was nested svg preserveAspectRatio=none)
+  const sx = w / 60;
+  const sy = h / 16;
   return (
-    <svg
-      x={rimLeftX}
-      y={rimY - h / 2}
-      width={w}
-      height={h}
-      viewBox="0 0 60 16"
-      preserveAspectRatio="none"
-      overflow="visible"
-    >
-      <use href={`#${rimId}`} />
-    </svg>
+    <g transform={`translate(${rimLeftX}, ${rimY - h / 2}) scale(${sx}, ${sy})`}>
+      <UseDef href={`#${rimId}`} />
+    </g>
   );
 }
 
@@ -127,29 +138,21 @@ function SvgGarnishItem({
 
   if (!href) return null;
 
-  // Sprig: tall stem, bottom-center at (x,y), optional rotation; width ~64*scale
+  const colorStyle = {
+    ...(g.rindColor ? { ['--rind' as string]: g.rindColor } : {}),
+    ...(g.pulpColor ? { ['--pulp' as string]: g.pulpColor } : {}),
+  } as React.CSSProperties;
+
+  // Sprig: tall stem, bottom-center at (x,y); non-uniform scale of 64×64 symbol
   if (g.type === 'sprig') {
     const sh = g.height || 100;
-    const sw = 64 * s;
+    const sx = s;
+    const sy = sh / 64;
     return (
-      <g transform={`translate(${x}, ${y}) rotate(${rot}) translate(${-sw / 2}, ${-sh})`}>
-        <svg
-          x={0}
-          y={0}
-          width={sw}
-          height={sh}
-          viewBox="0 0 64 64"
-          preserveAspectRatio="none"
-          overflow="visible"
-          style={
-            {
-              ...(g.rindColor ? { ['--rind' as string]: g.rindColor } : {}),
-              ...(g.pulpColor ? { ['--pulp' as string]: g.pulpColor } : {}),
-            } as React.CSSProperties
-          }
-        >
-          <use href={href} />
-        </svg>
+      <g
+        transform={`translate(${x}, ${y}) rotate(${rot}) scale(${sx}, ${sy}) translate(-32, -64)`}
+      >
+        <UseDef href={href} style={colorStyle} />
       </g>
     );
   }
@@ -162,22 +165,7 @@ function SvgGarnishItem({
 
   return (
     <g transform={`translate(${x}, ${y}) scale(${s}) translate(${ox}, ${oy})`}>
-      <svg
-        x={0}
-        y={0}
-        width={64}
-        height={64}
-        viewBox="0 0 64 64"
-        overflow="visible"
-        style={
-          {
-            ...(g.rindColor ? { ['--rind' as string]: g.rindColor } : {}),
-            ...(g.pulpColor ? { ['--pulp' as string]: g.pulpColor } : {}),
-          } as React.CSSProperties
-        }
-      >
-        <use href={href} />
-      </svg>
+      <UseDef href={href} style={colorStyle} />
     </g>
   );
 }
@@ -381,6 +369,7 @@ export default function GlassAsset({
           }}
           viewBox="0 0 64 96"
           preserveAspectRatio="xMidYMid meet"
+          overflow="visible"
         >
           {/* Under-outline garnishes (sprig / floating / sinker) */}
           {metrics ? renderGarnishList(underOutline) : null}

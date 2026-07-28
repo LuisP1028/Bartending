@@ -2,8 +2,23 @@ import React from 'react';
 import CustomBottleDefs from './CustomBottleDefs';
 
 export default function GlobalSVGDefs() {
+  // FS76: 1×1 offscreen SVG (not 0×0) so WebKit resolves <use href="#id"> reliably
   return (
-    <svg width="0" height="0" style={{ position: 'absolute' }}>
+    <svg
+      width="1"
+      height="1"
+      aria-hidden="true"
+      focusable="false"
+      style={{
+        position: 'absolute',
+        width: 1,
+        height: 1,
+        left: -9999,
+        top: -9999,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}
+    >
       <defs>
       <CustomBottleDefs />
 

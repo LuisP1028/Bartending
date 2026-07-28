@@ -446,6 +446,14 @@
     overflow: hidden;
   }
 
+  /* FS76: vessel garnishes/ice may overhang the art-root — do not clip on shell */
+  .gb-shell__playfield .pov-active-vessel,
+  .gb-shell__playfield .pov-active-vessel > div,
+  .gb-shell__playfield .pov-active-vessel .asset-art-root,
+  .gb-shell__playfield .pov-active-vessel .asset-art-root > svg {
+    overflow: visible !important;
+  }
+
   /*
    * FS75 — Pin diegetic jigger + receipt printer to visible glass corners.
    * Vars set on .pov-stage from section vs stage rects (cover + pan aware).
