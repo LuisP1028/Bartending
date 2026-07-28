@@ -992,6 +992,16 @@ export default function Home() {
       if (!target) return;
       if (frameRef.current?.contains(target)) return;
       if (target.closest?.('.hotspot-polygon') || target.closest?.('[data-zone]')) return;
+      // FS78: shell D-pad / A / B must not dismiss carousel (else FS77 nav never runs)
+      if (
+        target.closest?.('.gb-shell__controls') ||
+        target.closest?.('.gb-shell__dpad') ||
+        target.closest?.('.gb-shell__btn-a') ||
+        target.closest?.('.gb-shell__btn-b') ||
+        target.closest?.('.gb-shell__btn-ab')
+      ) {
+        return;
+      }
       closeOverlay();
       blurHotspotFocus();
     };
