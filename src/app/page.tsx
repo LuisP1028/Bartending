@@ -915,191 +915,283 @@ export default function Home() {
             return mode.getRecipeManager().getRandomTicket();
           }}
         >
-          {/* POV STAGE — receipt printer embedded top-right (FS56: no nested amber frame) */}
-          <section className="pov-shell-section">
-            <PovStageShell openCategory={openCategory} povStageRef={povStageRef}>
-              <img
-                src="/OBELISCO_POV.jpg"
-                style={{ width: '100%', height: '100%', display: 'block' }}
-                alt="Obelisco bar point of view"
-              />
-              {/*
-                Patrons: layout-driven path/size (PATRON EDIT).
-                barCutoffD clips sprite to room-only so lower body sits behind the bar photo.
-              */}
-              <PatronLayer
-                seats={barSeatInputs}
-                layout={activePatronLayout}
-                patron={activePatronDef}
-                characterId={activeCharacterId}
-                editMode={patronEditOpen}
-                barCutoffD={pathWithStoredOffset(
-                  POV_BAR_CUTOFF.zoneId,
-                  POV_BAR_CUTOFF.d,
-                  hotspotOffsets
-                )}
-              />
-              <svg
-                className="pov-hotspot-svg"
-                viewBox="0 0 1184 880"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-              >
-                <defs>
-                  <filter id="spatial-glow" x="-50%" y="-50%" width="200%" height="200%">
-                    <feDropShadow dx="0" dy="0" stdDeviation="15" floodColor="#FFB000" floodOpacity="0.8" />
-                  </filter>
-                </defs>
-                {POV_CATEGORY_HOTSPOTS.map((hotspot) => (
-                  <path
-                    key={hotspot.zoneId}
-                    className="hotspot-polygon"
-                    data-zone={hotspot.zoneId}
-                    aria-label={hotspot.ariaLabel}
-                    role="button"
-                    tabIndex={0}
-                    style={{ pointerEvents: 'auto', outline: 'none' }}
-                    d={pathWithStoredOffset(hotspot.zoneId, hotspot.d, hotspotOffsets)}
-                    onClick={(e) => {
-                      if (!hotspot.category) return;
-                      onHotspotPointerActivate(
-                        hotspot.zoneId,
-                        hotspot.category,
-                        e.currentTarget
-                      );
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        if (!hotspot.category) return;
-                        onHotspotKeyboardActivate(hotspot.zoneId, hotspot.category);
-                      }
-                    }}
-                  />
-                ))}
-                {/* Drink pad measure path (not a category open target) */}
-                <path
-                  data-zone={POV_VESSEL_PLACEMENT.zoneId}
-                  d={drinkPlacementD}
-                  fill="transparent"
-                  stroke="none"
-                  style={{ pointerEvents: 'none' }}
-                  aria-hidden="true"
-                />
-                {/* Geometry zones (e.g. bar_cutoff) — measure / future layers; no click */}
-                {POV_GEOMETRY_HOTSPOTS.map((hotspot) => (
-                  <path
-                    key={hotspot.zoneId}
-                    data-zone={hotspot.zoneId}
-                    d={pathWithStoredOffset(hotspot.zoneId, hotspot.d, hotspotOffsets)}
-                    fill="transparent"
-                    stroke="none"
-                    style={{ pointerEvents: 'none' }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </svg>
-
-              <HotspotPlacementEditor onOffsetsChange={setHotspotOffsets} />
-              <PatronPlacementEditor
-                seats={barSeatInputs}
-                onLayoutChange={setPatronLayouts}
-                onOpenChange={setPatronEditOpen}
-                onCharacterChange={setActiveCharacterId}
-              />
-
-              {/* Diegetic receipt printer + paper (top-right, asset-only) */}
-              <ReceiptStageOverlay />
-
-              {/* Localized category carousel — centered on active hotspot */}
-              {openCategory !== null && frameStyle && (
-                <CategoryOverlay
-                  key={`${openCategory}-${activeZoneId}`}
-                  ref={frameRef}
-                  title={
-                    activeZoneId === 'juices'
-                      ? 'JUICES'
-                      : activeZoneId === 'speedrail'
-                        ? 'SPEEDRAIL'
-                        : activeZoneId === 'ice'
-                          ? 'ICE'
-                          : CATEGORY_TITLES[openCategory]
-                  }
-                  onClose={closeOverlay}
-                  isEmpty={
-                    activeZoneId != null && ZONE_INVENTORY_IDS[activeZoneId] != null
-                      ? openCategory === 'hardware'
-                        ? getOverlayHardwareItems(activeZoneId).length === 0
-                        : getOverlayBottleItems(activeZoneId, openCategory).length === 0
-                      : itemsForCategory(openCategory).length === 0
-                  }
-                  frameStyle={frameStyle}
-                >
-                  {renderOverlayCarousel(openCategory, activeZoneId)}
-                </CategoryOverlay>
-              )}
-
-              {/* Live vessel on drink_placement pad — blank when no vessel */}
-              {state.vessel && vesselSlotStyle ? (
-                <div
-                  ref={vesselSlotRef}
-                  className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}`}
-                  role="button"
-                  tabIndex={vesselHandoff ? -1 : 0}
-                  aria-label="Active vessel — view drink build"
-                  style={{
-                    left: vesselSlotStyle.left,
-                    top: vesselSlotStyle.top,
-                    width: vesselSlotStyle.width,
-                    height: vesselSlotStyle.height,
-                    transform: vesselSlotStyle.transform,
-                  }}
-                  onClick={() => {
-                    if (vesselHandoff) return;
-                    setDrinkBuildCardOpen(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (vesselHandoff) return;
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setDrinkBuildCardOpen(true);
-                    }
-                  }}
-                >
-                  <GlassAsset
-                    presentation="overlay"
-                    animClass={state.animClass}
-                    outlineId={glasses.find(g => g.id === state.vessel)?.outlineId || ''}
-                    clipId={glasses.find(g => g.id === state.vessel)?.clipId || ''}
-                    label=""
-                    vesselId={state.vessel}
-                    currentVolumeOz={state.currentVolumeOz}
-                    maxOz={state.maxOz}
-                    liquidColor={state.liquidColor}
-                    ingredients={state.ingredients}
-                    garnishes={state.garnishes}
-                    agitation={state.agitation}
-                    iceType={state.iceType}
-                    rim={state.rim}
-                  />
+          {/*
+            FS65 — Game Boy shell host (CSS-gated mobile portrait only).
+            Nest: .pov-stage + diegetic chrome inside .gb-shell__screen.
+            Outside LCD: .sys-header (above) + ReceiptToolbar (below).
+            Shell controls are decorative (pointer-events: none in CSS).
+          */}
+          <div className="gb-shell-slot">
+            <div className="gb-shell-scale">
+              <div className="gb-shell" aria-label="Game Boy presentation frame">
+                <div className="gb-shell__on-off" aria-hidden="true">
+                  {'< off-on >'}
                 </div>
-              ) : null}
+                <div className="gb-shell__screen-cont">
+                  <div className="gb-shell__power" aria-hidden="true" />
+                  <div className="gb-shell__screen">
+                    <div className="gb-shell__header" aria-hidden="true">
+                      DOT MATRIX WITH STEREO SOUND
+                    </div>
+                    <div className="gb-shell__playfield">
+                      {/* POV STAGE — receipt printer embedded top-right (FS56: no nested amber frame) */}
+                      <section className="pov-shell-section">
+                        <PovStageShell
+                          openCategory={openCategory}
+                          povStageRef={povStageRef}
+                        >
+                          <img
+                            src="/OBELISCO_POV.jpg"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'block',
+                            }}
+                            alt="Obelisco bar point of view"
+                          />
+                          {/*
+                            Patrons: layout-driven path/size (PATRON EDIT).
+                            barCutoffD clips sprite to room-only so lower body sits behind the bar photo.
+                          */}
+                          <PatronLayer
+                            seats={barSeatInputs}
+                            layout={activePatronLayout}
+                            patron={activePatronDef}
+                            characterId={activeCharacterId}
+                            editMode={patronEditOpen}
+                            barCutoffD={pathWithStoredOffset(
+                              POV_BAR_CUTOFF.zoneId,
+                              POV_BAR_CUTOFF.d,
+                              hotspotOffsets
+                            )}
+                          />
+                          <svg
+                            className="pov-hotspot-svg"
+                            viewBox="0 0 1184 880"
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              width: '100%',
+                              height: '100%',
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            <defs>
+                              <filter
+                                id="spatial-glow"
+                                x="-50%"
+                                y="-50%"
+                                width="200%"
+                                height="200%"
+                              >
+                                <feDropShadow
+                                  dx="0"
+                                  dy="0"
+                                  stdDeviation="15"
+                                  floodColor="#FFB000"
+                                  floodOpacity="0.8"
+                                />
+                              </filter>
+                            </defs>
+                            {POV_CATEGORY_HOTSPOTS.map((hotspot) => (
+                              <path
+                                key={hotspot.zoneId}
+                                className="hotspot-polygon"
+                                data-zone={hotspot.zoneId}
+                                aria-label={hotspot.ariaLabel}
+                                role="button"
+                                tabIndex={0}
+                                style={{
+                                  pointerEvents: 'auto',
+                                  outline: 'none',
+                                }}
+                                d={pathWithStoredOffset(
+                                  hotspot.zoneId,
+                                  hotspot.d,
+                                  hotspotOffsets
+                                )}
+                                onClick={(e) => {
+                                  if (!hotspot.category) return;
+                                  onHotspotPointerActivate(
+                                    hotspot.zoneId,
+                                    hotspot.category,
+                                    e.currentTarget
+                                  );
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    if (!hotspot.category) return;
+                                    onHotspotKeyboardActivate(
+                                      hotspot.zoneId,
+                                      hotspot.category
+                                    );
+                                  }
+                                }}
+                              />
+                            ))}
+                            {/* Drink pad measure path (not a category open target) */}
+                            <path
+                              data-zone={POV_VESSEL_PLACEMENT.zoneId}
+                              d={drinkPlacementD}
+                              fill="transparent"
+                              stroke="none"
+                              style={{ pointerEvents: 'none' }}
+                              aria-hidden="true"
+                            />
+                            {/* Geometry zones (e.g. bar_cutoff) — measure / future layers; no click */}
+                            {POV_GEOMETRY_HOTSPOTS.map((hotspot) => (
+                              <path
+                                key={hotspot.zoneId}
+                                data-zone={hotspot.zoneId}
+                                d={pathWithStoredOffset(
+                                  hotspot.zoneId,
+                                  hotspot.d,
+                                  hotspotOffsets
+                                )}
+                                fill="transparent"
+                                stroke="none"
+                                style={{ pointerEvents: 'none' }}
+                                aria-hidden="true"
+                              />
+                            ))}
+                          </svg>
 
-              <JiggerPourControl
-                pourVolumeOz={state.pourVolumeOz}
-                onSelectVolume={setPourVolume}
-              />
+                          <HotspotPlacementEditor
+                            onOffsetsChange={setHotspotOffsets}
+                          />
+                          <PatronPlacementEditor
+                            seats={barSeatInputs}
+                            onLayoutChange={setPatronLayouts}
+                            onOpenChange={setPatronEditOpen}
+                            onCharacterChange={setActiveCharacterId}
+                          />
 
-              {/* FS50: money flyby clipped to POV stage (not full browser) */}
-              {moneyFlyby ? (
-                <MoneyFanoutFlyby
-                  key={moneyFlyby.playId}
-                  playId={moneyFlyby.playId}
-                  total={moneyFlyby.total}
-                  onComplete={() => setMoneyFlyby(null)}
-                />
-              ) : null}
-            </PovStageShell>
-          </section>
+                          {/* Diegetic receipt printer + paper (top-right, asset-only) */}
+                          <ReceiptStageOverlay />
+
+                          {/* Localized category carousel — centered on active hotspot */}
+                          {openCategory !== null && frameStyle && (
+                            <CategoryOverlay
+                              key={`${openCategory}-${activeZoneId}`}
+                              ref={frameRef}
+                              title={
+                                activeZoneId === 'juices'
+                                  ? 'JUICES'
+                                  : activeZoneId === 'speedrail'
+                                    ? 'SPEEDRAIL'
+                                    : activeZoneId === 'ice'
+                                      ? 'ICE'
+                                      : CATEGORY_TITLES[openCategory]
+                              }
+                              onClose={closeOverlay}
+                              isEmpty={
+                                activeZoneId != null &&
+                                ZONE_INVENTORY_IDS[activeZoneId] != null
+                                  ? openCategory === 'hardware'
+                                    ? getOverlayHardwareItems(activeZoneId)
+                                        .length === 0
+                                    : getOverlayBottleItems(
+                                        activeZoneId,
+                                        openCategory
+                                      ).length === 0
+                                  : itemsForCategory(openCategory).length === 0
+                              }
+                              frameStyle={frameStyle}
+                            >
+                              {renderOverlayCarousel(
+                                openCategory,
+                                activeZoneId
+                              )}
+                            </CategoryOverlay>
+                          )}
+
+                          {/* Live vessel on drink_placement pad — blank when no vessel */}
+                          {state.vessel && vesselSlotStyle ? (
+                            <div
+                              ref={vesselSlotRef}
+                              className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}`}
+                              role="button"
+                              tabIndex={vesselHandoff ? -1 : 0}
+                              aria-label="Active vessel — view drink build"
+                              style={{
+                                left: vesselSlotStyle.left,
+                                top: vesselSlotStyle.top,
+                                width: vesselSlotStyle.width,
+                                height: vesselSlotStyle.height,
+                                transform: vesselSlotStyle.transform,
+                              }}
+                              onClick={() => {
+                                if (vesselHandoff) return;
+                                setDrinkBuildCardOpen(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (vesselHandoff) return;
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setDrinkBuildCardOpen(true);
+                                }
+                              }}
+                            >
+                              <GlassAsset
+                                presentation="overlay"
+                                animClass={state.animClass}
+                                outlineId={
+                                  glasses.find((g) => g.id === state.vessel)
+                                    ?.outlineId || ''
+                                }
+                                clipId={
+                                  glasses.find((g) => g.id === state.vessel)
+                                    ?.clipId || ''
+                                }
+                                label=""
+                                vesselId={state.vessel}
+                                currentVolumeOz={state.currentVolumeOz}
+                                maxOz={state.maxOz}
+                                liquidColor={state.liquidColor}
+                                ingredients={state.ingredients}
+                                garnishes={state.garnishes}
+                                agitation={state.agitation}
+                                iceType={state.iceType}
+                                rim={state.rim}
+                              />
+                            </div>
+                          ) : null}
+
+                          <JiggerPourControl
+                            pourVolumeOz={state.pourVolumeOz}
+                            onSelectVolume={setPourVolume}
+                          />
+
+                          {/* FS50: money flyby clipped to POV stage (not full browser) */}
+                          {moneyFlyby ? (
+                            <MoneyFanoutFlyby
+                              key={moneyFlyby.playId}
+                              playId={moneyFlyby.playId}
+                              total={moneyFlyby.total}
+                              onComplete={() => setMoneyFlyby(null)}
+                            />
+                          ) : null}
+                        </PovStageShell>
+                      </section>
+                    </div>
+                  </div>
+                </div>
+                <div className="gb-shell__controls" aria-hidden="true">
+                  <div className="gb-shell__btn-direction">
+                    <div className="gb-shell__btn-direction-v" />
+                    <div className="gb-shell__btn-direction-h" />
+                  </div>
+                  <div className="gb-shell__btn-ab" />
+                  <div className="gb-shell__btn-start-select" />
+                </div>
+                <div className="gb-shell__speakers" aria-hidden="true" />
+                <div className="gb-shell__phones" aria-hidden="true">
+                  phones
+                </div>
+              </div>
+            </div>
+          </div>
 
           <DrinkBuildCard
             open={drinkBuildCardOpen}

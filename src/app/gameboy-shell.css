@@ -1,0 +1,516 @@
+/*
+ * FS65 — Game Boy shell (baumannzone/gameboy-css adapted)
+ * Active only: coarse pointer + portrait + max-width 600px.
+ * Desktop / landscape / wide tablets: pass-through (no chrome).
+ * Buttons are decorative (pointer-events: none). No Nintendo branding.
+ * Design art size: 422×697; LCD nest: 225×205 inside screen-cont 342×272.
+ */
+
+/* ── Default: layout pass-through (desktop, landscape, non-phone) ── */
+
+.gb-shell-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+.gb-shell-scale {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transform: none;
+}
+
+.gb-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.gb-shell::before,
+.gb-shell::after {
+  display: none;
+  content: none;
+}
+
+.gb-shell__screen-cont {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.gb-shell__power,
+.gb-shell__header,
+.gb-shell__controls,
+.gb-shell__speakers,
+.gb-shell__on-off,
+.gb-shell__phones {
+  display: none;
+}
+
+.gb-shell__screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  top: auto;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gb-shell__playfield {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Stage host fills playfield in all presentations */
+.gb-shell__playfield > .pov-shell-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Shell presentation: mobile portrait phone-class ── */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 600px) {
+  body:has(.gb-shell-slot) {
+    background-color: #0a0a0a;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) {
+    background: #0a0a0a;
+  }
+
+  /* Compact outer chrome so shell gets vertical budget */
+  .terminal-frame:has(.gb-shell-slot) .sys-header {
+    padding-bottom: 0.1rem;
+    margin-bottom: 0.15rem;
+    flex-shrink: 0;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .mode-btn--obelisco,
+  .terminal-frame:has(.gb-shell-slot) .mode-btn--classics {
+    --mode-logo-box-w: clamp(3rem, 14vmin, 5rem);
+    --mode-logo-box-h: clamp(1.1rem, 5vmin, 2rem);
+    padding: 2px 4px;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar {
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar .btn-8bit {
+    padding: 0.25em 0.55em;
+    font-size: clamp(0.65rem, 2.2vmin, 0.85rem);
+  }
+
+  /*
+   * Slot = remaining column space; size container for cqw/cqh scale.
+   * Scaled art is position:absolute so 422×697 does not expand layout overflow.
+   */
+  .gb-shell-slot {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    position: relative;
+    display: block;
+    container-type: size;
+    container-name: gb-shell-slot;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #1a3a3a 0%, #0a0a0a 70%);
+  }
+
+  /*
+   * Fixed design-size body, uniformly scaled to fit slot.
+   * Transform is on the whole shell (stage included) so CQ/layout stay in art space
+   * and getBoundingClientRect / hit-testing follow the visual scale.
+   */
+  .gb-shell-scale {
+    position: absolute;
+    width: 422px;
+    height: 697px;
+    left: 50%;
+    top: 50%;
+    display: block;
+    transform: translate(-50%, -50%)
+      scale(min(calc(100cqw / 422), calc(100cqh / 697)));
+    transform-origin: center center;
+  }
+
+  .gb-shell {
+    width: 422px;
+    height: 697px;
+    flex: none;
+    display: block;
+    position: relative;
+    margin: 0;
+    background: #eee;
+    border-radius: 10px 10px 60px 10px;
+    box-shadow: 5px 5px rgba(0, 0, 0, 0.25);
+  }
+
+  .gb-shell::before {
+    display: block;
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 31px;
+    border-bottom: 4px solid #e0e0e0;
+    pointer-events: none;
+  }
+
+  .gb-shell::after {
+    display: block;
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 334px;
+    height: 31px;
+    border-left: 4px solid #e0e0e0;
+    border-right: 4px solid #e0e0e0;
+    margin-left: 40px;
+    margin-right: 40px;
+    pointer-events: none;
+  }
+
+  .gb-shell__screen-cont {
+    position: relative;
+    top: 60px;
+    left: 40px;
+    width: 342px;
+    height: 272px;
+    margin-bottom: 58px;
+    flex: none;
+    background-color: #777;
+    border-radius: 13px 13px 50px 13px;
+    display: block;
+  }
+
+  .gb-shell__power {
+    display: block;
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    top: 100px;
+    left: 20px;
+    border-radius: 100%;
+    background-color: #f00;
+    box-shadow: 0 0 3px 1px #ef5350;
+    pointer-events: none;
+  }
+
+  .gb-shell__power::before {
+    content: "BATTERY";
+    position: relative;
+    top: 18px;
+    left: -10px;
+    font-size: 8px;
+    font-family: sans-serif;
+    color: #b3b3b3;
+  }
+
+  .gb-shell__screen {
+    position: relative;
+    top: 30px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 225px;
+    height: 205px;
+    flex: none;
+    background: #bdae58;
+    box-shadow: inset 3px 3px rgba(0, 0, 0, 0.15);
+    display: block;
+    overflow: hidden;
+  }
+
+  .gb-shell__header {
+    display: block;
+    position: absolute;
+    top: -30px;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    padding-top: 10px;
+    box-sizing: border-box;
+    text-align: right;
+    font-size: 8px;
+    font-family: sans-serif;
+    color: #b3b3b3;
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2;
+  }
+
+  .gb-shell__header::before {
+    content: "";
+    position: absolute;
+    left: -43px;
+    top: 12px;
+    width: 90px;
+    height: 3px;
+    background-color: #8b1d90;
+    box-shadow: 0 6px 0 #283593;
+  }
+
+  .gb-shell__header::after {
+    content: "";
+    position: absolute;
+    right: -46px;
+    top: 12px;
+    width: 38px;
+    height: 3px;
+    background-color: #8b1d90;
+    box-shadow: 0 6px 0 #283593;
+  }
+
+  /* Nest: fill olive LCD; stage contain runs via .pov-shell-section CQ */
+  .gb-shell__playfield {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    /* Dark behind letterbox so olive only shows as letterbox bands if any;
+       stage usually covers width fully (width-limited contain). */
+    background: #bdae58;
+  }
+
+  .gb-shell__playfield > .pov-shell-section {
+    width: 100%;
+    height: 100%;
+    flex: none;
+    /* Ensure CQ size is the 225×205 hole */
+    container-type: size;
+  }
+
+  /* Clip inspect overflow to LCD in shell mode (no spill over plastic) */
+  .gb-shell__playfield .pov-stage--receipt-inspect {
+    overflow: hidden;
+  }
+
+  /* ── Decorative controls (unwired) ── */
+  .gb-shell__controls {
+    display: block;
+    position: relative;
+    margin-top: 90px;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .gb-shell__btn-direction {
+    position: relative;
+    margin-left: 40px;
+    top: 60px;
+    width: 90px;
+    height: 90px;
+  }
+
+  .gb-shell__btn-direction::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    top: 30px;
+    left: 30px;
+    width: 30px;
+    height: 30px;
+    background-color: #353535;
+    border-radius: 100%;
+  }
+
+  .gb-shell__btn-direction-v,
+  .gb-shell__btn-direction-h {
+    position: absolute;
+    left: 30px;
+    width: 30px;
+    height: 90px;
+    background: #444;
+    border-radius: 5px;
+  }
+
+  .gb-shell__btn-direction-h {
+    transform: rotate(90deg);
+  }
+
+  .gb-shell__btn-ab {
+    position: absolute;
+    top: 72px;
+    left: 252px;
+    width: 130px;
+    height: 60px;
+    background: #dfdfdf;
+    border-radius: 30px;
+    transform: rotate(-25deg);
+  }
+
+  .gb-shell__btn-ab::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    width: 44px;
+    height: 44px;
+    background: #a93671;
+    box-shadow: 68px 0 #a93671;
+    border-radius: 100%;
+    transform: rotate(180deg);
+  }
+
+  .gb-shell__btn-start-select {
+    position: absolute;
+    top: 205px;
+    left: 140px;
+    height: 12px;
+    width: 60px;
+    background: #999;
+    border-radius: 10px;
+    transform: rotate(-25deg);
+    box-shadow:
+      57px 27px #999,
+      0 0 0 5px #dfdfdf,
+      57px 27px 0 5px #dfdfdf;
+  }
+
+  .gb-shell__speakers {
+    display: block;
+    position: relative;
+    height: 70px;
+    width: 8px;
+    top: 260px;
+    left: 300px;
+    background: #ddd;
+    border-radius: 4px;
+    transform: rotate(-25deg);
+    box-shadow:
+      20px 0 #ddd,
+      40px 0 #ddd,
+      60px 0 #ddd,
+      80px 0 #ddd,
+      100px 0 #ddd;
+    pointer-events: none;
+  }
+
+  .gb-shell__phones {
+    display: block;
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    padding: 3px 5px;
+    transform: translateX(-50%);
+    color: #dadada;
+    background-color: #e8e8e8;
+    font-size: 8px;
+    font-family: sans-serif;
+    text-transform: uppercase;
+    border-radius: 30px;
+    pointer-events: none;
+  }
+
+  .gb-shell__phones::before {
+    content: "";
+    position: absolute;
+    width: 15px;
+    height: 5px;
+    bottom: -4px;
+    background-color: #e8e8e8;
+    left: 9px;
+  }
+
+  .gb-shell__phones::after {
+    content: "";
+    position: absolute;
+    width: 3px;
+    height: 5px;
+    bottom: -4px;
+    left: 12px;
+    background-color: #ddd;
+    box-shadow: 5px 0 #ddd;
+    border-radius: 4px 4px 0 0;
+  }
+
+  .gb-shell__on-off {
+    display: block;
+    position: absolute;
+    top: 2px;
+    left: 20%;
+    padding: 3px 5px;
+    transform: translateX(-50%);
+    color: #dadada;
+    background-color: #e8e8e8;
+    font-size: 8px;
+    font-family: sans-serif;
+    text-transform: uppercase;
+    border-radius: 30px;
+    pointer-events: none;
+  }
+
+  .gb-shell__on-off::before {
+    content: "";
+    position: absolute;
+    width: 15px;
+    height: 5px;
+    top: -2px;
+    background-color: #e8e8e8;
+    left: 6px;
+  }
+
+  .gb-shell__on-off::after {
+    content: "";
+    position: absolute;
+    width: 3px;
+    height: 5px;
+    top: -2px;
+    left: 9px;
+    background-color: #ddd;
+    box-shadow: 5px 0 #ddd;
+    border-radius: 0 0 3px 3px;
+  }
+}
