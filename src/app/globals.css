@@ -310,6 +310,15 @@ body {
     filter: url(#spatial-glow);
 }
 
+/* FS71: Game Boy D-pad focus among category hotspots */
+.hotspot-polygon--shell-focus {
+    cursor: pointer;
+    fill: rgba(255, 176, 0, 0.12);
+    stroke: #FFB000;
+    stroke-width: 2.5px;
+    filter: url(#spatial-glow);
+}
+
 /* Dialog/frame focus sink: no visible box when programmatically focused */
 .hotspot-carousel-frame:focus,
 .hotspot-carousel-frame:focus-visible {

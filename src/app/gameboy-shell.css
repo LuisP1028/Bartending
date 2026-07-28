@@ -431,8 +431,7 @@
   }
 
   /*
-   * FS69 — Compact control strip below housing (housing ends ~61.5%).
-   * Full D-pad / A·B / SELECT·START stay on-screen under cover crop.
+   * FS69/71 — Compact control strip; A/B/D-pad interactive (SELECT/START decorative).
    */
   .gb-shell__controls {
     display: block;
@@ -453,6 +452,53 @@
     top: 64%;
     width: 18%;
     height: 10.5%;
+    pointer-events: none;
+  }
+
+  /* FS71: four D-pad hit targets over the cross */
+  .gb-shell__dpad {
+    position: absolute;
+    z-index: 6;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    appearance: none;
+  }
+
+  .gb-shell__dpad:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .gb-shell__dpad--up {
+    left: 33%;
+    top: 0;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--down {
+    left: 33%;
+    bottom: 0;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--left {
+    left: 0;
+    top: 33%;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--right {
+    right: 0;
+    top: 33%;
+    width: 34%;
+    height: 34%;
   }
 
   .gb-shell__btn-direction::before {
@@ -498,6 +544,7 @@
     padding: 0 6%;
     box-sizing: border-box;
     box-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.12);
+    pointer-events: none;
   }
 
   .gb-shell__btn-b,
@@ -508,11 +555,23 @@
     aspect-ratio: 1;
     height: auto;
     max-height: 78%;
+    margin: 0;
+    padding: 0;
+    border: none;
     border-radius: 100%;
     background: #a93671;
     box-shadow:
       inset 0 -0.25cqw 0.3cqw rgba(0, 0, 0, 0.25),
       0 0.2cqw 0.25cqw rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    appearance: none;
+  }
+
+  .gb-shell__btn-b:active,
+  .gb-shell__btn-a:active {
+    filter: brightness(0.9);
   }
 
   .gb-shell__btn-b::after,

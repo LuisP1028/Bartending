@@ -398,6 +398,8 @@ export default function Home() {
   );
   const [openCategory, setOpenCategory] = useState<CategoryKey | null>(null);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
+  /** FS71: shell D-pad focus among category hotspots (zoneId). */
+  const [shellFocusZoneId, setShellFocusZoneId] = useState<string | null>(null);
   const [frameStyle, setFrameStyle] = useState<StageFrameStyle | null>(null);
   /** Active vessel box from drink_placement path */
   const [vesselSlotStyle, setVesselSlotStyle] = useState<StageFrameStyle | null>(null);
@@ -547,6 +549,17 @@ export default function Home() {
     blurHotspotFocus();
   }, [blurHotspotFocus]);
 
+  /** Category hotspots the shell D-pad may focus (carousel-capable only). */
+  const shellNavigableHotspots = POV_CATEGORY_HOTSPOTS;
+
+  /** Approximate hotspot anchor from path start (viewBox units) for spatial D-pad. */
+  const shellHotspotAnchor = useCallback((d: string) => {
+    const m = d.match(/M\s*([-\d.]+)[,\s]+([-\d.]+)/i);
+    return m
+      ? { x: Number(m[1]), y: Number(m[2]) }
+      : { x: 0, y: 0 };
+  }, []);
+
   const handleHotspotActivate = useCallback((zoneId: string, category: CategoryKey) => {
     // Same zone while open → toggle closed
     if (openCategory !== null && activeZoneId === zoneId) {
@@ -556,7 +569,83 @@ export default function Home() {
     // Different zone (including same category via another hardware zone) → open/re-anchor
     setOpenCategory(category);
     setActiveZoneId(zoneId);
+    setShellFocusZoneId(zoneId);
   }, [openCategory, activeZoneId, closeOverlay]);
+
+  /** FS71: D-pad — move shell focus among navigable category hotspots. */
+  const shellNavigateHotspot = useCallback(
+    (dir: 'up' | 'down' | 'left' | 'right') => {
+      const list = shellNavigableHotspots;
+      if (list.length === 0) return;
+
+      const curId = shellFocusZoneId ?? list[0].zoneId;
+      const cur = list.find((h) => h.zoneId === curId) ?? list[0];
+      const curD = pathWithStoredOffset(cur.zoneId, cur.d, hotspotOffsets);
+      const c = shellHotspotAnchor(curD);
+
+      type Cand = {
+        h: (typeof list)[number];
+        dist: number;
+      };
+      const scored: Cand[] = [];
+      for (const h of list) {
+        if (h.zoneId === cur.zoneId) continue;
+        const d = pathWithStoredOffset(h.zoneId, h.d, hotspotOffsets);
+        const p = shellHotspotAnchor(d);
+        const dx = p.x - c.x;
+        const dy = p.y - c.y;
+        let ok = false;
+        if (dir === 'left') ok = dx < -8;
+        else if (dir === 'right') ok = dx > 8;
+        else if (dir === 'up') ok = dy < -8;
+        else if (dir === 'down') ok = dy > 8;
+        if (!ok) continue;
+        const primary =
+          dir === 'left' || dir === 'right' ? Math.abs(dx) : Math.abs(dy);
+        const secondary =
+          dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+        scored.push({ h, dist: primary + secondary * 0.35 });
+      }
+
+      if (scored.length > 0) {
+        scored.sort((a, b) => a.dist - b.dist);
+        setShellFocusZoneId(scored[0].h.zoneId);
+        return;
+      }
+
+      const idx = Math.max(
+        0,
+        list.findIndex((h) => h.zoneId === cur.zoneId)
+      );
+      const next =
+        dir === 'left' || dir === 'up'
+          ? list[(idx - 1 + list.length) % list.length]
+          : list[(idx + 1) % list.length];
+      setShellFocusZoneId(next.zoneId);
+    },
+    [shellNavigableHotspots, shellFocusZoneId, hotspotOffsets, shellHotspotAnchor]
+  );
+
+  /** FS71: A — open carousel for focused hotspot (does not toggle-close). */
+  const shellPressA = useCallback(() => {
+    const list = shellNavigableHotspots;
+    if (list.length === 0) return;
+    const zoneId = shellFocusZoneId ?? list[0].zoneId;
+    const h = list.find((x) => x.zoneId === zoneId) ?? list[0];
+    if (!h.category) return;
+    setShellFocusZoneId(h.zoneId);
+    setOpenCategory(h.category);
+    setActiveZoneId(h.zoneId);
+  }, [shellNavigableHotspots, shellFocusZoneId]);
+
+  /** FS71: B — close open carousel; keep shell hotspot focus. */
+  const shellPressB = useCallback(() => {
+    if (openCategory === null) return;
+    setOpenCategory(null);
+    setActiveZoneId(null);
+    setFrameStyle(null);
+    blurHotspotFocus();
+  }, [openCategory, blurHotspotFocus]);
 
   /** Pointer: activate then blur path so browser bbox focus ring never lingers. */
   const onHotspotPointerActivate = useCallback(
@@ -996,9 +1085,18 @@ export default function Home() {
                             {POV_CATEGORY_HOTSPOTS.map((hotspot) => (
                               <path
                                 key={hotspot.zoneId}
-                                className="hotspot-polygon"
+                                className={
+                                  shellFocusZoneId === hotspot.zoneId
+                                    ? 'hotspot-polygon hotspot-polygon--shell-focus'
+                                    : 'hotspot-polygon'
+                                }
                                 data-zone={hotspot.zoneId}
                                 aria-label={hotspot.ariaLabel}
+                                aria-current={
+                                  shellFocusZoneId === hotspot.zoneId
+                                    ? 'true'
+                                    : undefined
+                                }
                                 role="button"
                                 tabIndex={0}
                                 style={{
@@ -1012,6 +1110,7 @@ export default function Home() {
                                 )}
                                 onClick={(e) => {
                                   if (!hotspot.category) return;
+                                  setShellFocusZoneId(hotspot.zoneId);
                                   onHotspotPointerActivate(
                                     hotspot.zoneId,
                                     hotspot.category,
@@ -1022,6 +1121,7 @@ export default function Home() {
                                   if (e.key === 'Enter' || e.key === ' ') {
                                     e.preventDefault();
                                     if (!hotspot.category) return;
+                                    setShellFocusZoneId(hotspot.zoneId);
                                     onHotspotKeyboardActivate(
                                       hotspot.zoneId,
                                       hotspot.category
@@ -1176,16 +1276,50 @@ export default function Home() {
                       </section>
                   </div>
                 </div>
-                <div className="gb-shell__controls" aria-hidden="true">
+                <div className="gb-shell__controls">
                   <div className="gb-shell__btn-direction">
-                    <div className="gb-shell__btn-direction-v" />
-                    <div className="gb-shell__btn-direction-h" />
+                    <div className="gb-shell__btn-direction-v" aria-hidden="true" />
+                    <div className="gb-shell__btn-direction-h" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="gb-shell__dpad gb-shell__dpad--up"
+                      aria-label="Focus previous hotspot up"
+                      onClick={() => shellNavigateHotspot('up')}
+                    />
+                    <button
+                      type="button"
+                      className="gb-shell__dpad gb-shell__dpad--down"
+                      aria-label="Focus next hotspot down"
+                      onClick={() => shellNavigateHotspot('down')}
+                    />
+                    <button
+                      type="button"
+                      className="gb-shell__dpad gb-shell__dpad--left"
+                      aria-label="Focus previous hotspot left"
+                      onClick={() => shellNavigateHotspot('left')}
+                    />
+                    <button
+                      type="button"
+                      className="gb-shell__dpad gb-shell__dpad--right"
+                      aria-label="Focus next hotspot right"
+                      onClick={() => shellNavigateHotspot('right')}
+                    />
                   </div>
                   <div className="gb-shell__btn-ab">
-                    <span className="gb-shell__btn-b" data-label="B" />
-                    <span className="gb-shell__btn-a" data-label="A" />
+                    <button
+                      type="button"
+                      className="gb-shell__btn-b"
+                      aria-label="Close carousel"
+                      onClick={shellPressB}
+                    />
+                    <button
+                      type="button"
+                      className="gb-shell__btn-a"
+                      aria-label="Open carousel for focused hotspot"
+                      onClick={shellPressA}
+                    />
                   </div>
-                  <div className="gb-shell__btn-start-select">
+                  <div className="gb-shell__btn-start-select" aria-hidden="true">
                     <span className="gb-shell__btn-select">SELECT</span>
                     <span className="gb-shell__btn-start">START</span>
                   </div>
