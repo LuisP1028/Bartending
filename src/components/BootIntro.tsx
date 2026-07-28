@@ -7,6 +7,8 @@ const BOOT_VIDEO_SRC = '/assets/boot/doom_gamestudio.mp4';
 const BOOT_FAILSAFE_MS = 90_000;
 /** Taps on the housing screen required to skip the intro. */
 const BOOT_SKIP_TAPS = 5;
+/** How long to keep retrying muted autoplay after mount. */
+const AUTOPLAY_RETRY_MS = 8_000;
 
 type BootIntroProps = {
   onComplete: () => void;
@@ -21,19 +23,52 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const finishedRef = useRef(false);
   const skipTapsRef = useRef(0);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   const [skipTaps, setSkipTaps] = useState(0);
 
   const finish = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    onComplete();
-  }, [onComplete]);
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+    onCompleteRef.current();
+  }, []);
+
+  const forceMutedInline = useCallback((video: HTMLVideoElement) => {
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.playsInline = true;
+  }, []);
+
+  const tryPlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || finishedRef.current) return;
+    forceMutedInline(video);
+    const p = video.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => {
+        /* Autoplay may be blocked until a later canplay / user gesture */
+      });
+    }
+  }, [forceMutedInline]);
 
   const onScreenPointer = useCallback(
     (e: React.PointerEvent) => {
-      // Only primary pointer (avoid multi-touch double-counting)
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
+      // First interactions often unlock media — keep trying to play while counting skip.
+      tryPlay();
       skipTapsRef.current += 1;
       const n = skipTapsRef.current;
       setSkipTaps(n);
@@ -41,41 +76,51 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
         finish();
       }
     },
-    [finish],
+    [finish, tryPlay],
   );
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    video.muted = true;
-    video.defaultMuted = true;
-    video.setAttribute('muted', '');
-    video.setAttribute('playsinline', '');
-    video.setAttribute('webkit-playsinline', '');
-    video.playsInline = true;
+    forceMutedInline(video);
 
-    const tryPlay = () => {
-      const p = video.play();
-      if (p && typeof p.catch === 'function') {
-        p.catch(() => {
-          // Autoplay blocked: still finish after failsafe; user sees first frame
-        });
-      }
+    const onReady = () => tryPlay();
+    video.addEventListener('loadeddata', onReady);
+    video.addEventListener('canplay', onReady);
+    video.addEventListener('canplaythrough', onReady);
+    // If tab becomes visible again (HF iframe / mobile background), retry.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tryPlay();
     };
+    document.addEventListener('visibilitychange', onVisible);
 
     tryPlay();
-    const onCanPlay = () => tryPlay();
-    video.addEventListener('canplay', onCanPlay);
+    // Aggressive short retries — covers delayed moov parse / Space cold start.
+    const started = Date.now();
+    const retryId = window.setInterval(() => {
+      if (finishedRef.current) return;
+      if (!video.paused && !video.ended) return;
+      if (Date.now() - started > AUTOPLAY_RETRY_MS) {
+        window.clearInterval(retryId);
+        return;
+      }
+      tryPlay();
+    }, 250);
 
     const failsafe = window.setTimeout(finish, BOOT_FAILSAFE_MS);
 
     return () => {
-      video.removeEventListener('canplay', onCanPlay);
+      video.removeEventListener('loadeddata', onReady);
+      video.removeEventListener('canplay', onReady);
+      video.removeEventListener('canplaythrough', onReady);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(retryId);
       window.clearTimeout(failsafe);
-      video.pause();
+      // Do not pause here on dep churn — Strict Mode remount would kill a healthy play.
+      // finish() pauses explicitly when leaving the intro.
     };
-  }, [finish]);
+  }, [finish, forceMutedInline, tryPlay]);
 
   return (
     <div className="boot-intro" role="dialog" aria-label="Studio boot sequence">
@@ -103,12 +148,13 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
                   controls={false}
                   controlsList="nodownload nofullscreen noremoteplayback"
                   tabIndex={-1}
-                  aria-label="Boot intro"
+                  aria-hidden
                   onEnded={finish}
                   onError={finish}
                 />
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="boot-intro__skip-hit"
                   aria-label={
                     skipTaps >= BOOT_SKIP_TAPS
@@ -118,6 +164,16 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
                         }`
                   }
                   onPointerDown={onScreenPointer}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      tryPlay();
+                      skipTapsRef.current += 1;
+                      const n = skipTapsRef.current;
+                      setSkipTaps(n);
+                      if (n >= BOOT_SKIP_TAPS) finish();
+                    }
+                  }}
                 />
               </div>
             </div>
