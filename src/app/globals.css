@@ -287,8 +287,103 @@ body {
 
 /* POV stage host — size container for stage-proportional receipt/jigger (FS52) */
 .pov-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1184 / 880;
     container-type: size;
     container-name: pov-stage;
+}
+
+/*
+ * FS55 — Mobile landscape full-page main play shell
+ * Activation: landscape + touch-primary / non-hover (browser media only).
+ * No max-height / absolute length gates — outer size from live usable viewport.
+ * Desktop (hover + fine pointer) and portrait keep rules above.
+ */
+@media (orientation: landscape) and (hover: none),
+       (orientation: landscape) and (pointer: coarse) {
+    html {
+        height: 100%;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        /* viewport-relative fill (tracks mobile browser chrome) — not a device cutoff */
+        max-height: 100dvh;
+        overflow: hidden; /* no page-level scroll for main shell */
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+    }
+
+    .terminal-frame {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: clamp(4px, 1vmin, 8px);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .sys-header {
+        flex: 0 0 auto;
+        margin-bottom: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+
+    .mode-btn--obelisco,
+    .mode-btn--classics {
+        --mode-logo-box-w: clamp(4.5rem, 18vmin, 7rem);
+        --mode-logo-box-h: clamp(1.75rem, 7vmin, 2.75rem);
+    }
+
+    /* Stage host section — flex grow; size container for contain math */
+    .pov-shell-section {
+        flex: 1 1 auto;
+        min-height: 0;
+        min-width: 0;
+        margin: 0 !important; /* override desktop inline marginBottom */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-width: clamp(1px, 0.4vmin, 2px);
+        container-type: size;
+        container-name: pov-shell-section;
+    }
+
+    /*
+     * Largest 1184:880 rectangle fully inside the section (Pattern A).
+     * cq* resolve against .pov-shell-section (nearest size ancestor for these
+     * properties; .pov-stage remains a size container for FS52 chrome inside).
+     */
+    .pov-stage {
+        width: min(100%, calc(100cqb * 1184 / 880));
+        height: min(100%, calc(100cqi * 880 / 1184));
+        max-width: 100%;
+        max-height: 100%;
+        aspect-ratio: 1184 / 880;
+        /* keep container-type: size from base rule for receipt/jigger scale */
+    }
+
+    .receipt-toolbar {
+        flex: 0 0 auto;
+        margin-bottom: 0;
+        margin-top: 0.25rem;
+    }
+
+    .receipt-controls {
+        margin-bottom: 0.25rem;
+    }
 }
 
 /* POV stage: carousel open — hard clip so assets never spill past amber frame */

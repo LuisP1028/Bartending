@@ -217,6 +217,26 @@
   pointer-events: auto;
 }
 
+/* FS55 — compact toolbar under mobile landscape full-page shell (no px height gate) */
+@media (orientation: landscape) and (hover: none),
+       (orientation: landscape) and (pointer: coarse) {
+  .receipt-toolbar {
+    margin-bottom: 0;
+    margin-top: 0.25rem;
+  }
+
+  .receipt-controls {
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .receipt-toolbar .btn-8bit {
+    padding: 0.4em 0.75em;
+    font-size: clamp(0.75rem, 2.8vmin, 1rem);
+  }
+}
+
 /* ==========================================================================
    RECEIPT ENTITY — wider, larger type, tighter vertical rhythm
    ========================================================================== */

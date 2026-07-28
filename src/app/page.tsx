@@ -102,12 +102,9 @@ function PovStageShell({
             ? 'pov-stage pov-stage--receipt-inspect'
             : 'pov-stage'
       }
-      style={{
-        position: 'relative',
-        width: '100%',
-        aspectRatio: '1184/880',
-        overflow,
-      }}
+      /* Geometry (width / aspect) lives in globals.css so FS55 mobile landscape
+         contain rules can override; only dynamic overflow stays inline. */
+      style={{ overflow }}
     >
       {children}
     </div>
@@ -893,15 +890,6 @@ export default function Home() {
                 </button>
               );
             })}
-            <button
-              type="button"
-              className="sys-btn"
-              style={{ fontSize: 10, padding: '2px 8px' }}
-              onClick={reloadMode}
-              title="Reload mode JSON from disk (after menu:map)"
-            >
-              RELOAD MODE
-            </button>
           </span>
         </div>
 
@@ -928,7 +916,13 @@ export default function Home() {
           }}
         >
           {/* POV STAGE — receipt printer embedded top-right */}
-          <section style={{ marginBottom: '16px', border: 'clamp(2px, 0.5vmin, 4px) solid var(--glass-amber)' }}>
+          <section
+            className="pov-shell-section"
+            style={{
+              marginBottom: '16px',
+              border: 'clamp(2px, 0.5vmin, 4px) solid var(--glass-amber)',
+            }}
+          >
             <PovStageShell openCategory={openCategory} povStageRef={povStageRef}>
               <img
                 src="/OBELISCO_POV.jpg"
