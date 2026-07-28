@@ -213,8 +213,9 @@
   }
 
   /*
-   * FS68 — COVER fit: largest 422∶697 that fully covers the slot.
-   * May crop plastic edges; never letterbox/pillarbox with dark bands.
+   * FS68/69 — COVER fit: largest 422∶697 that fully covers the slot.
+   * Slight upward bias so housing + control cluster stay in the visible crop
+   * when the body is taller than the viewport.
    */
   .gb-shell {
     position: relative;
@@ -233,6 +234,8 @@
     container-type: size;
     container-name: gb-shell;
     overflow: hidden;
+    /* Prefer mid-body (housing + buttons) over empty top lip / bottom phones */
+    transform: translateY(-4%);
   }
 
   @supports not (width: 1cqw) {
@@ -276,41 +279,41 @@
   }
 
   /*
-   * FS67 — Battery / screen housing (Image #3 region).
-   * Design: left 40, top 60, 342×272 on 422×697 body.
-   * Flex column: thin header band + playfield fills rest.
+   * FS67/69 — Battery / screen housing (playability-first).
+   * FS69: housing-heavy — ~56% of body height, ~90% width so stage/receipts
+   * are legible while lower control strip remains on-screen.
    */
   .gb-shell__screen-cont {
     position: absolute;
-    top: 8.61%;
-    left: 9.48%;
-    width: 81.04%;
-    height: 39.02%;
+    top: 5.5%;
+    left: 5%;
+    width: 90%;
+    height: 56%;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     /* Reference purple-grey bezel */
     background: linear-gradient(160deg, #6e6e7a 0%, #5c5c68 45%, #4a4a56 100%);
-    border-radius: 3.8% 3.8% 14.6% 3.8%;
+    border-radius: 3.2% 3.2% 10% 3.2%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     box-shadow: inset 0 0 0 max(1px, 0.3cqw) rgba(0, 0, 0, 0.25);
   }
 
-  /* Thin DOT MATRIX band — ≤ ~12% of housing */
+  /* Thin DOT MATRIX band — keep short so playfield wins height */
   .gb-shell__header {
     display: block;
     position: relative;
     flex: 0 0 auto;
     width: 100%;
-    height: 11%;
-    min-height: 1.1em;
+    height: 8%;
+    min-height: 1em;
     margin: 0;
-    padding: 0.35em 8% 0 18%;
+    padding: 0.25em 6% 0 16%;
     box-sizing: border-box;
     text-align: right;
-    font-size: max(5px, 1.65cqw);
+    font-size: max(5px, 1.5cqw);
     font-family: sans-serif;
     color: #c4c4c8;
     letter-spacing: 0.04em;
@@ -368,8 +371,7 @@
   }
 
   /*
-   * Playfield fills housing interior (FS67 nest target).
-   * Left padding keeps stage clear of battery badge.
+   * Playfield fills housing (FS67/69 nest). Tighter margins = more stage px.
    */
   .gb-shell__playfield {
     position: relative;
@@ -377,7 +379,7 @@
     min-height: 0;
     width: auto;
     height: auto;
-    margin: 0 4% 5% 12%;
+    margin: 0 3% 3.5% 10%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -400,7 +402,10 @@
     overflow: hidden;
   }
 
-  /* ── Decorative controls (unwired) — design % of 422×697 body ── */
+  /*
+   * FS69 — Compact control strip below housing (housing ends ~61.5%).
+   * Full D-pad / A·B / SELECT·START stay on-screen under cover crop.
+   */
   .gb-shell__controls {
     display: block;
     position: absolute;
@@ -414,13 +419,12 @@
     z-index: 2;
   }
 
-  /* D-pad: 90×90 at ~ (40, 390) */
   .gb-shell__btn-direction {
     position: absolute;
-    left: 9.48%;
-    top: 54.5%;
-    width: 21.33%;
-    height: 12.91%;
+    left: 8%;
+    top: 64%;
+    width: 18%;
+    height: 10.5%;
   }
 
   .gb-shell__btn-direction::before {
@@ -451,13 +455,12 @@
     transform: rotate(90deg);
   }
 
-  /* A/B pair — two circles on angled plate (reference) */
   .gb-shell__btn-ab {
     position: absolute;
-    top: 53.5%;
-    left: 58.5%;
-    width: 32%;
-    height: 10.5%;
+    top: 63.5%;
+    left: 58%;
+    width: 28%;
+    height: 9%;
     background: #dfdfdf;
     border-radius: 40% / 50%;
     transform: rotate(-25deg);
@@ -488,10 +491,9 @@
   .gb-shell__btn-a::after {
     position: absolute;
     font-family: sans-serif;
-    font-size: max(5px, 2.2cqw);
+    font-size: max(5px, 2cqw);
     font-weight: 700;
     color: #5a1a3a;
-    /* Counter-rotate labels so they stay upright-ish on the plate */
     transform: rotate(25deg);
   }
 
@@ -507,13 +509,12 @@
     right: 10%;
   }
 
-  /* SELECT + START — two pills + labels */
   .gb-shell__btn-start-select {
     position: absolute;
-    top: 72%;
+    top: 76.5%;
     left: 28%;
-    width: 36%;
-    height: 6.5%;
+    width: 34%;
+    height: 5.5%;
     transform: rotate(-25deg);
     display: flex;
     flex-direction: row;
@@ -564,20 +565,20 @@
   .gb-shell__speakers {
     display: block;
     position: absolute;
-    height: 10%;
-    width: 1.9%;
-    top: 71%;
-    left: 72%;
+    height: 8%;
+    width: 1.7%;
+    top: 76%;
+    left: 74%;
     margin: 0;
     background: #ddd;
     border-radius: 4px;
     transform: rotate(-25deg);
     box-shadow:
-      4.7cqw 0 #ddd,
-      9.5cqw 0 #ddd,
-      14.2cqw 0 #ddd,
-      19cqw 0 #ddd,
-      23.7cqw 0 #ddd;
+      4cqw 0 #ddd,
+      8cqw 0 #ddd,
+      12cqw 0 #ddd,
+      16cqw 0 #ddd,
+      20cqw 0 #ddd;
     pointer-events: none;
   }
 
