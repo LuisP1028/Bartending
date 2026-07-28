@@ -65,9 +65,7 @@ export default function GlassAsset({
 }: GlassAssetProps) {
   const isOverlay = presentation === 'overlay';
   const bare = presentation === 'cardless' || isOverlay;
-  let computedFillLevel = fillLevel || '0%';
   let liquidHeightPx = 0;
-  let offsetBottomPx = 0;
   let foamHeightPx = 0;
   const metrics = resolveGlassMetrics(vesselId, label);
 
@@ -86,10 +84,8 @@ export default function GlassAsset({
   // Metrics-based bowl height when we have geometry (simulation + static fill both benefit)
   if (metrics) {
     const fillRatio = Math.min(effectiveVisualVolumeOz / maxOz, 0.95);
-    computedFillLevel = `${fillRatio * 100}%`;
     const bowlPx = metrics.floorY - metrics.rimY;
     liquidHeightPx = bowlPx * fillRatio;
-    offsetBottomPx = 96 - metrics.floorY;
 
     const hasFroth =
       ingredients['mixereggwhite'] > 0 && isShakeFamilyMethod(agitation);
@@ -105,10 +101,42 @@ export default function GlassAsset({
     liquidColor !== 'transparent' &&
     (currentVolumeOz > 0 || (fillLevel && fillLevel !== '0%' && fillLevel !== '0'));
 
-  const useMetricsHeight = !!metrics && (currentVolumeOz > 0 || foamHeightPx > 0);
-  const liquidCssHeight = useMetricsHeight
-    ? `${((liquidHeightPx + offsetBottomPx) / 96) * 100}%`
-    : undefined;
+  /*
+   * FS63: SVG viewBox geometry for liquid/foam (no foreignObject).
+   * FO + CSS .liquid paints as a solid square plate on mobile Safari.
+   */
+  let liquidY = 96;
+  let liquidH = 0;
+  if (hasVisibleLiquid) {
+    if (metrics && currentVolumeOz > 0) {
+      liquidH = Math.max(0, liquidHeightPx);
+      liquidY = metrics.floorY - liquidH;
+    } else if (fillLevel) {
+      // Static / carousel-style fillLevel string ("62%", "0.4", …)
+      const raw = String(fillLevel).trim();
+      let ratio = 0;
+      if (raw.endsWith('%')) {
+        const n = parseFloat(raw.slice(0, -1));
+        ratio = Number.isFinite(n) ? n / 100 : 0;
+      } else {
+        const n = parseFloat(raw);
+        if (Number.isFinite(n)) ratio = n > 1 ? n / 100 : n;
+      }
+      ratio = Math.min(0.95, Math.max(0, ratio));
+      if (metrics) {
+        const bowlPx = metrics.floorY - metrics.rimY;
+        liquidH = bowlPx * ratio;
+        liquidY = metrics.floorY - liquidH;
+      } else {
+        liquidH = 96 * ratio;
+        liquidY = 96 - liquidH;
+      }
+    }
+  }
+  const foamY =
+    foamHeightPx > 0 ? Math.max(0, liquidY - foamHeightPx) : 0;
+  const foamH =
+    foamHeightPx > 0 ? Math.min(foamHeightPx, liquidY - foamY) : 0;
 
   return (
     <div
@@ -157,7 +185,10 @@ export default function GlassAsset({
           flex: isOverlay ? '1 1 auto' : undefined,
         }}
       >
-        {/* SVG-native clip: clipPath units share viewBox 0 0 64 96 and scale with art */}
+        {/*
+          FS63: pure SVG liquid under glass clipPath (no foreignObject).
+          FO + CSS .liquid → solid square tile on mobile Safari (same class as pre-FS57 bottles).
+        */}
         <svg
           style={{
             position: 'absolute',
@@ -167,47 +198,46 @@ export default function GlassAsset({
             height: '100%',
             zIndex: 2,
             pointerEvents: 'none',
-            overflow: 'visible',
+            overflow: 'hidden',
           }}
           viewBox="0 0 64 96"
           preserveAspectRatio="xMidYMid meet"
         >
-          {clipId && (hasVisibleLiquid || foamHeightPx > 0) ? (
+          {clipId && (hasVisibleLiquid || foamH > 0) ? (
             <g clipPath={`url(#${clipId})`}>
-              <foreignObject x="0" y="0" width="64" height="96">
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative',
-                  }}
-                >
-                  {hasVisibleLiquid ? (
-                    <div
-                      className="liquid"
-                      style={
-                        {
-                          '--liquid-color': liquidColor || 'transparent',
-                          '--fill-level': computedFillLevel,
-                          ...(liquidCssHeight
-                            ? { height: liquidCssHeight, bottom: '0%' }
-                            : {}),
-                        } as React.CSSProperties
-                      }
+              {hasVisibleLiquid && liquidH > 0 ? (
+                <>
+                  <rect
+                    x={0}
+                    y={liquidY}
+                    width={64}
+                    height={liquidH}
+                    fill={liquidColor || 'transparent'}
+                    opacity={0.88}
+                  />
+                  {/* Soft highlight (replaces CSS liquid gradient) */}
+                  {liquidH > 2 ? (
+                    <rect
+                      x={0}
+                      y={liquidY}
+                      width={64}
+                      height={Math.min(3, liquidH * 0.12)}
+                      fill="rgba(255,255,255,0.35)"
+                      opacity={0.7}
                     />
                   ) : null}
-                  {foamHeightPx > 0 ? (
-                    <div
-                      className="sour-foam"
-                      style={{
-                        height: `${(foamHeightPx / 96) * 100}%`,
-                        bottom: `${((liquidHeightPx + offsetBottomPx) / 96) * 100}%`,
-                        display: 'block',
-                      }}
-                    />
-                  ) : null}
-                </div>
-              </foreignObject>
+                </>
+              ) : null}
+              {foamH > 0 ? (
+                <rect
+                  x={0}
+                  y={foamY}
+                  width={64}
+                  height={foamH}
+                  fill="rgba(255,252,245,0.92)"
+                  opacity={0.9}
+                />
+              ) : null}
             </g>
           ) : null}
           {outlineId ? <use href={`#${outlineId}`} /> : null}

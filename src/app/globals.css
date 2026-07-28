@@ -139,7 +139,11 @@ body {
     opacity: 1;
 }
 
-/* Universal Volumetric Fluid Logic */
+/*
+ * Universal volumetric fluid (legacy CSS path).
+ * FS63: live glass / GlassAsset fill is pure SVG under clipPath (no foreignObject).
+ * FS57: bottles already use pure SVG. These classes remain for any residual HTML uses.
+ */
 .liquid, .liquid-opaque, .liquid-sparkle {
     position: absolute;
     bottom: 0;
