@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DITHER-OS Bartending</title>
+    <meta
+      name="description"
+      content="DITHER-OS lounge bartender simulator — hosted on Hugging Face Spaces"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0a0a0c;
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      .shell {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 100dvh;
+      }
+      header {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0.85rem;
+        background: #121218;
+        border-bottom: 1px solid #2a2a35;
+        color: #e8e8ef;
+        font-size: 0.875rem;
+      }
+      header strong {
+        letter-spacing: 0.04em;
+      }
+      header a {
+        color: #9ecbff;
+        text-decoration: none;
+      }
+      header a:hover {
+        text-decoration: underline;
+      }
+      .frame-wrap {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+      }
+      iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #000;
+      }
+      .hint {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 1.5rem;
+        text-align: center;
+        color: #b0b0bc;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .hint code {
+        color: #e8e8ef;
+        background: #1c1c24;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <strong>DITHER-OS · Bartending</strong>
+        <a id="open-direct" href="#" target="_blank" rel="noopener noreferrer"
+          >Open full screen ↗</a
+        >
+      </header>
+      <div class="frame-wrap">
+        <p class="hint">
+          Loading game from Hugging Face…<br />
+          If this stays blank, set <code>SPACE_URL</code> in
+          <code>docs/index.html</code> and wait for the Space to wake.
+        </p>
+        <!--
+          After your Space is live, set SPACE_URL below.
+          Embed form is usually:
+            https://<username>-<space-name>.hf.space
+          Example for user ChoppedCheese / space dither-os-bartending:
+            https://choppedcheese-dither-os-bartending.hf.space
+        -->
+        <iframe
+          id="game"
+          title="DITHER-OS Bartending"
+          allow="fullscreen; autoplay; clipboard-write"
+          allowfullscreen
+          loading="eager"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
+      </div>
+    </div>
+    <script>
+      // >>> EDIT THIS after the Hugging Face Space is deployed <<<
+      const SPACE_URL =
+        "https://choppedcheese-dither-os-bartending.hf.space";
+
+      const frame = document.getElementById("game");
+      const link = document.getElementById("open-direct");
+      frame.src = SPACE_URL;
+      link.href = SPACE_URL;
+    </script>
+  </body>
+</html>

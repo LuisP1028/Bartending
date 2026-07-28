@@ -1,0 +1,672 @@
+/* ==========================================================================
+   DITHER-OS Receipt — POV top-right embed (asset-only, no station desk)
+   ========================================================================== */
+
+.receipt-system {
+  --printer-base: #4a4a4a;
+  --printer-dark: #111111;
+  /* Scale factor for glow/chrome; stage hosts may override */
+  --receipt-ui-scale: 1;
+  /* Standardized ticket footprint — always the same outer size */
+  --receipt-paper-w: min(260px, 28vw);
+  /* Fixed height: fits Obelisco stage; content scrolls inside (not content-driven) */
+  --receipt-paper-h: min(300px, 38vh);
+  font-family: var(--font-receipt), 'VT323', monospace;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -webkit-font-smoothing: none;
+  user-select: none;
+}
+
+.receipt-system * {
+  box-sizing: border-box;
+}
+
+/* Full-stage overlay host inside Obelisco POV */
+.receipt-system--pov {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  margin: 0;
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+/* Inspected Full face may paint above stage chrome; host raises stacking */
+.receipt-system--pov.receipt-system--has-inspect {
+  z-index: 40;
+  overflow: visible;
+}
+
+/* Coordinate root for free paper (transparent, fills stage) */
+.receipt-stage-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+/* Printer cluster — top-right, width tracks paper */
+.receipt-hardware-cluster {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: calc(var(--receipt-paper-w) + 20px);
+  height: 52px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.receipt-hardware-wall {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  background: #222;
+  border: 3px solid #000;
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0px 4px 0px rgba(0, 0, 0, 0.5);
+}
+
+.receipt-printer-bezel {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 42px;
+  background-color: var(--printer-base);
+  border: 3px solid var(--printer-dark);
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 8px;
+  box-shadow:
+    inset 0px -3px 0px rgba(0, 0, 0, 0.3),
+    0px 4px 0px rgba(0, 0, 0, 0.45);
+}
+
+.receipt-printer-slot {
+  width: 92%;
+  height: 6px;
+  background-color: #000;
+  box-shadow: inset 0px 3px 4px rgba(0, 0, 0, 1);
+}
+
+/* Clip mask under top-right slot — matches standard paper height */
+.receipt-printer-mask {
+  position: absolute;
+  top: 52px;
+  right: 8px;
+  width: var(--receipt-paper-w);
+  height: var(--receipt-paper-h);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 500;
+  background: transparent;
+}
+
+.receipt-free-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Above printer mask (500) so free slips are not covered by the empty mask box */
+  z-index: 550;
+  background: transparent;
+  overflow: visible;
+}
+
+/* While Inspect is open, free papers stack above printer hardware */
+.receipt-free-layer--inspecting {
+  z-index: 9500;
+  overflow: visible;
+}
+
+/* Controls row — OUTSIDE POV stage */
+.receipt-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+  pointer-events: auto;
+}
+
+.btn-8bit {
+  font-family: var(--font-receipt), 'VT323', monospace;
+  font-size: 18px;
+  padding: 8px 14px;
+  cursor: pointer;
+  border: 4px solid;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px #000;
+  background: #333;
+  color: #fff;
+  border-color: #111;
+}
+
+.btn-8bit:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #000;
+}
+
+.btn-8bit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-8bit-green {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #1b5e20;
+}
+
+.receipt-validation {
+  margin-top: 8px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.receipt-validation-errors {
+  color: #ff5252;
+}
+
+.receipt-validation-pass {
+  color: #4caf50;
+}
+
+.receipt-active-hint {
+  font-family: var(--font-receipt), 'VT323', monospace;
+  font-size: 16px;
+  color: #aaa;
+  margin-left: 4px;
+}
+
+.receipt-toolbar {
+  margin-bottom: 24px;
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   RECEIPT ENTITY — wider, larger type, tighter vertical rhythm
+   ========================================================================== */
+
+.receipt-wrapper {
+  position: absolute;
+  width: var(--receipt-paper-w);
+  /* Summary: content-height (compact). Inspected: fixed bound via .state-inspected */
+  height: auto;
+  max-height: none;
+  --paper-bg: #f4f4f0;
+  --ink-color: #1a1a1a;
+  filter: drop-shadow(5px 5px 0px rgba(0, 0, 0, 0.5));
+  pointer-events: auto;
+  transform-origin: top center;
+  cursor: grab;
+  /* Drag on wrapper; pan-y allowed on inner .receipt-paper */
+  touch-action: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.receipt-wrapper:active {
+  cursor: grabbing;
+}
+
+/*
+ * Active order — amber glow (FS35).
+ * IMPORTANT: use var(--receipt-ui-scale, 1) — missing custom props invalidate
+ * entire calc()/filter declarations (silent no-op).
+ * outline is not clipped by overflow:hidden (inspect face keeps scroll).
+ */
+.receipt-wrapper.receipt-wrapper--active-order {
+  /* Restate black drop-shadow + amber halos (filter replaces base filter) */
+  filter: drop-shadow(
+      calc(5px * var(--receipt-ui-scale, 1))
+      calc(5px * var(--receipt-ui-scale, 1))
+      0
+      rgba(0, 0, 0, 0.5)
+    )
+    drop-shadow(
+      0 0 calc(8px * var(--receipt-ui-scale, 1))
+      rgba(255, 176, 0, 0.9)
+    )
+    drop-shadow(
+      0 0 calc(18px * var(--receipt-ui-scale, 1))
+      rgba(255, 176, 0, 0.55)
+    )
+    drop-shadow(
+      0 0 calc(28px * var(--receipt-ui-scale, 1))
+      rgba(255, 176, 0, 0.28)
+    );
+  /* Outline survives overflow:hidden on .state-inspected */
+  outline: max(2px, calc(2.5px * var(--receipt-ui-scale, 1))) solid
+    var(--glass-amber, #ffb000);
+  outline-offset: max(2px, calc(3px * var(--receipt-ui-scale, 1)));
+}
+
+/* Slightly stronger ring when inspected + active (still same order) */
+.receipt-wrapper.receipt-wrapper--active-order.state-inspected {
+  outline-width: max(2px, calc(3px * var(--receipt-ui-scale, 1)));
+  outline-offset: max(3px, calc(4px * var(--receipt-ui-scale, 1)));
+}
+
+/* Success validate — ticket slides up and fades (FS37) */
+.receipt-wrapper.receipt-wrapper--handoff-exit {
+  transition:
+    transform 0.9s ease-in-out,
+    opacity 0.9s ease-in-out,
+    filter 0.9s ease-in-out;
+  transform: translateY(calc(-120% - 100px));
+  opacity: 0;
+  pointer-events: none !important;
+  cursor: default;
+  z-index: 9500 !important;
+}
+
+.receipt-wrapper.receipt-wrapper--handoff-exit.state-inspected {
+  transform: translateY(calc(-120% - 100px)) !important;
+}
+
+.receipt-wrapper.anim-printing {
+  animation: receipt-unroll 1.5s steps(24, end) forwards;
+  cursor: default;
+  pointer-events: none;
+}
+
+@keyframes receipt-unroll {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(0%);
+  }
+}
+
+/* Base paper face */
+.receipt-paper {
+  width: 100%;
+  background-color: var(--paper-bg);
+  color: var(--ink-color);
+  padding: 10px 12px 14px 12px;
+  position: relative;
+  font-size: 16px;
+  line-height: 1.12;
+  box-sizing: border-box;
+  /* Scroll without visible scrollbar (keeps thermal aesthetic) */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.receipt-paper::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+  width: 0;
+  height: 0;
+}
+
+/* Summary: compact — height follows content, no tall empty box */
+.receipt-paper--summary {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 8px 10px 12px 10px;
+  font-size: 14px;
+}
+
+/* Full (Inspect): bounded + internal scroll */
+.receipt-paper--full {
+  height: 100%;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 10px 12px 14px 12px;
+  font-size: 16px;
+}
+
+.receipt-paper--summary .r-header--summary {
+  margin-bottom: 3px;
+}
+
+.receipt-paper--summary .r-title--summary {
+  font-size: 16px;
+  margin-bottom: 1px;
+}
+
+.r-summary-name {
+  font-size: 18px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin: 2px 0 4px 0;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.r-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.r-summary-row > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.r-summary-method {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+  max-width: 55%;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: normal;
+}
+
+.r-summary-ings {
+  font-size: 12px;
+  opacity: 0.9;
+  margin: 2px 0 4px 0;
+  line-height: 1.15;
+}
+
+.r-total--summary {
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+/* Jagged edge fixed on outer shell (does not scroll away with content) */
+.receipt-wrapper:not(.state-crumpled)::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 0;
+  width: 100%;
+  height: 7px;
+  background-image: var(--jagged-svg);
+  background-repeat: repeat-x;
+  background-size: 7px 7px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.r-header {
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+/* Full-face brand mark (Obelisco logo #2) — replaces text "DITHER-OS LOUNGE" */
+.r-logo {
+  display: block;
+  width: 88%;
+  max-width: 220px;
+  height: auto;
+  margin: 2px auto 6px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.r-title {
+  font-size: 21px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  line-height: 1.05;
+}
+
+.r-divider {
+  border-top: 2px dashed var(--ink-color);
+  margin: 5px 0;
+}
+
+/*
+ * Ticket rows: key/name left, value right — no overlapping glyphs.
+ * Value may wrap within its column (long vessel); short amounts stay tight.
+ * Label never covered by unbreakable wide values.
+ */
+.r-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 2px;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+/* Normal body labels: non-amber ink (RE27 / FS27) */
+.r-line > span:first-child,
+.r-line .r-line-label {
+  color: #000;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  text-align: left;
+  word-break: normal;
+  overflow-wrap: break-word;
+  white-space: normal;
+  hyphens: none;
+}
+
+/* B+ suspect lines only — amber highlight */
+.r-line--flagged .r-line-label,
+.r-line--flagged > span:first-child {
+  color: #ffaa00;
+  text-shadow: 0 0 1px #000;
+}
+
+.r-line > span:last-child,
+.r-line .r-line-value {
+  flex: 0 1 auto;
+  flex-shrink: 1;
+  max-width: 52%;
+  text-align: right;
+  /* Allow long vessel strings to wrap in the value column (not over the key) */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* Header meta (CHK / date / time) — slightly under body */
+.r-line.r-meta {
+  font-size: 13px;
+}
+
+/* Commercial flavor — denser secondary */
+.r-line.r-commercial {
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* TOTAL emphasis */
+.r-line.r-total {
+  font-size: 22px;
+  font-weight: bold;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+.r-footer {
+  text-align: center;
+  margin-top: 6px;
+  margin-bottom: 0;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+.r-barcode-container {
+  text-align: center;
+  margin-top: 6px;
+}
+
+.r-barcode {
+  width: 100%;
+  max-width: 100%;
+  height: 34px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+}
+
+.r-seed {
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-top: 2px;
+  word-break: break-all;
+  line-height: 1.1;
+}
+
+.stamp-paid {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  color: #d32f2f;
+  border: 3px solid #d32f2f;
+  padding: 3px 8px;
+  font-size: 22px;
+  font-weight: bold;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* Wad is smaller than standard paper (physical exception) */
+.receipt-wrapper.state-crumpled {
+  width: 48px;
+  height: 48px;
+  overflow: visible;
+  filter: drop-shadow(3px 3px 0px rgba(0, 0, 0, 0.45));
+}
+
+.receipt-wrapper.state-crumpled .receipt-paper {
+  display: none;
+}
+
+.receipt-wrapper.state-crumpled .crumpled-wad {
+  display: block;
+}
+
+.receipt-wrapper.state-crumpled::after {
+  display: none;
+}
+
+.crumpled-wad {
+  display: none;
+  width: 48px;
+  height: 48px;
+  background-image: var(--crumpled-svg);
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.receipt-paper.state-creased::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 0, 0, 0.04) 10px,
+      rgba(0, 0, 0, 0.04) 20px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 15px,
+      rgba(0, 0, 0, 0.03) 15px,
+      rgba(0, 0, 0, 0.03) 30px
+    );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Inspect: full face, fixed bound + scroll inside paper — no scale grow */
+.receipt-wrapper.state-inspected {
+  z-index: 9000 !important;
+  width: var(--receipt-paper-w);
+  height: var(--receipt-paper-h);
+  max-height: var(--receipt-paper-h);
+  overflow: hidden !important;
+  transform: none !important;
+}
+
+/* Context menu */
+.receipt-context-menu {
+  position: fixed;
+  background-color: #000;
+  border: 4px solid #fff;
+  padding: 4px;
+  z-index: 99999;
+  display: none;
+  flex-direction: column;
+  box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.8);
+  font-family: var(--font-receipt), 'VT323', monospace;
+  pointer-events: auto;
+}
+
+.receipt-context-menu.open {
+  display: flex;
+}
+
+.receipt-cm-item {
+  font-family: inherit;
+  font-size: 16px;
+  color: white;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  text-align: left;
+}
+
+.receipt-cm-item:hover {
+  background-color: #fff;
+  color: #000;
+}
+
+.receipt-cm-item.danger {
+  color: #ff5555;
+}
+
+.receipt-cm-item.danger:hover {
+  background-color: #ff5555;
+  color: #000;
+}
+
+.receipt-copy-toast {
+  position: absolute;
+  top: 56px;
+  right: 8px;
+  background: #000;
+  color: #0f0;
+  border: 2px solid #0f0;
+  padding: 4px 10px;
+  font-family: var(--font-receipt), 'VT323', monospace;
+  font-size: 13px;
+  z-index: 2000;
+  pointer-events: none;
+  max-width: 50%;
+}

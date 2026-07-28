@@ -6,19 +6,36 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "start:hf": "next start -H 0.0.0.0 -p 7860",
+    "lint": "eslint",
+    "patron:prepare": "node scripts/patron-pipeline/generate-patron-assets.mjs --prepare",
+    "patron:install": "node scripts/patron-pipeline/generate-patron-assets.mjs --install",
+    "patron:run": "node scripts/patron-pipeline/generate-patron-assets.mjs --run",
+    "patron:pipeline": "node scripts/patron-pipeline/generate-patron-assets.mjs --run",
+    "patron:full": "node scripts/patron-pipeline/generate-patron-assets.mjs --run",
+    "menu:validate": "npx tsx scripts/menu-pipeline/validate-mode.mjs",
+    "menu:map": "npx tsx scripts/menu-pipeline/map-mode.mjs",
+    "menu:inventory": "npx tsx scripts/menu-pipeline/audit-mode-inventory.mjs",
+    "menu:from-image": "npx tsx scripts/menu-pipeline/image-to-menu.mjs"
   },
   "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "better-sqlite3": "^12.11.1",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-liquid-glass-card": "^1.2.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "jpeg-js": "^0.4.4",
+    "playwright": "^1.49.0",
+    "pngjs": "^7.0.0",
     "typescript": "^5"
   }
 }

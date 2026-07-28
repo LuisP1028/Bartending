@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+---
+title: DITHER-OS Bartending
+emoji: 🍸
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Pixel bartender simulator (Next.js)
+---
 
-## Getting Started
+# DITHER-OS Bartending
 
-First, run the development server:
+Lounge bartender simulator — pour, build drinks, serve patrons.
+
+## Run locally
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Hugging Face Space (this repo)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This Space uses the **Docker** SDK. The container builds Next.js and serves on port **7860**.
 
-## Learn More
+Optional secrets (Space → Settings → Variables and secrets):
 
-To learn more about Next.js, take a look at the following resources:
+| Name | Purpose |
+|------|---------|
+| `HUGGINGFACE_TOKEN` | Menu LLM mapping (if used) |
+| `HUGGINGFACE_MODEL` | Override default HF model |
+| `PII_ENCRYPTION_KEY` | Patron signup contact encryption |
+| `XAI_API_KEY` | Patron art pipeline (optional) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+SQLite under `/data` is **ephemeral** on free Spaces (lost on restart) unless you attach persistent storage.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## GitHub Pages iframe shell
 
-## Deploy on Vercel
+Static embed lives in [`docs/index.html`](docs/index.html). Point GitHub Pages at the `/docs` folder and set your Space URL in that file.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Direct Space URL (after deploy):
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`https://huggingface.co/spaces/ChoppedCheese/<space-name>`
+
+Embed URL form:
+
+`https://choppedcheese-<space-name>.hf.space`

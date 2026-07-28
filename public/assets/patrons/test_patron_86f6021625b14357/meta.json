@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "characterId": "test_patron_86f6021625b14357",
+  "folderSlug": "test_patron_86f6021625b14357",
+  "displayName": "Test Patron",
+  "contactHash": "86f6021625b14357",
+  "contactKind": "email",
+  "createdAt": "2026-07-18T21:07:52.015Z",
+  "updatedAt": "2026-07-26T19:20:35.910Z"
+}
