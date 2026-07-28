@@ -79,10 +79,13 @@ const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
 function PovStageShell({
   openCategory,
   povStageRef,
+  stagePan,
   children,
 }: {
   openCategory: CategoryKey | null;
   povStageRef: React.RefObject<HTMLDivElement | null>;
+  /** FS74: shell cover pan (px) so selected carousel stays in glass */
+  stagePan?: { x: number; y: number };
   children: React.ReactNode;
 }) {
   const { anyInspected } = useReceiptStageFlags();
@@ -94,6 +97,12 @@ function PovStageShell({
         ? 'visible'
         : 'hidden';
 
+  const pan = stagePan ?? { x: 0, y: 0 };
+  const transform =
+    pan.x !== 0 || pan.y !== 0
+      ? `translate(${pan.x}px, ${pan.y}px)`
+      : undefined;
+
   return (
     <div
       ref={povStageRef}
@@ -104,9 +113,9 @@ function PovStageShell({
             ? 'pov-stage pov-stage--receipt-inspect'
             : 'pov-stage'
       }
-      /* Geometry (width / aspect / contain) lives in globals.css (FS56 browser-window
-         fill, all presentations); only dynamic overflow stays inline. */
-      style={{ overflow }}
+      /* Geometry (width / aspect / contain) lives in globals.css / gameboy-shell.css;
+         overflow + optional shell pan stay inline. */
+      style={{ overflow, transform }}
     >
       {children}
     </div>
@@ -402,6 +411,11 @@ export default function Home() {
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
   /** FS71: shell D-pad focus among category hotspots (zoneId). */
   const [shellFocusZoneId, setShellFocusZoneId] = useState<string | null>(null);
+  /**
+   * FS74: pan stage under shell glass when a selected carousel would be clipped.
+   * Not updated on D-pad focus alone — only when a carousel is open.
+   */
+  const [shellStagePan, setShellStagePan] = useState({ x: 0, y: 0 });
   const [frameStyle, setFrameStyle] = useState<StageFrameStyle | null>(null);
   /** Active vessel box from drink_placement path */
   const [vesselSlotStyle, setVesselSlotStyle] = useState<StageFrameStyle | null>(null);
@@ -549,6 +563,7 @@ export default function Home() {
     setOpenCategory(null);
     setActiveZoneId(null);
     setFrameStyle(null);
+    setShellStagePan({ x: 0, y: 0 });
     blurHotspotFocus();
   }, [blurHotspotFocus]);
 
@@ -647,6 +662,7 @@ export default function Home() {
     setOpenCategory(null);
     setActiveZoneId(null);
     setFrameStyle(null);
+    setShellStagePan({ x: 0, y: 0 });
     blurHotspotFocus();
   }, [openCategory, blurHotspotFocus]);
 
@@ -715,6 +731,94 @@ export default function Home() {
       window.removeEventListener('resize', measure);
     };
   }, [drinkPlacementD]);
+
+  /**
+   * FS74: When a carousel is open, pan the shell-covered stage so the carousel
+   * frame sits fully inside the housing glass. Does not run on D-pad focus alone
+   * (only when openCategory + frame are active). Resets pan when closed.
+   */
+  useEffect(() => {
+    if (openCategory === null || !frameStyle || !activeZoneId) {
+      setShellStagePan({ x: 0, y: 0 });
+      return;
+    }
+
+    let cancelled = false;
+    const MARGIN = 10;
+    let timeoutId = 0;
+
+    const computePanFromNeutral = (): { x: number; y: number } => {
+      const stage = povStageRef.current;
+      const frame = frameRef.current;
+      if (!stage || !frame) return { x: 0, y: 0 };
+
+      const section = stage.parentElement;
+      if (!section || !section.classList.contains('pov-shell-section')) {
+        return { x: 0, y: 0 };
+      }
+      if (!section.closest('.gb-shell__playfield')) {
+        return { x: 0, y: 0 };
+      }
+
+      // Measure against neutral transform so pan is absolute, not incremental.
+      const prevTransform = stage.style.transform;
+      stage.style.transition = 'none';
+      stage.style.transform = 'none';
+      // Force layout
+      void stage.offsetWidth;
+
+      const S = section.getBoundingClientRect();
+      const F = frame.getBoundingClientRect();
+      const T = stage.getBoundingClientRect();
+
+      let dx = 0;
+      let dy = 0;
+      if (F.left < S.left + MARGIN) dx = S.left + MARGIN - F.left;
+      else if (F.right > S.right - MARGIN) dx = S.right - MARGIN - F.right;
+      if (F.top < S.top + MARGIN) dy = S.top + MARGIN - F.top;
+      else if (F.bottom > S.bottom - MARGIN) dy = S.bottom - MARGIN - F.bottom;
+
+      // Keep stage covering the glass (no black bands)
+      const maxDx = S.left - T.left;
+      const minDx = S.right - T.right;
+      const maxDy = S.top - T.top;
+      const minDy = S.bottom - T.bottom;
+      dx = Math.min(Math.max(dx, minDx), maxDx);
+      dy = Math.min(Math.max(dy, minDy), maxDy);
+
+      stage.style.transform = prevTransform;
+      stage.style.transition = '';
+
+      return { x: dx, y: dy };
+    };
+
+    const applyPan = () => {
+      if (cancelled) return;
+      const next = computePanFromNeutral();
+      setShellStagePan((prev) =>
+        prev.x === next.x && prev.y === next.y ? prev : next
+      );
+    };
+
+    const t0 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyPan();
+        timeoutId = window.setTimeout(applyPan, 50);
+      });
+    });
+
+    const onResize = () => {
+      applyPan();
+    };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(t0);
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [openCategory, activeZoneId, frameStyle]);
 
   // Compute frame geometry from active zone (tracks resize + editor offsets)
   useEffect(() => {
@@ -1031,6 +1135,7 @@ export default function Home() {
                         <PovStageShell
                           openCategory={openCategory}
                           povStageRef={povStageRef}
+                          stagePan={shellStagePan}
                         >
                           <img
                             src="/OBELISCO_POV.jpg"

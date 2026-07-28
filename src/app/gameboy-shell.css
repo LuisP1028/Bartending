@@ -423,6 +423,9 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    /* FS74: smooth pan when selected carousel was off-glass */
+    transition: transform 0.22s ease-out;
+    will-change: transform;
   }
 
   .gb-shell__playfield .pov-stage > img {
