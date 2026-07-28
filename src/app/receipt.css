@@ -46,12 +46,31 @@
   background: transparent;
   border: none;
   overflow: visible;
-  /* FS58: higher paper + UI scale floors so mobile receipts stay readable */
-  /* Paper tracks stage; floors raised from FS52 140/160 @ 0.54 */
-  --receipt-paper-w: clamp(180px, 26cqi, 280px);
-  --receipt-paper-h: clamp(200px, 38cqb, 320px);
-  /* Unitless: length÷length. clamp(number, cqi, number) is invalid. */
-  --receipt-ui-scale: clamp(0.78, calc(100cqi / 1184px), 1);
+  /*
+   * FS59 hybrid diegetic sizing (map-050):
+   * — Stage-proportional term (cqi/cqb) when stage is large
+   * — Phone-relative floors (vw/vh + px) when stage is small
+   * — Design caps so desktop does not explode
+   * Do not "fix" by only raising stage floors again (FS58 was insufficient).
+   */
+  --receipt-ui-scale: min(1, max(0.92, calc(100cqi / 1184px)));
+  /* max(stage cqi, phone vw floor, px floor), cap 280 */
+  --receipt-paper-w: min(
+    280px,
+    max(26cqi, max(180px, min(50vw, 240px)))
+  );
+  --receipt-paper-h: min(
+    320px,
+    max(38cqb, max(200px, min(42vh, 280px)))
+  );
+  /* Phone-readable type floors (inherit hybrid scale) */
+  --r-fs-xs: max(11px, calc(12px * var(--receipt-ui-scale, 1)));
+  --r-fs-sm: max(12px, calc(13px * var(--receipt-ui-scale, 1)));
+  --r-fs-md: max(13px, calc(14px * var(--receipt-ui-scale, 1)));
+  --r-fs-lg: max(14px, calc(16px * var(--receipt-ui-scale, 1)));
+  --r-fs-xl: max(15px, calc(18px * var(--receipt-ui-scale, 1)));
+  --r-fs-2xl: max(16px, calc(21px * var(--receipt-ui-scale, 1)));
+  --r-fs-3xl: max(17px, calc(22px * var(--receipt-ui-scale, 1)));
 }
 
 /* Inspected Full face may paint above stage chrome; host raises stacking */
