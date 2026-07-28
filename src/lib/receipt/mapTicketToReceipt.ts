@@ -225,6 +225,8 @@ export function createReceiptEntity(
     position: { left: 0, top: 0 },
     zIndex,
     inMask: true,
+    ...(options?.characterId ? { characterId: options.characterId } : {}),
+    ...(options?.seatId ? { seatId: options.seatId } : {}),
   };
 }
 

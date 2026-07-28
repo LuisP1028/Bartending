@@ -49,15 +49,16 @@ export type PatronLayout = {
 /**
  * Character-agnostic stage presentation defaults.
  * All patrons use these unless a stored PATRON EDIT override exists.
- * Values match the historical Elder bar presentation (not Elder-by-id).
+ * Locked shared stage (map-040 / operator lock): walk 57%, sit 35%,
+ * spawn (143, 659), sitOffset (25, 85). Sit absolute = seat anchor + offset.
  */
 export const DEFAULT_PATRON_STAGE = {
-  walkDisplayWidthPct: 22,
-  sitDisplayWidthPct: 14,
-  spawn: { x: 90, y: 520 } as StagePoint,
+  walkDisplayWidthPct: 57,
+  sitDisplayWidthPct: 35,
+  spawn: { x: 143, y: 659 } as StagePoint,
   waypoints: [] as StagePoint[],
   preferredSeatId: null as string | null,
-  sitOffset: { x: 0, y: 0 } as StagePoint,
+  sitOffset: { x: 25, y: 85 } as StagePoint,
   lockHorizontalWalk: true,
   walkMs: 2400,
 };

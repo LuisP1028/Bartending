@@ -23,6 +23,17 @@ type DragState = {
   initTop: number;
 } | null;
 
+export type PatronReceiptMeta = {
+  characterId: string;
+  seatId: string;
+};
+
+type QueuedPrint = {
+  ticket: CocktailRecipe;
+  characterId?: string;
+  seatId?: string;
+};
+
 type ReceiptContextValue = {
   activeTicket: CocktailRecipe | null;
   /** Free receipt currently owning the mat build (null = freestyle / unbound). */
@@ -82,16 +93,38 @@ type ReceiptProviderProps = {
   getReceiptTotalRef?: React.MutableRefObject<
     ((instanceId: string) => number | null) | null
   >;
+  /**
+   * FS51: host prints character-attached tickets on sit-complete.
+   * Returns new receipt instanceId (sync create).
+   */
+  printAttachedTicketRef?: React.MutableRefObject<
+    | ((
+        ticket: CocktailRecipe,
+        meta: PatronReceiptMeta
+      ) => string | null)
+    | null
+  >;
+  /**
+   * FS51: host reads characterId/seatId for leave after success validate.
+   */
+  getReceiptAttachmentRef?: React.MutableRefObject<
+    ((instanceId: string) => PatronReceiptMeta | null) | null
+  >;
   children: React.ReactNode;
 };
 
-/** Desktop max of --receipt-paper-w (min(260px, 28vw)); clamp uses this max. */
+/** Design-max paper width (px) at full POV stage; clamp/fallback ceiling (FS52). */
 const PAPER_W = 260;
 /**
- * Matches --receipt-paper-h desktop max (min(300px, 38vh)).
- * Standard fixed outer height for all free paper (summary + full).
+ * Design-max paper height (px) at full POV stage; inspect outer bound ceiling.
+ * Fallbacks use stage size, not viewport (FS52).
  */
 const PAPER_H = 300;
+/** POV design width / height — match PovStageShell aspect + hotspot viewBox. */
+const STAGE_DESIGN_W = 1184;
+const STAGE_DESIGN_H = 880;
+const PAPER_W_MIN = 140;
+const PAPER_H_MIN = 160;
 
 /** Match CSS transition (~0.9s) + small buffer before remove. */
 export const RECEIPT_HANDOFF_EXIT_MS = 1000;
@@ -105,6 +138,8 @@ export function ReceiptProvider({
   onSelectReceipt,
   handoffExitRef,
   getReceiptTotalRef,
+  printAttachedTicketRef,
+  getReceiptAttachmentRef,
   children,
 }: ReceiptProviderProps) {
   const [receipts, setReceipts] = useState<ReceiptEntity[]>([]);
@@ -114,7 +149,7 @@ export function ReceiptProvider({
   /** True once pointer moved past drag threshold (real drag, not a click). */
   const dragMovedRef = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
-  const printQueueRef = useRef<CocktailRecipe[]>([]);
+  const printQueueRef = useRef<QueuedPrint[]>([]);
   const printingRef = useRef(false);
   /** Keep z counter in a ref so we never nest setState inside another updater. */
   const activeZRef = useRef(501);
@@ -149,7 +184,11 @@ export function ReceiptProvider({
     if (!stage) return PAPER_W;
     const paperEl = stage.querySelector('.receipt-wrapper') as HTMLElement | null;
     if (paperEl?.offsetWidth && paperEl.offsetWidth > 0) return paperEl.offsetWidth;
-    return Math.min(PAPER_W, Math.round(stage.clientWidth * 0.28));
+    // Stage-proportional: ~21.96% of stage width, clamped to [140, 260]
+    const w = stage.clientWidth;
+    return Math.round(
+      Math.min(PAPER_W, Math.max(PAPER_W_MIN, w * (PAPER_W / STAGE_DESIGN_W)))
+    );
   }, []);
 
   const resolvePaperHeight = useCallback(() => {
@@ -157,8 +196,18 @@ export function ReceiptProvider({
     if (!stage) return PAPER_H;
     const paperEl = stage.querySelector('.receipt-wrapper') as HTMLElement | null;
     if (paperEl?.offsetHeight && paperEl.offsetHeight > 0) return paperEl.offsetHeight;
-    // Mirror CSS: min(300px, 38vh)
-    return Math.min(PAPER_H, Math.round(window.innerHeight * 0.38));
+    // Stage-proportional: ~34.09% of stage height, clamped to [160, 300] — not window vh
+    const h = stage.clientHeight;
+    return Math.round(
+      Math.min(PAPER_H, Math.max(PAPER_H_MIN, h * (PAPER_H / STAGE_DESIGN_H)))
+    );
+  }, []);
+
+  /** Stage UI scale for printer-aligned release offsets (matches CSS --receipt-ui-scale). */
+  const stageUiScale = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage || stage.clientWidth <= 0) return 1;
+    return Math.min(1, Math.max(0.54, stage.clientWidth / STAGE_DESIGN_W));
   }, []);
 
   const clampPosition = useCallback(
@@ -196,13 +245,16 @@ export function ReceiptProvider({
   const releaseToFree = useCallback(
     (instanceId: string, rect?: DOMRect | null) => {
       const stage = stageRef.current;
-      let pos = { left: 12, top: 56 };
+      const scale = stageUiScale();
+      const releaseTop = Math.round(56 * scale);
+      const releaseInset = Math.round(8 * scale);
+      let pos = { left: Math.round(12 * scale), top: releaseTop };
       if (stage && rect) {
         const sRect = stage.getBoundingClientRect();
         pos = clampPosition(rect.left - sRect.left, rect.top - sRect.top);
       } else if (stage) {
         const paperW = resolvePaperWidth();
-        pos = clampPosition(stage.clientWidth - paperW - 8, 56);
+        pos = clampPosition(stage.clientWidth - paperW - releaseInset, releaseTop);
       }
 
       setReceipts((prev) => {
@@ -228,15 +280,49 @@ export function ReceiptProvider({
         printTimeoutsRef.current.delete(instanceId);
       }
     },
-    [clampPosition, resolvePaperWidth]
+    [clampPosition, resolvePaperWidth, stageUiScale]
   );
 
+  /** Keep free paper on-stage when stage box resizes (FS52 §7.3). */
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === 'undefined') return;
+
+    const reclampFree = () => {
+      setReceipts((prev) => {
+        let changed = false;
+        const next = prev.map((r) => {
+          if (r.phase !== 'free' || r.inMask || r.crumpled) return r;
+          const clamped = clampPosition(r.position.left, r.position.top);
+          if (
+            clamped.left === r.position.left &&
+            clamped.top === r.position.top
+          ) {
+            return r;
+          }
+          changed = true;
+          return { ...r, position: clamped };
+        });
+        return changed ? next : prev;
+      });
+    };
+
+    const ro = new ResizeObserver(() => {
+      reclampFree();
+    });
+    ro.observe(stage);
+    return () => ro.disconnect();
+  }, [clampPosition]);
+
   const startPrint = useCallback(
-    (ticket: CocktailRecipe) => {
+    (job: QueuedPrint): string => {
       printingRef.current = true;
       // Pure: create entity once outside any setState updater (Strict Mode safe)
       const nextZ = allocZ();
-      const entity = createReceiptEntity(ticket, nextZ);
+      const entity = createReceiptEntity(job.ticket, nextZ, {
+        characterId: job.characterId,
+        seatId: job.seatId,
+      });
       // Print only — do not steal selection / mat / active ticket (FS40)
       setReceipts((prev) => [...prev, entity]);
 
@@ -245,17 +331,20 @@ export function ReceiptProvider({
         releaseToFree(entity.instanceId, null);
       }, 1700);
       printTimeoutsRef.current.set(entity.instanceId, timeoutId);
+      return entity.instanceId;
     },
     [allocZ, releaseToFree]
   );
 
   const enqueueOrPrint = useCallback(
-    (ticket: CocktailRecipe) => {
+    (job: QueuedPrint): string | null => {
       if (printingRef.current) {
-        printQueueRef.current.push(ticket);
-        return;
+        printQueueRef.current.push(job);
+        // instanceId not known until dequeued — callers that need sync id
+        // should only print when idle; attached print prefers immediate start.
+        return null;
       }
-      startPrint(ticket);
+      return startPrint(job);
     },
     [startPrint]
   );
@@ -332,13 +421,63 @@ export function ReceiptProvider({
     };
   }, [getReceiptTotalRef, getReceiptTotal]);
 
+  const getReceiptAttachment = useCallback(
+    (instanceId: string): PatronReceiptMeta | null => {
+      const entity = receiptsRef.current.find((r) => r.instanceId === instanceId);
+      if (!entity?.characterId || !entity?.seatId) return null;
+      return { characterId: entity.characterId, seatId: entity.seatId };
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!getReceiptAttachmentRef) return;
+    getReceiptAttachmentRef.current = getReceiptAttachment;
+    return () => {
+      getReceiptAttachmentRef.current = null;
+    };
+  }, [getReceiptAttachmentRef, getReceiptAttachment]);
+
+  /** FS51: sit-complete print with character/seat attachment. Sync instanceId when not busy. */
+  const printAttachedTicket = useCallback(
+    (ticket: CocktailRecipe, meta: PatronReceiptMeta): string | null => {
+      // If printer busy, queue with meta; instanceId deferred (still prints without mat steal)
+      if (printingRef.current) {
+        printQueueRef.current.push({
+          ticket,
+          characterId: meta.characterId,
+          seatId: meta.seatId,
+        });
+        return null;
+      }
+      return startPrint({
+        ticket,
+        characterId: meta.characterId,
+        seatId: meta.seatId,
+      });
+    },
+    [startPrint]
+  );
+
+  useEffect(() => {
+    if (!printAttachedTicketRef) return;
+    printAttachedTicketRef.current = printAttachedTicket;
+    return () => {
+      printAttachedTicketRef.current = null;
+    };
+  }, [printAttachedTicketRef, printAttachedTicket]);
+
   const handleGenerate = useCallback(() => {
+    if (!onGenerate) {
+      showToast('NO RECIPES AVAILABLE');
+      return;
+    }
     const ticket = onGenerate();
     if (!ticket) {
       showToast('NO RECIPES AVAILABLE');
       return;
     }
-    enqueueOrPrint(ticket);
+    enqueueOrPrint({ ticket });
   }, [onGenerate, enqueueOrPrint, showToast]);
 
   const handleAnimationEnd = useCallback(

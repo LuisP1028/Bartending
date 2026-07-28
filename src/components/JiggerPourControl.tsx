@@ -93,8 +93,6 @@ export default function JiggerPourControl({
           className="jigger-pour-icon"
           /* Glyph sits ~x28–52, y20–64 in the 64×96 def — crop/center on ink */
           viewBox="22 16 36 54"
-          width="36"
-          height="48"
           preserveAspectRatio="xMidYMid meet"
           aria-hidden="true"
         >

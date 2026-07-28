@@ -1,15 +1,18 @@
 'use client';
 
 import React from 'react';
-import {
-  PRODUCT_MONEY_WIDTH_VW,
-  moneyPublicSrc,
-} from '@/lib/receipt/moneyFanout';
+import { moneyPublicSrc } from '@/lib/receipt/moneyFanout';
+import '@/app/receipt.css';
 
 export type MoneyFanoutVisualProps = {
   /** Face values from decomposeWholeDollars (largest-first). */
   denoms: number[];
   className?: string;
+  /**
+   * `stage` (default): stage-proportional CSS vars / cqi (on-ticket + stage flyby).
+   * `viewport`: product 15vw sandbox parity (money-fanout-test only).
+   */
+  sizeMode?: 'stage' | 'viewport';
 };
 
 /**
@@ -19,22 +22,20 @@ export type MoneyFanoutVisualProps = {
 export default function MoneyFanoutVisual({
   denoms,
   className,
+  sizeMode = 'stage',
 }: MoneyFanoutVisualProps) {
   if (!denoms.length) return null;
 
+  const rootClass = [
+    'receipt-money-fanout',
+    sizeMode === 'viewport' ? 'receipt-money-fanout--viewport' : '',
+    className ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div
-      className={className}
-      aria-hidden
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '8vw 4vw',
-        pointerEvents: 'none',
-      }}
-    >
+    <div className={rootClass} aria-hidden>
       {denoms.map((denom, index) => {
         const sign = index % 2 === 0 ? -1 : 1;
         const fanTilt = sign * (3 + (index % 3));
@@ -43,22 +44,14 @@ export default function MoneyFanoutVisual({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`fan-${index}-${denom}`}
+            className="receipt-money-bill"
             src={moneyPublicSrc(denom)}
             alt=""
             draggable={false}
             style={{
-              width: `${PRODUCT_MONEY_WIDTH_VW}vw`,
-              height: 'auto',
-              objectFit: 'contain',
-              display: 'block',
-              marginLeft: index === 0 ? 0 : '-10.5vw',
               transform: `rotate(${totalRotate}deg)`,
               transformOrigin: 'center center',
               zIndex: index + 1,
-              position: 'relative',
-              userSelect: 'none',
-              pointerEvents: 'none',
-              filter: 'drop-shadow(2px 4px 6px rgba(0,0,0,0.45))',
             }}
           />
         );

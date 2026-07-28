@@ -138,7 +138,7 @@ export default function MoneyFanoutTestPage() {
         {denoms.length === 0 ? (
           <p style={{ color: '#888', margin: 0 }}>(no bills — whole dollars = 0)</p>
         ) : (
-          <MoneyFanoutVisual denoms={denoms} />
+          <MoneyFanoutVisual denoms={denoms} sizeMode="viewport" />
         )}
       </section>
 

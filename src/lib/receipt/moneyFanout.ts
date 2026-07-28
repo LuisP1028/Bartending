@@ -3,7 +3,11 @@
  * Denominations: 500, 100, 50, 20, 10, 5, 1.
  */
 
-/** Product bill display width (% of viewport). Operator lock: 15vw. */
+/**
+ * Product bill width fraction (15% of reference box at design baseline).
+ * On-stage tickets use stage/paper-relative CSS (`--receipt-money-w` / cqi), not bare viewport vw.
+ * Sandbox (`sizeMode="viewport"`) may still render as 15vw for test parity.
+ */
 export const PRODUCT_MONEY_WIDTH_VW = 15;
 
 export const MONEY_DENOMS_DESC: readonly number[] = [

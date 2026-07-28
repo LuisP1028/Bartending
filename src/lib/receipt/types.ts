@@ -70,6 +70,10 @@ export type ReceiptEntity = {
   inMask: boolean;
   /** Success validate handoff — slide away then remove (FS37). */
   handoffExit?: boolean;
+  /** FS51: character id bound at sit-complete print; absent = legacy/unattached */
+  characterId?: string;
+  /** FS51: bar_seat_* id bound at sit-complete print */
+  seatId?: string;
 };
 
 export type CreateReceiptOptions = {
@@ -77,4 +81,8 @@ export type CreateReceiptOptions = {
   pricedOrder?: PricedOrder;
   /** Optional menu id → unit price (future menu JSON). */
   priceTable?: Record<string, number>;
+  /** FS51: character id bound at sit-complete print */
+  characterId?: string;
+  /** FS51: bar_seat_* id bound at sit-complete print */
+  seatId?: string;
 };

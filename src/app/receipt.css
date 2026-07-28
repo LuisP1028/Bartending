@@ -5,12 +5,26 @@
 .receipt-system {
   --printer-base: #4a4a4a;
   --printer-dark: #111111;
-  /* Scale factor for glow/chrome; stage hosts may override */
+  /* Fallback scale/footprint; stage host overrides on .receipt-system--pov (FS52) */
   --receipt-ui-scale: 1;
-  /* Standardized ticket footprint — always the same outer size */
-  --receipt-paper-w: min(260px, 28vw);
-  /* Fixed height: fits Obelisco stage; content scrolls inside (not content-driven) */
-  --receipt-paper-h: min(300px, 38vh);
+  --receipt-paper-w: 260px;
+  --receipt-paper-h: 300px;
+  --r-fs-xs: calc(12px * var(--receipt-ui-scale, 1));
+  --r-fs-sm: calc(13px * var(--receipt-ui-scale, 1));
+  --r-fs-md: calc(14px * var(--receipt-ui-scale, 1));
+  --r-fs-lg: calc(16px * var(--receipt-ui-scale, 1));
+  --r-fs-xl: calc(18px * var(--receipt-ui-scale, 1));
+  --r-fs-2xl: calc(21px * var(--receipt-ui-scale, 1));
+  --r-fs-3xl: calc(22px * var(--receipt-ui-scale, 1));
+  --r-pad-summary: calc(8px * var(--receipt-ui-scale, 1))
+    calc(10px * var(--receipt-ui-scale, 1)) calc(12px * var(--receipt-ui-scale, 1));
+  --r-pad-full: calc(10px * var(--receipt-ui-scale, 1))
+    calc(12px * var(--receipt-ui-scale, 1)) calc(14px * var(--receipt-ui-scale, 1));
+  /* On-paper money: 15% of stage inline size (stage tickets); clamp so bills fit paper */
+  --receipt-money-w: clamp(48px, 15cqi, 160px);
+  --receipt-money-overlap: clamp(-72px, -10.5cqi, -28px);
+  --receipt-money-pad-y: clamp(4px, 2cqi, 24px);
+  --receipt-money-pad-x: clamp(2px, 1cqi, 12px);
   font-family: var(--font-receipt), 'VT323', monospace;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -22,7 +36,7 @@
   box-sizing: border-box;
 }
 
-/* Full-stage overlay host inside Obelisco POV */
+/* Full-stage overlay host inside Obelisco POV — stage-proportional tokens (FS52) */
 .receipt-system--pov {
   position: absolute;
   inset: 0;
@@ -32,6 +46,11 @@
   background: transparent;
   border: none;
   overflow: visible;
+  /* Paper ~21.96% stage W / ~34.09% stage H; chrome scale tracks stage width */
+  --receipt-paper-w: clamp(140px, 21.96cqi, 260px);
+  --receipt-paper-h: clamp(160px, 34.09cqb, 300px);
+  /* Unitless: length÷length. clamp(number, cqi, number) is invalid. */
+  --receipt-ui-scale: clamp(0.54, calc(100cqi / 1184px), 1);
 }
 
 /* Inspected Full face may paint above stage chrome; host raises stacking */
@@ -50,13 +69,13 @@
   overflow: visible;
 }
 
-/* Printer cluster — top-right, width tracks paper */
+/* Printer cluster — top-right, width tracks paper; chrome scales with stage (FS52) */
 .receipt-hardware-cluster {
   position: absolute;
-  top: 6px;
-  right: 8px;
-  width: calc(var(--receipt-paper-w) + 20px);
-  height: 52px;
+  top: calc(6px * var(--receipt-ui-scale, 1));
+  right: calc(8px * var(--receipt-ui-scale, 1));
+  width: calc(var(--receipt-paper-w) + 20px * var(--receipt-ui-scale, 1));
+  height: calc(52px * var(--receipt-ui-scale, 1));
   z-index: 1000;
   pointer-events: none;
 }
@@ -68,44 +87,47 @@
   width: 100%;
   height: 100%;
   background: #222;
-  border: 3px solid #000;
+  border: max(1px, calc(3px * var(--receipt-ui-scale, 1))) solid #000;
   border-bottom: none;
-  border-radius: 3px 3px 0 0;
-  box-shadow: 0px 4px 0px rgba(0, 0, 0, 0.5);
+  border-radius: max(2px, calc(3px * var(--receipt-ui-scale, 1)))
+    max(2px, calc(3px * var(--receipt-ui-scale, 1))) 0 0;
+  box-shadow: 0 calc(4px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.5);
 }
 
 .receipt-printer-bezel {
   position: absolute;
-  top: 6px;
+  top: calc(6px * var(--receipt-ui-scale, 1));
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  height: 42px;
+  height: calc(42px * var(--receipt-ui-scale, 1));
   background-color: var(--printer-base);
-  border: 3px solid var(--printer-dark);
+  border: max(1px, calc(3px * var(--receipt-ui-scale, 1))) solid var(--printer-dark);
   border-bottom: none;
-  border-radius: 3px 3px 0 0;
+  border-radius: max(2px, calc(3px * var(--receipt-ui-scale, 1)))
+    max(2px, calc(3px * var(--receipt-ui-scale, 1))) 0 0;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  padding-bottom: 8px;
+  padding-bottom: calc(8px * var(--receipt-ui-scale, 1));
   box-shadow:
-    inset 0px -3px 0px rgba(0, 0, 0, 0.3),
-    0px 4px 0px rgba(0, 0, 0, 0.45);
+    inset 0 calc(-3px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.3),
+    0 calc(4px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.45);
 }
 
 .receipt-printer-slot {
   width: 92%;
-  height: 6px;
+  height: max(3px, calc(6px * var(--receipt-ui-scale, 1)));
   background-color: #000;
-  box-shadow: inset 0px 3px 4px rgba(0, 0, 0, 1);
+  box-shadow: inset 0 calc(3px * var(--receipt-ui-scale, 1))
+    calc(4px * var(--receipt-ui-scale, 1)) rgba(0, 0, 0, 1);
 }
 
 /* Clip mask under top-right slot — matches standard paper height */
 .receipt-printer-mask {
   position: absolute;
-  top: 52px;
-  right: 8px;
+  top: calc(52px * var(--receipt-ui-scale, 1));
+  right: calc(8px * var(--receipt-ui-scale, 1));
   width: var(--receipt-paper-w);
   height: var(--receipt-paper-h);
   overflow: hidden;
@@ -207,7 +229,10 @@
   max-height: none;
   --paper-bg: #f4f4f0;
   --ink-color: #1a1a1a;
-  filter: drop-shadow(5px 5px 0px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(
+    calc(5px * var(--receipt-ui-scale, 1)) calc(5px * var(--receipt-ui-scale, 1)) 0
+      rgba(0, 0, 0, 0.5)
+  );
   pointer-events: auto;
   transform-origin: top center;
   cursor: grab;
@@ -296,9 +321,9 @@
   width: 100%;
   background-color: var(--paper-bg);
   color: var(--ink-color);
-  padding: 10px 12px 14px 12px;
+  padding: var(--r-pad-full);
   position: relative;
-  font-size: 16px;
+  font-size: var(--r-fs-lg);
   line-height: 1.12;
   box-sizing: border-box;
   /* Scroll without visible scrollbar (keeps thermal aesthetic) */
@@ -317,8 +342,8 @@
   height: auto;
   max-height: none;
   overflow: visible;
-  padding: 8px 10px 12px 10px;
-  font-size: 14px;
+  padding: var(--r-pad-summary);
+  font-size: var(--r-fs-md);
 }
 
 /* Full (Inspect): bounded + internal scroll */
@@ -329,24 +354,24 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  padding: 10px 12px 14px 12px;
-  font-size: 16px;
+  padding: var(--r-pad-full);
+  font-size: var(--r-fs-lg);
 }
 
 .receipt-paper--summary .r-header--summary {
-  margin-bottom: 3px;
+  margin-bottom: calc(3px * var(--receipt-ui-scale, 1));
 }
 
 .receipt-paper--summary .r-title--summary {
-  font-size: 16px;
-  margin-bottom: 1px;
+  font-size: var(--r-fs-lg);
+  margin-bottom: calc(1px * var(--receipt-ui-scale, 1));
 }
 
 .r-summary-name {
-  font-size: 18px;
+  font-size: var(--r-fs-xl);
   font-weight: bold;
   text-transform: uppercase;
-  margin: 2px 0 4px 0;
+  margin: calc(2px * var(--receipt-ui-scale, 1)) 0 calc(4px * var(--receipt-ui-scale, 1)) 0;
   line-height: 1.1;
   word-break: break-word;
 }
@@ -355,9 +380,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
-  margin-bottom: 2px;
+  gap: calc(8px * var(--receipt-ui-scale, 1));
+  font-size: var(--r-fs-sm);
+  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
 }
 
 .r-summary-row > span:first-child {
@@ -379,44 +404,45 @@
 }
 
 .r-summary-ings {
-  font-size: 12px;
+  font-size: var(--r-fs-xs);
   opacity: 0.9;
-  margin: 2px 0 4px 0;
+  margin: calc(2px * var(--receipt-ui-scale, 1)) 0 calc(4px * var(--receipt-ui-scale, 1)) 0;
   line-height: 1.15;
 }
 
 .r-total--summary {
-  font-size: 18px;
-  margin-top: 2px;
+  font-size: var(--r-fs-xl);
+  margin-top: calc(2px * var(--receipt-ui-scale, 1));
 }
 
 /* Jagged edge fixed on outer shell (does not scroll away with content) */
 .receipt-wrapper:not(.state-crumpled)::after {
   content: '';
   position: absolute;
-  bottom: -7px;
+  bottom: calc(-7px * var(--receipt-ui-scale, 1));
   left: 0;
   width: 100%;
-  height: 7px;
+  height: calc(7px * var(--receipt-ui-scale, 1));
   background-image: var(--jagged-svg);
   background-repeat: repeat-x;
-  background-size: 7px 7px;
+  background-size: calc(7px * var(--receipt-ui-scale, 1))
+    calc(7px * var(--receipt-ui-scale, 1));
   pointer-events: none;
   z-index: 2;
 }
 
 .r-header {
   text-align: center;
-  margin-bottom: 5px;
+  margin-bottom: calc(5px * var(--receipt-ui-scale, 1));
 }
 
 /* Full-face brand mark (Obelisco logo #2) — replaces text "DITHER-OS LOUNGE" */
 .r-logo {
   display: block;
   width: 88%;
-  max-width: 220px;
+  max-width: calc(220px * var(--receipt-ui-scale, 1));
   height: auto;
-  margin: 2px auto 6px;
+  margin: calc(2px * var(--receipt-ui-scale, 1)) auto calc(6px * var(--receipt-ui-scale, 1));
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -425,15 +451,15 @@
 }
 
 .r-title {
-  font-size: 21px;
+  font-size: var(--r-fs-2xl);
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
   line-height: 1.05;
 }
 
 .r-divider {
-  border-top: 2px dashed var(--ink-color);
-  margin: 5px 0;
+  border-top: max(1px, calc(2px * var(--receipt-ui-scale, 1))) dashed var(--ink-color);
+  margin: calc(5px * var(--receipt-ui-scale, 1)) 0;
 }
 
 /*
@@ -445,9 +471,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 2px;
-  font-size: 15px;
+  gap: calc(10px * var(--receipt-ui-scale, 1));
+  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
+  font-size: calc(15px * var(--receipt-ui-scale, 1));
   line-height: 1.15;
 }
 
@@ -486,49 +512,49 @@
 
 /* Header meta (CHK / date / time) — slightly under body */
 .r-line.r-meta {
-  font-size: 13px;
+  font-size: var(--r-fs-sm);
 }
 
 /* Commercial flavor — denser secondary */
 .r-line.r-commercial {
-  font-size: 13px;
+  font-size: var(--r-fs-sm);
   opacity: 0.85;
 }
 
 /* TOTAL emphasis */
 .r-line.r-total {
-  font-size: 22px;
+  font-size: var(--r-fs-3xl);
   font-weight: bold;
-  margin-top: 4px;
+  margin-top: calc(4px * var(--receipt-ui-scale, 1));
   margin-bottom: 0;
 }
 
 .r-footer {
   text-align: center;
-  margin-top: 6px;
+  margin-top: calc(6px * var(--receipt-ui-scale, 1));
   margin-bottom: 0;
-  font-size: 13px;
+  font-size: var(--r-fs-sm);
   line-height: 1.1;
 }
 
 .r-barcode-container {
   text-align: center;
-  margin-top: 6px;
+  margin-top: calc(6px * var(--receipt-ui-scale, 1));
 }
 
 .r-barcode {
   width: 100%;
   max-width: 100%;
-  height: 34px;
+  height: calc(34px * var(--receipt-ui-scale, 1));
   image-rendering: pixelated;
   display: block;
   margin: 0 auto;
 }
 
 .r-seed {
-  font-size: 12px;
-  letter-spacing: 1px;
-  margin-top: 2px;
+  font-size: var(--r-fs-xs);
+  letter-spacing: calc(1px * var(--receipt-ui-scale, 1));
+  margin-top: calc(2px * var(--receipt-ui-scale, 1));
   word-break: break-all;
   line-height: 1.1;
 }
@@ -539,9 +565,9 @@
   left: 50%;
   transform: translate(-50%, -50%) rotate(-15deg);
   color: #d32f2f;
-  border: 3px solid #d32f2f;
-  padding: 3px 8px;
-  font-size: 22px;
+  border: max(1px, calc(3px * var(--receipt-ui-scale, 1))) solid #d32f2f;
+  padding: calc(3px * var(--receipt-ui-scale, 1)) calc(8px * var(--receipt-ui-scale, 1));
+  font-size: var(--r-fs-3xl);
   font-weight: bold;
   opacity: 0.85;
   pointer-events: none;
@@ -549,10 +575,13 @@
 
 /* Wad is smaller than standard paper (physical exception) */
 .receipt-wrapper.state-crumpled {
-  width: 48px;
-  height: 48px;
+  width: calc(48px * var(--receipt-ui-scale, 1));
+  height: calc(48px * var(--receipt-ui-scale, 1));
   overflow: visible;
-  filter: drop-shadow(3px 3px 0px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(
+    calc(3px * var(--receipt-ui-scale, 1)) calc(3px * var(--receipt-ui-scale, 1)) 0
+      rgba(0, 0, 0, 0.45)
+  );
 }
 
 .receipt-wrapper.state-crumpled .receipt-paper {
@@ -569,8 +598,8 @@
 
 .crumpled-wad {
   display: none;
-  width: 48px;
-  height: 48px;
+  width: calc(48px * var(--receipt-ui-scale, 1));
+  height: calc(48px * var(--receipt-ui-scale, 1));
   background-image: var(--crumpled-svg);
   background-size: contain;
   background-repeat: no-repeat;
@@ -658,15 +687,57 @@
 
 .receipt-copy-toast {
   position: absolute;
-  top: 56px;
-  right: 8px;
+  top: calc(52px * var(--receipt-ui-scale, 1) + 4px * var(--receipt-ui-scale, 1));
+  right: calc(8px * var(--receipt-ui-scale, 1));
   background: #000;
   color: #0f0;
-  border: 2px solid #0f0;
-  padding: 4px 10px;
+  border: max(1px, calc(2px * var(--receipt-ui-scale, 1))) solid #0f0;
+  padding: calc(4px * var(--receipt-ui-scale, 1)) calc(10px * var(--receipt-ui-scale, 1));
   font-family: var(--font-receipt), 'VT323', monospace;
-  font-size: 13px;
+  font-size: var(--r-fs-sm);
   z-index: 2000;
   pointer-events: none;
   max-width: 50%;
+}
+
+/* On-paper money fanout — stage-proportional (FS52); not bare viewport vw */
+.receipt-money-fanout {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: var(--receipt-money-pad-y) var(--receipt-money-pad-x);
+  pointer-events: none;
+}
+
+.receipt-money-bill {
+  width: var(--receipt-money-w);
+  height: auto;
+  object-fit: contain;
+  display: block;
+  position: relative;
+  user-select: none;
+  pointer-events: none;
+  filter: drop-shadow(
+    calc(2px * var(--receipt-ui-scale, 1)) calc(4px * var(--receipt-ui-scale, 1))
+      calc(6px * var(--receipt-ui-scale, 1)) rgba(0, 0, 0, 0.45)
+  );
+}
+
+.receipt-money-bill + .receipt-money-bill {
+  margin-left: var(--receipt-money-overlap);
+}
+
+/* Sandbox / viewport mode (money-fanout-test) — keep product 15vw parity */
+.receipt-money-fanout--viewport {
+  padding: 8vw 4vw;
+}
+
+.receipt-money-fanout--viewport .receipt-money-bill {
+  width: 15vw;
+  filter: drop-shadow(2px 4px 6px rgba(0, 0, 0, 0.45));
+}
+
+.receipt-money-fanout--viewport .receipt-money-bill + .receipt-money-bill {
+  margin-left: -10.5vw;
 }
