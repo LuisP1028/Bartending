@@ -36,7 +36,7 @@
   box-sizing: border-box;
 }
 
-/* Full-stage overlay host inside Obelisco POV — FS60 coverage-capped hybrid */
+/* Full-stage overlay host — FS60 paper caps + FS61 cqi type (no px * scale) */
 .receipt-system--pov {
   position: absolute;
   inset: 0;
@@ -47,40 +47,35 @@
   border: none;
   overflow: visible;
   /*
-   * FS60 diegetic sizing (mobile-render-debug map):
-   * — Stage-proportional primary (cqi/cqb) as a single unitless clamp
-   *   (nested min/max vars break `Npx * var(--receipt-ui-scale)` in some engines)
-   * — Soft +0.05 boost via addition inside clamp, never pinned at 0.92 on tiny stages
-   * — HARD stage-coverage caps so chrome cannot occlude play
-   * Pure viewport floors without coverage caps are forbidden (FS59 overshoot).
-   */
-  --receipt-ui-scale: clamp(0.45, calc(100cqi / 1184px + 0.05), 1);
-  /*
-   * Paper width: design max 280; coverage cap 32% stage; soft floor under cap.
-   * Outer min ensures coverage wins over vw floors.
+   * FS60/61 diegetic sizing:
+   * — Paper W/H: stage coverage caps (playable)
+   * — Type/pad: clamp(...cqi...) so values always resolve (FS61)
+   * — Avoid calc(Npx * var(--receipt-ui-scale)) — drops in-engine
    */
   --receipt-paper-w: min(
     280px,
     calc(100cqi * 0.32),
     max(26cqi, min(50vw, 240px), 120px)
   );
-  /*
-   * Paper height token (mask / inspect bound): coverage cap 42% stage —
-   * must stay strictly below stage height (never raw 280px floor on ~290px stage).
-   */
   --receipt-paper-h: min(
     320px,
     calc(100cqb * 0.42),
     max(38cqb, min(42vh, 280px), 100px)
   );
-  /* Type floors track scale; lower absolute mins so dense phones fit paper */
-  --r-fs-xs: max(9px, calc(12px * var(--receipt-ui-scale, 1)));
-  --r-fs-sm: max(10px, calc(13px * var(--receipt-ui-scale, 1)));
-  --r-fs-md: max(11px, calc(14px * var(--receipt-ui-scale, 1)));
-  --r-fs-lg: max(12px, calc(16px * var(--receipt-ui-scale, 1)));
-  --r-fs-xl: max(13px, calc(18px * var(--receipt-ui-scale, 1)));
-  --r-fs-2xl: max(14px, calc(21px * var(--receipt-ui-scale, 1)));
-  --r-fs-3xl: max(15px, calc(22px * var(--receipt-ui-scale, 1)));
+  /* Stage-inline type — resolves on phone (not stuck at 16px) */
+  --r-fs-xs: clamp(8px, 2.2cqi, 12px);
+  --r-fs-sm: clamp(9px, 2.4cqi, 13px);
+  --r-fs-md: clamp(10px, 2.6cqi, 14px);
+  --r-fs-lg: clamp(11px, 2.9cqi, 16px);
+  --r-fs-xl: clamp(12px, 3.2cqi, 18px);
+  --r-fs-2xl: clamp(13px, 3.5cqi, 21px);
+  --r-fs-3xl: clamp(14px, 3.8cqi, 22px);
+  --r-pad-summary: clamp(4px, 1cqi, 10px) clamp(5px, 1.2cqi, 12px)
+    clamp(6px, 1.4cqi, 12px);
+  --r-pad-full: clamp(5px, 1.2cqi, 12px) clamp(6px, 1.4cqi, 14px)
+    clamp(7px, 1.6cqi, 14px);
+  /* Legacy token kept for any remaining consumers; prefer cqi lengths above */
+  --receipt-ui-scale: 1;
 }
 
 /* Inspected Full face may paint above stage chrome; host raises stacking */
@@ -99,14 +94,13 @@
   overflow: visible;
 }
 
-/* Printer cluster — top-right; non-zero box always (FS60 — was 0×0 when calc failed) */
+/* Printer cluster — top-right via resolved cqi/cqb insets (FS61) */
 .receipt-hardware-cluster {
   position: absolute;
-  top: max(4px, calc(6px * var(--receipt-ui-scale, 1)));
-  right: max(4px, calc(8px * var(--receipt-ui-scale, 1)));
-  /* Track paper + pad; height from stage cqb (scale multiply is unreliable with cqi ratios) */
+  top: clamp(4px, 1.2cqb, 10px);
+  right: clamp(4px, 1cqi, 12px);
   width: max(80px, calc(var(--receipt-paper-w) + 16px));
-  height: max(36px, min(52px, calc(100cqb * 0.075)));
+  height: max(36px, min(52px, 7.5cqb));
   z-index: 1000;
   pointer-events: none;
   min-height: 36px;
@@ -119,49 +113,46 @@
   width: 100%;
   height: 100%;
   background: #222;
-  border: max(1px, calc(3px * var(--receipt-ui-scale, 1))) solid #000;
+  border: clamp(1px, 0.35cqi, 3px) solid #000;
   border-bottom: none;
-  border-radius: max(2px, calc(3px * var(--receipt-ui-scale, 1)))
-    max(2px, calc(3px * var(--receipt-ui-scale, 1))) 0 0;
-  box-shadow: 0 calc(4px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.5);
+  border-radius: clamp(2px, 0.35cqi, 3px) clamp(2px, 0.35cqi, 3px) 0 0;
+  box-shadow: 0 clamp(2px, 0.5cqb, 4px) 0 rgba(0, 0, 0, 0.5);
 }
 
 .receipt-printer-bezel {
   position: absolute;
-  top: calc(6px * var(--receipt-ui-scale, 1));
+  top: clamp(4px, 1cqb, 8px);
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
-  height: calc(42px * var(--receipt-ui-scale, 1));
+  height: clamp(28px, 5.5cqb, 42px);
   background-color: var(--printer-base);
-  border: max(1px, calc(3px * var(--receipt-ui-scale, 1))) solid var(--printer-dark);
+  border: clamp(1px, 0.35cqi, 3px) solid var(--printer-dark);
   border-bottom: none;
-  border-radius: max(2px, calc(3px * var(--receipt-ui-scale, 1)))
-    max(2px, calc(3px * var(--receipt-ui-scale, 1))) 0 0;
+  border-radius: clamp(2px, 0.35cqi, 3px) clamp(2px, 0.35cqi, 3px) 0 0;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  padding-bottom: calc(8px * var(--receipt-ui-scale, 1));
+  padding-bottom: clamp(4px, 1cqb, 8px);
   box-shadow:
-    inset 0 calc(-3px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.3),
-    0 calc(4px * var(--receipt-ui-scale, 1)) 0 rgba(0, 0, 0, 0.45);
+    inset 0 clamp(-2px, -0.4cqb, -1px) 0 rgba(0, 0, 0, 0.3),
+    0 clamp(2px, 0.5cqb, 4px) 0 rgba(0, 0, 0, 0.45);
 }
 
 .receipt-printer-slot {
   width: 92%;
-  height: max(3px, calc(6px * var(--receipt-ui-scale, 1)));
+  height: clamp(3px, 0.8cqb, 6px);
   background-color: #000;
-  box-shadow: inset 0 calc(3px * var(--receipt-ui-scale, 1))
-    calc(4px * var(--receipt-ui-scale, 1)) rgba(0, 0, 0, 1);
+  box-shadow: inset 0 clamp(1px, 0.4cqb, 3px) clamp(2px, 0.5cqb, 4px) rgba(0, 0, 0, 1);
 }
 
-/* Clip mask under top-right slot — matches standard paper height */
+/* Clip mask under top-right slot — footprint matches print paper (FS61) */
 .receipt-printer-mask {
   position: absolute;
-  top: calc(52px * var(--receipt-ui-scale, 1));
-  right: calc(8px * var(--receipt-ui-scale, 1));
+  top: clamp(28px, 7cqb, 52px);
+  right: clamp(4px, 1cqi, 12px);
   width: var(--receipt-paper-w);
-  height: var(--receipt-paper-h);
+  height: min(var(--receipt-paper-h), 45cqb);
   overflow: hidden;
   pointer-events: none;
   z-index: 500;
@@ -269,8 +260,7 @@
   --paper-bg: #f4f4f0;
   --ink-color: #1a1a1a;
   filter: drop-shadow(
-    calc(5px * var(--receipt-ui-scale, 1)) calc(5px * var(--receipt-ui-scale, 1)) 0
-      rgba(0, 0, 0, 0.5)
+    clamp(2px, 0.6cqi, 5px) clamp(2px, 0.6cqi, 5px) 0 rgba(0, 0, 0, 0.5)
   );
   pointer-events: auto;
   transform-origin: top center;
@@ -282,11 +272,11 @@
 }
 
 /*
- * FS60 — free summary must not exceed stage-coverage budget (~28% stage H).
- * Narrow phone paper wraps text → content height would otherwise cover most of the stage.
+ * FS61 — free summary coverage vs integrity: denser type (cqi) + slightly higher
+ * free max-height so key fields fit; still under half-stage.
  */
 .receipt-wrapper:not(.state-inspected):not(.anim-printing):not(.receipt-wrapper--handoff-exit) {
-  max-height: min(var(--receipt-paper-h), calc(100cqb * 0.28));
+  max-height: min(var(--receipt-paper-h), 38cqb);
 }
 
 .receipt-wrapper:active {
@@ -302,33 +292,19 @@
 .receipt-wrapper.receipt-wrapper--active-order {
   /* Restate black drop-shadow + amber halos (filter replaces base filter) */
   filter: drop-shadow(
-      calc(5px * var(--receipt-ui-scale, 1))
-      calc(5px * var(--receipt-ui-scale, 1))
-      0
-      rgba(0, 0, 0, 0.5)
+      clamp(2px, 0.6cqi, 5px) clamp(2px, 0.6cqi, 5px) 0 rgba(0, 0, 0, 0.5)
     )
-    drop-shadow(
-      0 0 calc(8px * var(--receipt-ui-scale, 1))
-      rgba(255, 176, 0, 0.9)
-    )
-    drop-shadow(
-      0 0 calc(18px * var(--receipt-ui-scale, 1))
-      rgba(255, 176, 0, 0.55)
-    )
-    drop-shadow(
-      0 0 calc(28px * var(--receipt-ui-scale, 1))
-      rgba(255, 176, 0, 0.28)
-    );
-  /* Outline survives overflow:hidden on .state-inspected */
-  outline: max(2px, calc(2.5px * var(--receipt-ui-scale, 1))) solid
-    var(--glass-amber, #ffb000);
-  outline-offset: max(2px, calc(3px * var(--receipt-ui-scale, 1)));
+    drop-shadow(0 0 clamp(4px, 1cqi, 8px) rgba(255, 176, 0, 0.9))
+    drop-shadow(0 0 clamp(8px, 2cqi, 18px) rgba(255, 176, 0, 0.55))
+    drop-shadow(0 0 clamp(12px, 2.8cqi, 28px) rgba(255, 176, 0, 0.28));
+  outline: clamp(2px, 0.4cqi, 3px) solid var(--glass-amber, #ffb000);
+  outline-offset: clamp(2px, 0.45cqi, 4px);
 }
 
 /* Slightly stronger ring when inspected + active (still same order) */
 .receipt-wrapper.receipt-wrapper--active-order.state-inspected {
-  outline-width: max(2px, calc(3px * var(--receipt-ui-scale, 1)));
-  outline-offset: max(3px, calc(4px * var(--receipt-ui-scale, 1)));
+  outline-width: clamp(2px, 0.5cqi, 3px);
+  outline-offset: clamp(3px, 0.55cqi, 4px);
 }
 
 /* Success validate — ticket slides up and fades (FS37) */
@@ -349,9 +325,19 @@
 }
 
 .receipt-wrapper.anim-printing {
+  /* FS61: stay inside printer mask footprint during unroll */
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
   animation: receipt-unroll 1.5s steps(24, end) forwards;
   cursor: default;
   pointer-events: none;
+}
+
+.receipt-printer-mask .receipt-wrapper.anim-printing .receipt-paper--summary {
+  max-height: 100%;
+  overflow: hidden;
 }
 
 @keyframes receipt-unroll {
@@ -407,20 +393,20 @@
 }
 
 .receipt-paper--summary .r-header--summary {
-  margin-bottom: calc(3px * var(--receipt-ui-scale, 1));
+  margin-bottom: clamp(1px, 0.4cqi, 3px);
 }
 
 .receipt-paper--summary .r-title--summary {
   font-size: var(--r-fs-lg);
-  margin-bottom: calc(1px * var(--receipt-ui-scale, 1));
+  margin-bottom: clamp(0px, 0.2cqi, 2px);
 }
 
 .r-summary-name {
   font-size: var(--r-fs-xl);
   font-weight: bold;
   text-transform: uppercase;
-  margin: calc(2px * var(--receipt-ui-scale, 1)) 0 calc(4px * var(--receipt-ui-scale, 1)) 0;
-  line-height: 1.1;
+  margin: clamp(1px, 0.35cqi, 3px) 0 clamp(2px, 0.5cqi, 4px) 0;
+  line-height: 1.08;
   word-break: break-word;
 }
 
@@ -430,10 +416,10 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  gap: calc(2px * var(--receipt-ui-scale, 1));
+  gap: clamp(1px, 0.3cqi, 2px);
   font-size: var(--r-fs-sm);
-  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
-  line-height: 1.2;
+  margin-bottom: clamp(1px, 0.3cqi, 2px);
+  line-height: 1.15;
 }
 
 .r-summary-vessel {
@@ -458,43 +444,42 @@
 .r-summary-ings {
   font-size: var(--r-fs-xs);
   opacity: 0.9;
-  margin: calc(2px * var(--receipt-ui-scale, 1)) 0 calc(4px * var(--receipt-ui-scale, 1)) 0;
-  line-height: 1.15;
+  margin: clamp(1px, 0.3cqi, 2px) 0 clamp(2px, 0.5cqi, 4px) 0;
+  line-height: 1.12;
 }
 
 .r-total--summary {
   font-size: var(--r-fs-xl);
-  margin-top: calc(2px * var(--receipt-ui-scale, 1));
+  margin-top: clamp(1px, 0.3cqi, 3px);
 }
 
 /* Jagged edge fixed on outer shell (does not scroll away with content) */
 .receipt-wrapper:not(.state-crumpled)::after {
   content: '';
   position: absolute;
-  bottom: calc(-7px * var(--receipt-ui-scale, 1));
+  bottom: clamp(-8px, -1cqi, -4px);
   left: 0;
   width: 100%;
-  height: calc(7px * var(--receipt-ui-scale, 1));
+  height: clamp(4px, 1cqi, 7px);
   background-image: var(--jagged-svg);
   background-repeat: repeat-x;
-  background-size: calc(7px * var(--receipt-ui-scale, 1))
-    calc(7px * var(--receipt-ui-scale, 1));
+  background-size: clamp(4px, 1cqi, 7px) clamp(4px, 1cqi, 7px);
   pointer-events: none;
   z-index: 2;
 }
 
 .r-header {
   text-align: center;
-  margin-bottom: calc(5px * var(--receipt-ui-scale, 1));
+  margin-bottom: clamp(2px, 0.7cqi, 5px);
 }
 
 /* Full-face brand mark (Obelisco logo #2) — replaces text "DITHER-OS LOUNGE" */
 .r-logo {
   display: block;
   width: 88%;
-  max-width: calc(220px * var(--receipt-ui-scale, 1));
+  max-width: min(88%, 28cqi, 220px);
   height: auto;
-  margin: calc(2px * var(--receipt-ui-scale, 1)) auto calc(6px * var(--receipt-ui-scale, 1));
+  margin: clamp(1px, 0.3cqi, 3px) auto clamp(3px, 0.8cqi, 6px);
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -505,13 +490,13 @@
 .r-title {
   font-size: var(--r-fs-2xl);
   text-transform: uppercase;
-  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
+  margin-bottom: clamp(1px, 0.3cqi, 2px);
   line-height: 1.05;
 }
 
 .r-divider {
-  border-top: max(1px, calc(2px * var(--receipt-ui-scale, 1))) dashed var(--ink-color);
-  margin: calc(5px * var(--receipt-ui-scale, 1)) 0;
+  border-top: clamp(1px, 0.3cqi, 2px) dashed var(--ink-color);
+  margin: clamp(2px, 0.7cqi, 5px) 0;
 }
 
 /*
@@ -523,9 +508,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: calc(10px * var(--receipt-ui-scale, 1));
-  margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
-  font-size: calc(15px * var(--receipt-ui-scale, 1));
+  gap: clamp(4px, 1.2cqi, 10px);
+  margin-bottom: clamp(1px, 0.3cqi, 3px);
+  font-size: var(--r-fs-md);
   line-height: 1.15;
 }
 

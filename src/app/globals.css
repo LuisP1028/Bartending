@@ -1257,12 +1257,10 @@ body {
 }
 
 /*
- * Japanese jigger — FS60 stage-coverage-capped hybrid.
- * Stage-proportional primary; soft boost; hard caps ≤12% W / ≤18% H of stage.
+ * Japanese jigger — FS60 closed caps + FS61 open panel via cqi/cqb only.
+ * Avoid `Npx * var(--jigger-ui-scale)` — those declarations drop in-engine.
  */
 .jigger-pour-control {
-    /* Single unitless clamp so `Npx * var(--jigger-ui-scale)` resolves reliably */
-    --jigger-ui-scale: clamp(0.45, calc(100cqi / 1184px + 0.05), 1);
     position: absolute;
     right: clamp(4px, 1.35cqi, 16px);
     bottom: clamp(4px, 1.35cqi, 16px);
@@ -1278,27 +1276,19 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: calc(2px * var(--jigger-ui-scale, 1));
-    /* Coverage caps win over soft touch floors (FS60) */
-    min-width: min(
-        calc(100cqi * 0.12),
-        max(calc(64px * var(--jigger-ui-scale, 1)), min(44px, calc(100cqi * 0.12)))
-    );
-    min-height: min(
-        calc(100cqb * 0.18),
-        max(calc(56px * var(--jigger-ui-scale, 1)), min(44px, calc(100cqb * 0.18)))
-    );
-    max-width: calc(100cqi * 0.12);
-    max-height: calc(100cqb * 0.18);
-    padding: calc(4px * var(--jigger-ui-scale, 1)) calc(6px * var(--jigger-ui-scale, 1))
-        calc(6px * var(--jigger-ui-scale, 1));
+    gap: clamp(1px, 0.4cqi, 3px);
+    /* FS60 coverage caps ≤12% W / ≤18% H of stage */
+    min-width: min(12cqi, max(44px, 8cqi));
+    min-height: min(18cqb, max(44px, 10cqb));
+    max-width: 12cqi;
+    max-height: 18cqb;
+    padding: clamp(3px, 0.9cqi, 8px) clamp(4px, 1.1cqi, 8px) clamp(4px, 1.1cqi, 8px);
     box-sizing: border-box;
     overflow: hidden;
     cursor: pointer;
     color: #ffe08a;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     line-height: 1.1;
-    /* Light frosted glass + soft top glow */
     background:
         radial-gradient(ellipse 120% 80% at 50% -10%, rgba(255, 210, 80, 0.35) 0%, transparent 55%),
         linear-gradient(
@@ -1310,14 +1300,13 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.28);
     border-top-color: rgba(255, 240, 180, 0.55);
     box-shadow:
-        0 0 calc(24px * var(--jigger-ui-scale, 1)) rgba(255, 190, 40, 0.18),
-        0 calc(4px * var(--jigger-ui-scale, 1)) calc(20px * var(--jigger-ui-scale, 1))
-            rgba(0, 0, 0, 0.25),
+        0 0 clamp(8px, 2cqi, 24px) rgba(255, 190, 40, 0.18),
+        0 clamp(2px, 0.5cqi, 4px) clamp(8px, 2cqi, 20px) rgba(0, 0, 0, 0.25),
         inset 0 1px 0 rgba(255, 255, 255, 0.45),
         inset 0 -1px 0 rgba(0, 0, 0, 0.12);
     backdrop-filter: blur(18px) saturate(1.5);
     -webkit-backdrop-filter: blur(18px) saturate(1.5);
-    border-radius: max(2px, calc(4px * var(--jigger-ui-scale, 1)));
+    border-radius: clamp(2px, 0.5cqi, 4px);
 }
 
 .jigger-pour-trigger:hover,
@@ -1333,57 +1322,54 @@ body {
     border-color: rgba(255, 230, 150, 0.55);
     color: #ffe9a8;
     box-shadow:
-        0 0 calc(28px * var(--jigger-ui-scale, 1)) rgba(255, 200, 60, 0.28),
-        0 calc(4px * var(--jigger-ui-scale, 1)) calc(20px * var(--jigger-ui-scale, 1))
-            rgba(0, 0, 0, 0.28),
+        0 0 clamp(10px, 2.4cqi, 28px) rgba(255, 200, 60, 0.28),
+        0 clamp(2px, 0.5cqi, 4px) clamp(8px, 2cqi, 20px) rgba(0, 0, 0, 0.28),
         inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
-/* Matched internals — scale with stage; no absolute floors that ignore stage (FS60) */
 .jigger-pour-icon {
     display: block;
     margin: 0 auto;
-    width: min(calc(36px * var(--jigger-ui-scale, 1)), calc(100cqi * 0.07));
-    height: min(calc(48px * var(--jigger-ui-scale, 1)), calc(100cqb * 0.1));
+    width: min(7cqi, 36px);
+    height: min(10cqb, 48px);
     flex-shrink: 1;
     image-rendering: pixelated;
-    filter: drop-shadow(
-        0 0 calc(6px * var(--jigger-ui-scale, 1)) rgba(255, 200, 80, 0.35)
-    );
+    filter: drop-shadow(0 0 clamp(2px, 0.6cqi, 6px) rgba(255, 200, 80, 0.35));
 }
 
 .jigger-pour-caption {
-    font-size: max(8px, calc(9px * var(--jigger-ui-scale, 1)));
+    font-size: clamp(8px, 2.2cqi, 11px);
     font-weight: 700;
     letter-spacing: 0.06em;
-    text-shadow: 0 0 calc(8px * var(--jigger-ui-scale, 1)) rgba(255, 200, 60, 0.45),
+    text-shadow:
+        0 0 clamp(3px, 0.8cqi, 8px) rgba(255, 200, 60, 0.45),
         0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .jigger-pour-current {
-    font-size: max(9px, calc(10px * var(--jigger-ui-scale, 1)));
+    font-size: clamp(9px, 2.4cqi, 12px);
     color: rgba(255, 255, 255, 0.92);
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+/* FS61 — open volume panel: stage cqi/cqb only (no px * scale) */
 .jigger-pour-panel {
     position: absolute;
     right: 0;
-    bottom: calc(100% + 8px * var(--jigger-ui-scale, 1));
-    /* Stage-capped panel — no large vw floors that dominate tiny stages (FS60) */
-    min-width: min(calc(148px * var(--jigger-ui-scale, 1)), calc(100cqi * 0.4), 160px);
-    width: max-content;
-    max-width: min(240px, calc(100cqi * 0.45), 56vw);
-    max-height: min(50cqb, 240px);
+    bottom: calc(100% + clamp(4px, 1cqi, 10px));
+    width: min(36cqi, 52vw, 200px);
+    max-width: min(36cqi, 52vw, 200px);
+    max-height: min(40cqb, 200px);
+    min-width: 0;
+    overflow-x: hidden;
     overflow-y: auto;
-    padding: calc(10px * var(--jigger-ui-scale, 1)) calc(8px * var(--jigger-ui-scale, 1))
-        calc(8px * var(--jigger-ui-scale, 1));
+    padding: clamp(4px, 1.2cqi, 10px);
     display: flex;
     flex-direction: column;
-    gap: calc(6px * var(--jigger-ui-scale, 1));
+    gap: clamp(3px, 0.8cqi, 6px);
     box-sizing: border-box;
-    /* Soft frosted glass + warm top wash (ref status bar) */
+    z-index: 2;
     background:
         radial-gradient(ellipse 100% 55% at 50% 0%, rgba(255, 205, 60, 0.32) 0%, transparent 62%),
         linear-gradient(
@@ -1395,37 +1381,37 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-top-color: rgba(255, 235, 160, 0.5);
     box-shadow:
-        0 0 calc(32px * var(--jigger-ui-scale, 1)) rgba(255, 190, 40, 0.2),
-        0 calc(10px * var(--jigger-ui-scale, 1)) calc(32px * var(--jigger-ui-scale, 1))
-            rgba(0, 0, 0, 0.3),
+        0 0 clamp(10px, 2.5cqi, 24px) rgba(255, 190, 40, 0.2),
+        0 clamp(4px, 1cqi, 10px) clamp(10px, 2.5cqi, 24px) rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.4),
         inset 0 -1px 0 rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(22px) saturate(1.55);
     -webkit-backdrop-filter: blur(22px) saturate(1.55);
-    border-radius: max(2px, calc(6px * var(--jigger-ui-scale, 1)));
+    border-radius: clamp(2px, 0.6cqi, 6px);
 }
 
 .jigger-pour-panel-title {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: max(9px, calc(9px * var(--jigger-ui-scale, 1)));
+    font-size: clamp(8px, 2.4cqi, 12px);
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
     letter-spacing: 0.08em;
-    margin-bottom: calc(2px * var(--jigger-ui-scale, 1));
-    line-height: 1.35;
+    margin-bottom: clamp(1px, 0.3cqi, 3px);
+    line-height: 1.25;
     text-align: center;
     white-space: normal;
-    text-shadow: 0 0 calc(12px * var(--jigger-ui-scale, 1)) rgba(255, 200, 60, 0.55),
+    text-shadow:
+        0 0 clamp(4px, 1cqi, 10px) rgba(255, 200, 60, 0.55),
         0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .jigger-pour-option {
     width: 100%;
     box-sizing: border-box;
-    min-height: max(32px, calc(36px * var(--jigger-ui-scale, 1)));
-    padding: calc(8px * var(--jigger-ui-scale, 1)) calc(10px * var(--jigger-ui-scale, 1));
+    min-height: clamp(28px, 7cqb, 40px);
+    padding: clamp(4px, 1cqi, 8px) clamp(6px, 1.2cqi, 10px);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: max(11px, calc(12px * var(--jigger-ui-scale, 1)));
+    font-size: clamp(10px, 2.8cqi, 14px);
     font-weight: 600;
     text-align: center;
     cursor: pointer;
@@ -1439,7 +1425,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-top-color: rgba(255, 255, 255, 0.28);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    border-radius: max(2px, calc(3px * var(--jigger-ui-scale, 1)));
+    border-radius: clamp(2px, 0.4cqi, 3px);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
@@ -1454,7 +1440,7 @@ body {
     border-color: rgba(255, 220, 140, 0.4);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.3),
-        0 0 calc(10px * var(--jigger-ui-scale, 1)) rgba(255, 200, 80, 0.15);
+        0 0 clamp(4px, 1cqi, 10px) rgba(255, 200, 80, 0.15);
 }
 
 .jigger-pour-option--active {
@@ -1470,7 +1456,7 @@ body {
     border-top-color: rgba(255, 255, 255, 0.95);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.55),
-        0 0 calc(16px * var(--jigger-ui-scale, 1)) rgba(255, 200, 60, 0.45);
+        0 0 clamp(6px, 1.4cqi, 16px) rgba(255, 200, 60, 0.45);
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 

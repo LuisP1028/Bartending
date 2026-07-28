@@ -319,13 +319,24 @@ export function ReceiptProvider({
   const releaseToFree = useCallback(
     (instanceId: string, rect?: DOMRect | null) => {
       const stage = stageRef.current;
-      const scale = stageUiScale();
-      const releaseTop = Math.round(56 * scale);
-      const releaseInset = Math.round(8 * scale);
-      let pos = { left: Math.round(12 * scale), top: releaseTop };
+      // FS61: stage-fraction insets (avoid broken px * scale that disagreed with CSS)
+      const releaseTop = stage
+        ? Math.max(8, Math.round(stage.clientHeight * 0.06))
+        : 10;
+      const releaseInset = stage
+        ? Math.max(4, Math.round(stage.clientWidth * 0.015))
+        : 8;
+      let pos = { left: releaseInset, top: releaseTop };
       if (stage && rect) {
         const sRect = stage.getBoundingClientRect();
-        pos = clampPosition(rect.left - sRect.left, rect.top - sRect.top);
+        // Prefer painted rect, but clamp; if rect is left-stuck mid-print, snap top-right family
+        const fromRect = clampPosition(rect.left - sRect.left, rect.top - sRect.top);
+        const paperW = resolvePaperWidth();
+        const preferRight = stage.clientWidth - paperW - releaseInset;
+        const nearLeft = fromRect.left < stage.clientWidth * 0.15;
+        pos = nearLeft
+          ? clampPosition(preferRight, Math.min(fromRect.top, releaseTop))
+          : fromRect;
       } else if (stage) {
         const paperW = resolvePaperWidth();
         pos = clampPosition(stage.clientWidth - paperW - releaseInset, releaseTop);
@@ -354,7 +365,7 @@ export function ReceiptProvider({
         printTimeoutsRef.current.delete(instanceId);
       }
     },
-    [clampPosition, resolvePaperWidth, stageUiScale]
+    [clampPosition, resolvePaperWidth]
   );
 
   /** Keep free paper on-stage when stage box resizes (FS52 §7.3). */
