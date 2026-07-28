@@ -1,9 +1,10 @@
 /*
- * FS65 — Game Boy shell (baumannzone/gameboy-css adapted)
+ * FS65/FS66 — Game Boy shell (baumannzone/gameboy-css adapted)
  * Active only: coarse pointer + portrait + max-width 600px.
  * Desktop / landscape / wide tablets: pass-through (no chrome).
- * Buttons are decorative (pointer-events: none). No Nintendo branding.
- * Design art size: 422×697; LCD nest: 225×205 inside screen-cont 342×272.
+ * FS66: body layout-sizes to browser/slot (422∶697 contain) — no transform scale of fixed 422×697.
+ * Buttons decorative (pointer-events: none). No Nintendo branding.
+ * Design art ratio: 422×697; LCD nest fraction of body (was 225×205 in 342×272 well).
  */
 
 /* ── Default: layout pass-through (desktop, landscape, non-phone) ── */
@@ -105,7 +106,6 @@
   overflow: hidden;
 }
 
-/* Stage host fills playfield in all presentations */
 .gb-shell__playfield > .pov-shell-section {
   flex: 1 1 auto;
   min-height: 0;
@@ -124,7 +124,7 @@
     background: #0a0a0a;
   }
 
-  /* Compact outer chrome so shell gets vertical budget */
+  /* Compact outer chrome so shell slot gets vertical budget */
   .terminal-frame:has(.gb-shell-slot) .sys-header {
     padding-bottom: 0.1rem;
     margin-bottom: 0.15rem;
@@ -149,8 +149,8 @@
   }
 
   /*
-   * Slot = remaining column space; size container for cqw/cqh scale.
-   * Scaled art is position:absolute so 422×697 does not expand layout overflow.
+   * Slot = browser available content box (column between header and toolbar).
+   * Size container so body can use cqw/cqh as LAYOUT width/height (not transform).
    */
   .gb-shell-slot {
     flex: 1 1 auto;
@@ -158,7 +158,9 @@
     min-width: 0;
     width: 100%;
     position: relative;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     container-type: size;
     container-name: gb-shell-slot;
     overflow: hidden;
@@ -166,42 +168,69 @@
   }
 
   /*
-   * Fixed design-size body, uniformly scaled to fit slot.
-   * Transform is on the whole shell (stage included) so CQ/layout stay in art space
-   * and getBoundingClientRect / hit-testing follow the visual scale.
+   * FS66: pass-through host — fills slot, centers body. No fixed 422×697, no transform scale.
    */
   .gb-shell-scale {
-    position: absolute;
-    width: 422px;
-    height: 697px;
-    left: 50%;
-    top: 50%;
-    display: block;
-    transform: translate(-50%, -50%)
-      scale(min(calc(100cqw / 422), calc(100cqh / 697)));
-    transform-origin: center center;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transform: none;
   }
 
+  /*
+   * Body = largest 422∶697 rectangle fully inside the slot (browser-sized contain).
+   * Layout sizing only — no transform: scale(cq*).
+   */
   .gb-shell {
-    width: 422px;
-    height: 697px;
-    flex: none;
-    display: block;
     position: relative;
+    flex: 0 0 auto;
+    display: block;
     margin: 0;
+    box-sizing: border-box;
+    aspect-ratio: 422 / 697;
+    /*
+     * Largest 422∶697 box fully inside the slot (layout contain).
+     * Width drives size; height follows aspect-ratio. max-height caps
+     * height-limited slots; width recalculates via min() with cqh term.
+     */
+    width: min(100cqw, calc(100cqh * 422 / 697));
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
     background: #eee;
-    border-radius: 10px 10px 60px 10px;
-    box-shadow: 5px 5px rgba(0, 0, 0, 0.25);
+    border-radius: 2.37% 2.37% 8.61% 2.37%;
+    box-shadow: 0.7% 0.7% rgba(0, 0, 0, 0.25);
+    container-type: size;
+    container-name: gb-shell;
+    overflow: hidden;
+  }
+
+  /* Fallback when container query units unavailable */
+  @supports not (width: 1cqw) {
+    .gb-shell {
+      width: auto;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 422 / 697;
+    }
   }
 
   .gb-shell::before {
     display: block;
     content: "";
     position: absolute;
+    left: 0;
+    top: 0;
     width: 100%;
-    height: 31px;
-    border-bottom: 4px solid #e0e0e0;
+    height: 4.45%; /* 31/697 */
+    border-bottom: max(1px, 0.57%) solid #e0e0e0;
     pointer-events: none;
+    box-sizing: border-box;
   }
 
   .gb-shell::after {
@@ -209,107 +238,116 @@
     content: "";
     position: absolute;
     top: 0;
-    width: 334px;
-    height: 31px;
-    border-left: 4px solid #e0e0e0;
-    border-right: 4px solid #e0e0e0;
-    margin-left: 40px;
-    margin-right: 40px;
+    left: 9.48%; /* 40/422 */
+    width: 79.15%; /* 334/422 */
+    height: 4.45%;
+    border-left: max(1px, 0.95%) solid #e0e0e0;
+    border-right: max(1px, 0.95%) solid #e0e0e0;
+    margin: 0;
     pointer-events: none;
+    box-sizing: border-box;
   }
 
+  /* Screen housing — fractions of shell (design 40,60,342,272 on 422×697) */
   .gb-shell__screen-cont {
-    position: relative;
-    top: 60px;
-    left: 40px;
-    width: 342px;
-    height: 272px;
-    margin-bottom: 58px;
+    position: absolute;
+    top: 8.61%; /* 60/697 */
+    left: 9.48%; /* 40/422 */
+    width: 81.04%; /* 342/422 */
+    height: 39.02%; /* 272/697 */
+    margin: 0;
     flex: none;
     background-color: #777;
-    border-radius: 13px 13px 50px 13px;
+    border-radius: 3.8% 3.8% 14.6% 3.8%;
     display: block;
+    box-sizing: border-box;
   }
 
   .gb-shell__power {
     display: block;
     position: absolute;
-    width: 10px;
-    height: 10px;
-    top: 100px;
-    left: 20px;
+    width: 2.92%; /* 10/342 of cont ≈ use cont % */
+    height: 3.68%; /* 10/272 */
+    top: 36.76%; /* 100/272 */
+    left: 5.85%; /* 20/342 */
     border-radius: 100%;
     background-color: #f00;
-    box-shadow: 0 0 3px 1px #ef5350;
+    box-shadow: 0 0 0.9cqw 0.3cqw #ef5350;
     pointer-events: none;
   }
 
   .gb-shell__power::before {
     content: "BATTERY";
-    position: relative;
-    top: 18px;
-    left: -10px;
-    font-size: 8px;
+    position: absolute;
+    top: 160%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: max(5px, 1.9cqw);
     font-family: sans-serif;
     color: #b3b3b3;
+    white-space: nowrap;
   }
 
+  /* LCD — fractions of screen-cont (design 225×205, top 30 in 342×272) */
   .gb-shell__screen {
-    position: relative;
-    top: 30px;
-    margin-left: auto;
-    margin-right: auto;
-    width: 225px;
-    height: 205px;
+    position: absolute;
+    top: 11.03%; /* 30/272 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 65.79%; /* 225/342 */
+    height: 75.37%; /* 205/272 */
+    margin: 0;
     flex: none;
     background: #bdae58;
-    box-shadow: inset 3px 3px rgba(0, 0, 0, 0.15);
+    box-shadow: inset 0.9% 0.9% rgba(0, 0, 0, 0.15);
     display: block;
     overflow: hidden;
+    box-sizing: border-box;
   }
 
   .gb-shell__header {
     display: block;
     position: absolute;
-    top: -30px;
+    top: -14.63%; /* ~30/205 of screen height above LCD */
     left: 0;
     width: 100%;
-    height: 30px;
-    padding-top: 10px;
+    height: 14.63%;
+    padding-top: 3%;
     box-sizing: border-box;
     text-align: right;
-    font-size: 8px;
+    font-size: max(5px, 1.9cqw);
     font-family: sans-serif;
     color: #b3b3b3;
     letter-spacing: 0.02em;
     pointer-events: none;
     white-space: nowrap;
     z-index: 2;
+    overflow: visible;
   }
 
   .gb-shell__header::before {
     content: "";
     position: absolute;
-    left: -43px;
-    top: 12px;
-    width: 90px;
-    height: 3px;
+    left: -19%;
+    top: 40%;
+    width: 40%;
+    height: max(2px, 10%);
     background-color: #8b1d90;
-    box-shadow: 0 6px 0 #283593;
+    box-shadow: 0 max(2px, 0.9cqw) 0 #283593;
   }
 
   .gb-shell__header::after {
     content: "";
     position: absolute;
-    right: -46px;
-    top: 12px;
-    width: 38px;
-    height: 3px;
+    right: -20%;
+    top: 40%;
+    width: 17%;
+    height: max(2px, 10%);
     background-color: #8b1d90;
-    box-shadow: 0 6px 0 #283593;
+    box-shadow: 0 max(2px, 0.9cqw) 0 #283593;
   }
 
-  /* Nest: fill olive LCD; stage contain runs via .pov-shell-section CQ */
+  /* Nest: fill olive LCD; stage Pattern A contain inside */
   .gb-shell__playfield {
     position: absolute;
     inset: 0;
@@ -319,49 +357,54 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    /* Dark behind letterbox so olive only shows as letterbox bands if any;
-       stage usually covers width fully (width-limited contain). */
     background: #bdae58;
+    transform: none; /* do not inherit parent translate for hit targets */
   }
 
   .gb-shell__playfield > .pov-shell-section {
     width: 100%;
     height: 100%;
     flex: none;
-    /* Ensure CQ size is the 225×205 hole */
     container-type: size;
   }
 
-  /* Clip inspect overflow to LCD in shell mode (no spill over plastic) */
   .gb-shell__playfield .pov-stage--receipt-inspect {
     overflow: hidden;
   }
 
-  /* ── Decorative controls (unwired) ── */
+  /*
+   * Decorative controls — positioned as % of shell body (design coords / 422×697).
+   * controls-cont was margin-top 90 after screen block; absolute layout is clearer when fluid.
+   */
   .gb-shell__controls {
     display: block;
-    position: relative;
-    margin-top: 90px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
     pointer-events: none;
     user-select: none;
   }
 
+  /* D-pad cluster ~ left 40, roughly y after screen (~390–450 band) */
   .gb-shell__btn-direction {
-    position: relative;
-    margin-left: 40px;
-    top: 60px;
-    width: 90px;
-    height: 90px;
+    position: absolute;
+    left: 9.48%; /* 40/422 */
+    top: 55.95%; /* ~390/697 */
+    width: 21.33%; /* 90/422 */
+    height: 12.91%; /* 90/697 */
   }
 
   .gb-shell__btn-direction::before {
     content: "";
     position: absolute;
     z-index: 1;
-    top: 30px;
-    left: 30px;
-    width: 30px;
-    height: 30px;
+    top: 33.33%;
+    left: 33.33%;
+    width: 33.33%;
+    height: 33.33%;
     background-color: #353535;
     border-radius: 100%;
   }
@@ -369,85 +412,89 @@
   .gb-shell__btn-direction-v,
   .gb-shell__btn-direction-h {
     position: absolute;
-    left: 30px;
-    width: 30px;
-    height: 90px;
+    left: 33.33%;
+    top: 0;
+    width: 33.33%;
+    height: 100%;
     background: #444;
-    border-radius: 5px;
+    border-radius: 8%;
   }
 
   .gb-shell__btn-direction-h {
     transform: rotate(90deg);
   }
 
+  /* A/B plate design left 252 top ~392 relative shell */
   .gb-shell__btn-ab {
     position: absolute;
-    top: 72px;
-    left: 252px;
-    width: 130px;
-    height: 60px;
+    top: 54.52%; /* ~380/697 */
+    left: 59.72%; /* 252/422 */
+    width: 30.81%; /* 130/422 */
+    height: 8.61%; /* 60/697 */
     background: #dfdfdf;
-    border-radius: 30px;
+    border-radius: 50px;
     transform: rotate(-25deg);
   }
 
   .gb-shell__btn-ab::after {
     content: "";
     position: absolute;
-    top: 8px;
-    right: 9px;
-    width: 44px;
-    height: 44px;
+    top: 13%;
+    right: 7%;
+    width: 33.85%; /* 44/130 */
+    height: 73.33%; /* 44/60 */
     background: #a93671;
-    box-shadow: 68px 0 #a93671;
+    box-shadow: 52% 0 #a93671;
     border-radius: 100%;
     transform: rotate(180deg);
   }
 
+  /* Start/Select ~ left 140, top 515 */
   .gb-shell__btn-start-select {
     position: absolute;
-    top: 205px;
-    left: 140px;
-    height: 12px;
-    width: 60px;
+    top: 73.89%; /* ~515/697 */
+    left: 33.18%; /* 140/422 */
+    height: 1.72%; /* 12/697 */
+    width: 14.22%; /* 60/422 */
     background: #999;
     border-radius: 10px;
     transform: rotate(-25deg);
     box-shadow:
-      57px 27px #999,
-      0 0 0 5px #dfdfdf,
-      57px 27px 0 5px #dfdfdf;
+      13.5cqw 3.9cqw #999,
+      0 0 0 0.7cqw #dfdfdf,
+      13.5cqw 3.9cqw 0 0.7cqw #dfdfdf;
   }
 
   .gb-shell__speakers {
     display: block;
-    position: relative;
-    height: 70px;
-    width: 8px;
-    top: 260px;
-    left: 300px;
+    position: absolute;
+    height: 10.04%; /* 70/697 */
+    width: 1.9%; /* 8/422 */
+    top: 72.45%; /* ~505/697 */
+    left: 71.09%; /* 300/422 */
+    margin: 0;
     background: #ddd;
     border-radius: 4px;
     transform: rotate(-25deg);
     box-shadow:
-      20px 0 #ddd,
-      40px 0 #ddd,
-      60px 0 #ddd,
-      80px 0 #ddd,
-      100px 0 #ddd;
+      4.7cqw 0 #ddd,
+      9.5cqw 0 #ddd,
+      14.2cqw 0 #ddd,
+      19cqw 0 #ddd,
+      23.7cqw 0 #ddd;
     pointer-events: none;
   }
 
   .gb-shell__phones {
     display: block;
     position: absolute;
-    bottom: 4px;
+    bottom: 0.57%;
     left: 50%;
-    padding: 3px 5px;
+    padding: 0.4% 1.2%;
     transform: translateX(-50%);
     color: #dadada;
     background-color: #e8e8e8;
-    font-size: 8px;
+    font-size: max(5px, 1.9cqw);
     font-family: sans-serif;
     text-transform: uppercase;
     border-radius: 30px;
@@ -457,60 +504,61 @@
   .gb-shell__phones::before {
     content: "";
     position: absolute;
-    width: 15px;
-    height: 5px;
-    bottom: -4px;
+    width: 40%;
+    height: 40%;
+    bottom: -35%;
     background-color: #e8e8e8;
-    left: 9px;
+    left: 30%;
   }
 
   .gb-shell__phones::after {
     content: "";
     position: absolute;
-    width: 3px;
-    height: 5px;
-    bottom: -4px;
-    left: 12px;
+    width: 8%;
+    height: 40%;
+    bottom: -35%;
+    left: 40%;
     background-color: #ddd;
-    box-shadow: 5px 0 #ddd;
+    box-shadow: 0.7cqw 0 #ddd;
     border-radius: 4px 4px 0 0;
   }
 
   .gb-shell__on-off {
     display: block;
     position: absolute;
-    top: 2px;
+    top: 0.29%;
     left: 20%;
-    padding: 3px 5px;
+    padding: 0.4% 1.2%;
     transform: translateX(-50%);
     color: #dadada;
     background-color: #e8e8e8;
-    font-size: 8px;
+    font-size: max(5px, 1.9cqw);
     font-family: sans-serif;
     text-transform: uppercase;
     border-radius: 30px;
     pointer-events: none;
+    z-index: 2;
   }
 
   .gb-shell__on-off::before {
     content: "";
     position: absolute;
-    width: 15px;
-    height: 5px;
-    top: -2px;
+    width: 40%;
+    height: 40%;
+    top: -30%;
     background-color: #e8e8e8;
-    left: 6px;
+    left: 25%;
   }
 
   .gb-shell__on-off::after {
     content: "";
     position: absolute;
-    width: 3px;
-    height: 5px;
-    top: -2px;
-    left: 9px;
+    width: 8%;
+    height: 40%;
+    top: -30%;
+    left: 35%;
     background-color: #ddd;
-    box-shadow: 5px 0 #ddd;
+    box-shadow: 0.7cqw 0 #ddd;
     border-radius: 0 0 3px 3px;
   }
 }
