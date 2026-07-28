@@ -826,6 +826,15 @@ body {
     height: 100%;
     z-index: 15;
     pointer-events: none;
+    /* Pair with preserveAspectRatio="none" on the element when stage is non-uniformly filled */
+    overflow: hidden;
+}
+
+/* FS70b: shell playfield stretch — keep SVG path mapping = full stage box (no meet letterbox) */
+.gb-shell__playfield .pov-hotspot-svg {
+    /* attribute preserveAspectRatio="none" is authoritative; ensure box fills stage */
+    width: 100%;
+    height: 100%;
 }
 
 /* Patron placement editor (path / size — HOTSPOT EDIT analogue) */

@@ -426,6 +426,18 @@
     display: block;
   }
 
+  /*
+   * FS70b: co-register hotspots with stretched art.
+   * SVG default meet letterboxed paths while img filled → carousels opened off-zone.
+   * preserveAspectRatio="none" is set on the SVG in page.tsx; force full-box paint.
+   */
+  .gb-shell__playfield .pov-hotspot-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   .gb-shell__playfield .pov-stage--receipt-inspect {
     overflow: hidden;
   }

@@ -1060,6 +1060,9 @@ export default function Home() {
                           <svg
                             className="pov-hotspot-svg"
                             viewBox="0 0 1184 880"
+                            /* FS70b: match shell playfield stretch (img object-fit:fill).
+                               Default SVG "meet" letterboxed paths while art filled → hotspots drifted. */
+                            preserveAspectRatio="none"
                             style={{
                               position: 'absolute',
                               inset: 0,
