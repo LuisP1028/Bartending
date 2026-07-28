@@ -390,47 +390,48 @@
     z-index: 2;
   }
 
+  /*
+   * FS73 — Stage COVERS playfield (no black bands) with uniform 1184∶880 scale
+   * so bar art, hotspots, carousels, vessel, patrons stay co-registered.
+   * Non-uniform stretch (FS70) desynced SVG meet from object-fit:fill; cover avoids that.
+   */
   .gb-shell__playfield > .pov-shell-section {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     flex: none;
     min-height: 0;
     min-width: 0;
     container-type: size;
+    container-name: gb-playfield-section;
     display: flex;
-    align-items: stretch;
-    justify-content: stretch;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
 
-  /*
-   * FS70 — Fill housing playfield (no letterbox black bands inside bezel).
-   * Stretch stage box to 100% of nest; all hotspots/receipts share the same
-   * transformed box so hit-testing stays consistent. Shell-scoped only.
-   */
   .gb-shell__playfield .pov-stage {
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
-    /* Override globals Pattern A 1184∶880 contain */
-    aspect-ratio: auto;
-    flex: 1 1 auto;
+    position: relative;
+    flex: 0 0 auto;
+    aspect-ratio: 1184 / 880;
+    /* Cover nest: largest 1184∶880 that fully covers the playfield section */
+    width: max(100cqw, calc(100cqh * 1184 / 880));
+    height: max(100cqh, calc(100cqw * 880 / 1184));
+    max-width: none;
+    max-height: none;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
   }
 
   .gb-shell__playfield .pov-stage > img {
     width: 100%;
     height: 100%;
-    object-fit: fill;
+    object-fit: fill; /* stage box already 1184∶880 — no non-uniform vs viewBox */
     display: block;
   }
 
-  /*
-   * FS70b: co-register hotspots with stretched art.
-   * SVG default meet letterboxed paths while img filled → carousels opened off-zone.
-   * preserveAspectRatio="none" is set on the SVG in page.tsx; force full-box paint.
-   */
   .gb-shell__playfield .pov-hotspot-svg {
     position: absolute;
     inset: 0;
