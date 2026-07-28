@@ -1227,7 +1227,8 @@ body {
 /* Japanese jigger pour volume — frosted glass; stage-proportional (FS52) */
 .jigger-pour-control {
     /* Unitless scale: length÷length. clamp(0.54, 100cqi/1184, 1) is invalid (mixed types). */
-    --jigger-ui-scale: clamp(0.54, calc(100cqi / 1184px), 1);
+    /* FS57: raised touch floor (was 0.54 → ~35px trigger; 0.78 → ~50px class) */
+    --jigger-ui-scale: clamp(0.78, calc(100cqi / 1184px), 1);
     position: absolute;
     right: clamp(6px, 1.35cqi, 16px);
     bottom: clamp(6px, 1.35cqi, 16px);
@@ -1371,6 +1372,7 @@ body {
 .jigger-pour-option {
     width: 100%;
     box-sizing: border-box;
+    min-height: max(36px, calc(36px * var(--jigger-ui-scale, 1)));
     padding: calc(8px * var(--jigger-ui-scale, 1)) calc(10px * var(--jigger-ui-scale, 1));
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: max(10px, calc(12px * var(--jigger-ui-scale, 1)));

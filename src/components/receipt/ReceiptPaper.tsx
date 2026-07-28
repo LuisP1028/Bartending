@@ -7,6 +7,8 @@ import { getJaggedEdge, getCrumpledSprite } from '@/lib/receipt/proceduralArt';
 import { drawBarcode } from '@/lib/receipt/drawBarcode';
 import { formatMoney } from '@/lib/receipt/priceTicket';
 import { resolveModeReceiptBrand } from '@/lib/receipt/modeReceiptBranding';
+import { resolveVesselDisplay } from '@/lib/receipt/displayNameRegistry';
+import { drinkMethodLabel } from '@/data/methods';
 
 type ReceiptPaperProps = {
   entity: ReceiptEntity;
@@ -85,8 +87,8 @@ export default function ReceiptPaper({
       ? entity.bodyLines
       : [
           { label: entity.ticket.name, value: '' },
-          { label: 'VESSEL', value: entity.ticket.vessel },
-          { label: 'METHOD', value: entity.ticket.agitation },
+          { label: 'VESSEL', value: resolveVesselDisplay(entity.ticket.vessel) },
+          { label: 'METHOD', value: drinkMethodLabel(entity.ticket.agitation) },
         ];
 
   return (
@@ -232,8 +234,12 @@ export default function ReceiptPaper({
             <div className="r-divider" />
             <div className="r-summary-name">{entity.ticket.name}</div>
             <div className="r-summary-row">
-              <span>{entity.ticket.vessel}</span>
-              <span className="r-summary-method">{entity.ticket.agitation}</span>
+              <span className="r-summary-vessel">
+                {resolveVesselDisplay(entity.ticket.vessel)}
+              </span>
+              <span className="r-summary-method">
+                {drinkMethodLabel(entity.ticket.agitation)}
+              </span>
             </div>
             <div className="r-summary-ings">{entity.summaryIngredientsLine}</div>
             <div className="r-divider" />

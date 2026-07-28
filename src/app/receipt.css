@@ -383,31 +383,35 @@
   word-break: break-word;
 }
 
+/* FS57: structured column — vessel then method full-width (no chaotic 55% right wrap) */
 .r-summary-row {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: calc(8px * var(--receipt-ui-scale, 1));
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: calc(2px * var(--receipt-ui-scale, 1));
   font-size: var(--r-fs-sm);
   margin-bottom: calc(2px * var(--receipt-ui-scale, 1));
+  line-height: 1.2;
 }
 
-.r-summary-row > span:first-child {
-  flex: 1 1 auto;
+.r-summary-vessel {
+  flex: 0 0 auto;
   min-width: 0;
-  max-width: none;
+  max-width: 100%;
   word-break: normal;
-  overflow-wrap: normal;
+  overflow-wrap: break-word;
 }
 
 .r-summary-method {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  text-align: right;
-  max-width: 55%;
+  max-width: 100%;
+  text-align: left;
   overflow-wrap: break-word;
   word-break: normal;
   white-space: normal;
+  opacity: 0.95;
 }
 
 .r-summary-ings {
