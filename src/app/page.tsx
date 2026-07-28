@@ -80,12 +80,15 @@ function PovStageShell({
   openCategory,
   povStageRef,
   stagePan,
+  shellHudNudge,
   children,
 }: {
   openCategory: CategoryKey | null;
   povStageRef: React.RefObject<HTMLDivElement | null>;
   /** FS74: shell cover pan (px) so selected carousel stays in glass */
   stagePan?: { x: number; y: number };
+  /** FS75: pin jigger/printer to visible glass corners */
+  shellHudNudge?: { tx: number; tyTop: number; tyBot: number };
   children: React.ReactNode;
 }) {
   const { anyInspected } = useReceiptStageFlags();
@@ -103,6 +106,16 @@ function PovStageShell({
       ? `translate(${pan.x}px, ${pan.y}px)`
       : undefined;
 
+  const hud = shellHudNudge ?? { tx: 0, tyTop: 0, tyBot: 0 };
+  const style = {
+    overflow,
+    transform,
+    // FS75: glass-relative HUD offsets for jigger / printer chrome
+    ['--shell-hud-tx' as string]: `${hud.tx}px`,
+    ['--shell-hud-ty-top' as string]: `${hud.tyTop}px`,
+    ['--shell-hud-ty-bot' as string]: `${hud.tyBot}px`,
+  } as React.CSSProperties;
+
   return (
     <div
       ref={povStageRef}
@@ -114,8 +127,8 @@ function PovStageShell({
             : 'pov-stage'
       }
       /* Geometry (width / aspect / contain) lives in globals.css / gameboy-shell.css;
-         overflow + optional shell pan stay inline. */
-      style={{ overflow, transform }}
+         overflow + optional shell pan + HUD CSS vars stay inline. */
+      style={style}
     >
       {children}
     </div>
@@ -416,6 +429,15 @@ export default function Home() {
    * Not updated on D-pad focus alone — only when a carousel is open.
    */
   const [shellStagePan, setShellStagePan] = useState({ x: 0, y: 0 });
+  /**
+   * FS75: nudge stage-corner HUD (jigger / printer) into the visible glass
+   * after cover crop + pan (px, applied as translate on those chrome nodes).
+   */
+  const [shellHudNudge, setShellHudNudge] = useState({
+    tx: 0,
+    tyTop: 0,
+    tyBot: 0,
+  });
   const [frameStyle, setFrameStyle] = useState<StageFrameStyle | null>(null);
   /** Active vessel box from drink_placement path */
   const [vesselSlotStyle, setVesselSlotStyle] = useState<StageFrameStyle | null>(null);
@@ -731,6 +753,59 @@ export default function Home() {
       window.removeEventListener('resize', measure);
     };
   }, [drinkPlacementD]);
+
+  /**
+   * FS75: Keep jigger + receipt printer chrome in the visible glass viewport
+   * under cover crop and FS74 pan (stage-corner anchors would leave the glass).
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const updateHudNudge = () => {
+      if (cancelled) return;
+      const stage = povStageRef.current;
+      if (!stage) {
+        setShellHudNudge({ tx: 0, tyTop: 0, tyBot: 0 });
+        return;
+      }
+      const section = stage.parentElement;
+      if (
+        !section ||
+        !section.classList.contains('pov-shell-section') ||
+        !section.closest('.gb-shell__playfield')
+      ) {
+        setShellHudNudge({ tx: 0, tyTop: 0, tyBot: 0 });
+        return;
+      }
+      const S = section.getBoundingClientRect();
+      const T = stage.getBoundingClientRect();
+      if (S.width < 8 || S.height < 8 || T.width < 8 || T.height < 8) return;
+      // Move stage-corner chrome to the matching glass corner (viewport Δ = CSS px).
+      const next = {
+        tx: S.right - T.right,
+        tyTop: S.top - T.top,
+        tyBot: S.bottom - T.bottom,
+      };
+      setShellHudNudge((prev) =>
+        prev.tx === next.tx &&
+        prev.tyTop === next.tyTop &&
+        prev.tyBot === next.tyBot
+          ? prev
+          : next
+      );
+    };
+
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(updateHudNudge);
+    });
+    const t = window.setTimeout(updateHudNudge, 60);
+    window.addEventListener('resize', updateHudNudge);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+      window.clearTimeout(t);
+      window.removeEventListener('resize', updateHudNudge);
+    };
+  }, [shellStagePan, openCategory, activeZoneId, frameStyle]);
 
   /**
    * FS74: When a carousel is open, pan the shell-covered stage so the carousel
@@ -1136,6 +1211,7 @@ export default function Home() {
                           openCategory={openCategory}
                           povStageRef={povStageRef}
                           stagePan={shellStagePan}
+                          shellHudNudge={shellHudNudge}
                         >
                           <img
                             src="/OBELISCO_POV.jpg"

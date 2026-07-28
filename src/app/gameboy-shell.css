@@ -447,6 +447,36 @@
   }
 
   /*
+   * FS75 — Pin diegetic jigger + receipt printer to visible glass corners.
+   * Vars set on .pov-stage from section vs stage rects (cover + pan aware).
+   * Free receipt papers stay stage-relative (no transform here).
+   */
+  .gb-shell__playfield .jigger-pour-control {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-bot, 0px)
+    );
+    transition: transform 0.22s ease-out;
+    z-index: 28;
+  }
+
+  .gb-shell__playfield .receipt-hardware-cluster {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-top, 0px)
+    );
+    transition: transform 0.22s ease-out;
+  }
+
+  .gb-shell__playfield .receipt-printer-mask {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-top, 0px)
+    );
+    transition: transform 0.22s ease-out;
+  }
+
+  /*
    * FS69/71 — Compact control strip; A/B/D-pad interactive (SELECT/START decorative).
    */
   .gb-shell__controls {
