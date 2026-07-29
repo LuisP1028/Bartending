@@ -51,9 +51,14 @@ painting.png
 crystal_cut.jpg
 fine_mesh_strainer.png
 receipt_text_overflow.png
-sitframetemplate.jpg
-walkframes.jpg
-walkframetemplate*.jpg
+# Scratch templates at repo root only — do NOT strip pipeline mesh/skills (required for --run on Space)
+/sitframetemplate.jpg
+/walkframes.jpg
+/walkframetemplate.jpg
+/walkframetemplate*.jpg
+# Ensure product pipeline skill prompts + mesh templates are always in the image
+!scripts/patron-pipeline/mesh-templates/**
+!scripts/patron-pipeline/skills/**
 obelisco_mapped_raw.txt
 debug_llm_raw_output.txt
 barcutoff.txt
