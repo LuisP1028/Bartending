@@ -20,6 +20,7 @@ type ReceiptPaperProps = {
   onPointerDown: (instanceId: string, e: React.PointerEvent) => void;
   onPointerMove: (instanceId: string, e: React.PointerEvent) => void;
   onPointerUp: (instanceId: string, e: React.PointerEvent) => void;
+  onPointerCancel: (instanceId: string, e: React.PointerEvent) => void;
   onContextMenu: (instanceId: string, e: React.MouseEvent) => void;
   /** Click-equivalent expand/contract (keyboard). */
   onToggleExpand: (instanceId: string) => void;
@@ -33,6 +34,7 @@ export default function ReceiptPaper({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  onPointerCancel,
   onContextMenu,
   onToggleExpand,
 }: ReceiptPaperProps) {
@@ -118,6 +120,10 @@ export default function ReceiptPaper({
       onPointerUp={(e) => {
         if (isHandoffExit) return;
         onPointerUp(entity.instanceId, e);
+      }}
+      onPointerCancel={(e) => {
+        if (isHandoffExit) return;
+        onPointerCancel(entity.instanceId, e);
       }}
       onContextMenu={(e) => onContextMenu(entity.instanceId, e)}
       title={

@@ -167,6 +167,8 @@
   z-index: 550;
   background: transparent;
   overflow: visible;
+  /* FS86: cascade contribution for free paper (children own hit targets) */
+  touch-action: none;
 }
 
 /* While Inspect is open, free papers stack above printer hardware */
@@ -265,10 +267,20 @@
   pointer-events: auto;
   transform-origin: top center;
   cursor: grab;
-  /* Summary: JS owns drag. Expanded overrides to pan-y (FS62). */
+  /*
+   * FS86: Pre-contact touch-action:none (frozen at gesture start — PE3).
+   * Must be present before the finger lands; do not rely on mid-gesture body class.
+   * Expanded overrides to pan-y (FS62).
+   */
   touch-action: none;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Summary free face: no descendant may re-enable browser pan */
+.receipt-wrapper:not(.state-inspected):not(.anim-printing) .receipt-paper,
+.receipt-wrapper:not(.state-inspected):not(.anim-printing) .receipt-paper * {
+  touch-action: none;
 }
 
 /*
@@ -370,14 +382,30 @@
   height: 0;
 }
 
-/* Summary: compact — height follows content, capped by wrapper budget (FS60) */
+/* Summary: compact — height follows content, capped by wrapper budget (FS60).
+ * overflow hidden + touch-action none: paper must not compete with JS drag for
+ * the touch gesture (overflow-y:auto caused mobile browsers to claim pan). */
 .receipt-paper--summary {
   height: auto;
   max-height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
+  touch-action: none;
   padding: var(--r-pad-summary);
   font-size: var(--r-fs-md);
+}
+
+/*
+ * FS86 secondary lock — applied while summary capture drag is live.
+ * PE3: changing touch-action mid-gesture does NOT affect the active finger;
+ * durable ownership is pre-contact CSS + permanent non-passive TE listeners.
+ * This class still helps overscroll-behavior on html/body as reinforcement.
+ */
+html.receipt-dragging,
+body.receipt-dragging {
+  overscroll-behavior: none;
+  /* Secondary only — not sole Safari ownership mechanism (see ReceiptSystem FS86) */
+  touch-action: none;
 }
 
 /* Full (Inspect): bounded + internal scroll */

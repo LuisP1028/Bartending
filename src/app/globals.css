@@ -20,6 +20,8 @@
  */
 html {
     height: 100%;
+    /* Mobile: no rubber-band / chrome-slide on root (game shell owns gestures) */
+    overscroll-behavior: none;
 }
 
 body {
@@ -31,6 +33,7 @@ body {
     height: 100%;
     max-height: 100dvh; /* viewport-relative — not a device cutoff gate */
     overflow: hidden; /* no page-level scroll for main shell */
+    overscroll-behavior: none;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
     padding-right: env(safe-area-inset-right, 0px);

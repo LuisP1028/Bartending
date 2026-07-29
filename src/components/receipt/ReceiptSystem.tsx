@@ -58,6 +58,7 @@ type ReceiptContextValue = {
   onPointerDown: (instanceId: string, e: React.PointerEvent) => void;
   onPointerMove: (instanceId: string, e: React.PointerEvent) => void;
   onPointerUp: (instanceId: string, e: React.PointerEvent) => void;
+  onPointerCancel: (instanceId: string, e: React.PointerEvent) => void;
   onContextMenu: (instanceId: string, e: React.MouseEvent) => void;
   onToggleExpand: (instanceId: string) => void;
 };
@@ -235,6 +236,32 @@ export function ReceiptProvider({
    * (suppresses toggle-collapse on pointerup).
    */
   const scrollGestureRef = useRef(false);
+  /**
+   * FS86 / RE86 — Summary paper-drag ownership (Safari-first).
+   *
+   * Secondary body class lock (overscroll reinforcement only). Does NOT change
+   * frozen touch-action for the active finger (PE3); durable TE path is the
+   * permanent document listeners in the mount effect below.
+   */
+  const dragScrollLockRef = useRef(false);
+  /**
+   * True after touchstart on a summary free wrapper until touchend/cancel.
+   * Lets the pre-registered non-passive touchmove handler claim the sequence
+   * even before pointerdown sets dragRef (Safari pan race).
+   */
+  const summaryTouchClaimRef = useRef(false);
+  const acquireDragScrollLock = useCallback(() => {
+    if (dragScrollLockRef.current) return;
+    dragScrollLockRef.current = true;
+    document.documentElement.classList.add('receipt-dragging');
+    document.body.classList.add('receipt-dragging');
+  }, []);
+  const releaseDragScrollLock = useCallback(() => {
+    if (!dragScrollLockRef.current) return;
+    dragScrollLockRef.current = false;
+    document.documentElement.classList.remove('receipt-dragging');
+    document.body.classList.remove('receipt-dragging');
+  }, []);
   const stageRef = useRef<HTMLDivElement>(null);
   const printQueueRef = useRef<QueuedPrint[]>([]);
   const printingRef = useRef(false);
@@ -648,6 +675,11 @@ export function ReceiptProvider({
         pointerId?: number;
         /** Live scrollport for scrollTop delta check */
         scrollEl?: HTMLElement | null;
+        /**
+         * true when browser cancelled the pointer (overscroll / chrome gesture).
+         * Keep final paper position; never treat as expand/collapse click.
+         */
+        cancelled?: boolean;
       }
     ) => {
       const drag = dragRef.current;
@@ -661,6 +693,12 @@ export function ReceiptProvider({
         }
       }
 
+      // Always drop mobile scroll-lock for summary capture path
+      if (drag.captured) {
+        releaseDragScrollLock();
+        summaryTouchClaimRef.current = false;
+      }
+
       const wasDrag = dragMovedRef.current;
       const scrollDelta =
         opts?.scrollEl != null
@@ -668,9 +706,13 @@ export function ReceiptProvider({
           : 0;
       const wasScroll = scrollGestureRef.current || scrollDelta > 1;
       const wasInspected = drag.wasInspected;
+      const cancelled = !!opts?.cancelled;
       dragRef.current = null;
       dragMovedRef.current = false;
       scrollGestureRef.current = false;
+
+      // Cancelled mid-gesture: leave paper where it is; no toggle
+      if (cancelled) return;
 
       if (wasInspected) {
         // Pure short tap (no pan / no scrollTop change) → collapse
@@ -685,8 +727,63 @@ export function ReceiptProvider({
         toggleExpand(instanceId);
       }
     },
-    [toggleExpand]
+    [toggleExpand, releaseDragScrollLock]
   );
+
+  /*
+   * FS86 Model B — Permanent non-passive Touch Event listeners (mount-time).
+   * Must exist BEFORE the first touchmove of a summary drag so Safari still
+   * delivers cancelable events. Gate: only preventDefault for summary free
+   * paper sequences; never while expanded (FS62 pan-y).
+   */
+  useEffect(() => {
+    const isSummaryCaptureDrag = () => {
+      const d = dragRef.current;
+      return !!(d && d.captured && !d.wasInspected);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const wrap = t.closest('.receipt-wrapper');
+      if (
+        !wrap ||
+        wrap.classList.contains('state-inspected') ||
+        wrap.classList.contains('anim-printing') ||
+        wrap.classList.contains('receipt-wrapper--handoff-exit')
+      ) {
+        return;
+      }
+      // Contact began on summary free paper — claim this touch sequence
+      summaryTouchClaimRef.current = true;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (dragRef.current?.wasInspected) return;
+      if (!summaryTouchClaimRef.current && !isSummaryCaptureDrag()) return;
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const clearSummaryTouchClaim = () => {
+      summaryTouchClaimRef.current = false;
+    };
+
+    const teOpts: AddEventListenerOptions = { passive: false, capture: true };
+    const bubbleCapture: AddEventListenerOptions = { capture: true };
+    document.addEventListener('touchstart', onTouchStart, teOpts);
+    document.addEventListener('touchmove', onTouchMove, teOpts);
+    document.addEventListener('touchend', clearSummaryTouchClaim, bubbleCapture);
+    document.addEventListener('touchcancel', clearSummaryTouchClaim, bubbleCapture);
+
+    return () => {
+      document.removeEventListener('touchstart', onTouchStart, true);
+      document.removeEventListener('touchmove', onTouchMove, true);
+      document.removeEventListener('touchend', clearSummaryTouchClaim, true);
+      document.removeEventListener('touchcancel', clearSummaryTouchClaim, true);
+      releaseDragScrollLock();
+      summaryTouchClaimRef.current = false;
+    };
+  }, [releaseDragScrollLock]);
 
   const onPointerDown = useCallback(
     (instanceId: string, e: React.PointerEvent) => {
@@ -761,7 +858,11 @@ export function ReceiptProvider({
         return;
       }
 
-      // Summary face: capture for drag-to-move / click-to-expand
+      // Summary face: capture for drag-to-move / click-to-expand.
+      // Pre-contact touch-action:none + permanent TE listeners own pan (FS86).
+      // PE preventDefault cannot stop viewport pan (PE3); still call for good measure.
+      if (e.cancelable) e.preventDefault();
+      summaryTouchClaimRef.current = true;
       e.currentTarget.setPointerCapture(pointerId);
       dragRef.current = {
         instanceId,
@@ -774,9 +875,11 @@ export function ReceiptProvider({
         pointerId,
         startScrollTop: 0,
       };
+      // Secondary body class (overscroll); not the sole Safari ownership mechanism
+      acquireDragScrollLock();
       bumpZ(instanceId, { clearInspect: false });
     },
-    [receipts, bumpZ, selectFreeReceipt, endPointerGesture]
+    [receipts, bumpZ, selectFreeReceipt, endPointerGesture, acquireDragScrollLock]
   );
 
   const onPointerMove = useCallback(
@@ -790,7 +893,8 @@ export function ReceiptProvider({
       const dy = e.clientY - drag.startY;
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
 
-      // Summary: real drag moves paper
+      // Summary: real drag moves paper — keep browser from taking over mid-gesture
+      if (e.cancelable) e.preventDefault();
       dragMovedRef.current = true;
       const pos = clampPosition(drag.initLeft + dx, drag.initTop + dy);
       setReceipts((prev) =>
@@ -810,6 +914,20 @@ export function ReceiptProvider({
       endPointerGesture(instanceId, {
         releaseTarget: e.currentTarget,
         pointerId: e.pointerId,
+      });
+    },
+    [endPointerGesture]
+  );
+
+  /** Browser stole the gesture (scroll/overscroll) — end cleanly, keep paper position. */
+  const onPointerCancel = useCallback(
+    (instanceId: string, e: React.PointerEvent) => {
+      const drag = dragRef.current;
+      if (drag?.wasInspected) return;
+      endPointerGesture(instanceId, {
+        releaseTarget: e.currentTarget,
+        pointerId: e.pointerId,
+        cancelled: true,
       });
     },
     [endPointerGesture]
@@ -839,6 +957,7 @@ export function ReceiptProvider({
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onPointerCancel,
       onContextMenu,
       onToggleExpand: toggleExpand,
     }),
@@ -855,6 +974,7 @@ export function ReceiptProvider({
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onPointerCancel,
       onContextMenu,
       toggleExpand,
     ]
@@ -877,6 +997,7 @@ export function ReceiptStageOverlay() {
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerCancel,
     onContextMenu,
     onToggleExpand,
   } = useReceipt();
@@ -887,6 +1008,7 @@ export function ReceiptStageOverlay() {
     onPointerDown,
     onPointerMove,
     onPointerUp,
+    onPointerCancel,
     onContextMenu,
     onToggleExpand,
   };
