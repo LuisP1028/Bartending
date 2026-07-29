@@ -485,7 +485,7 @@
   }
 
   /*
-   * FS69/71 — Compact control strip; A/B/D-pad interactive (SELECT/START decorative).
+   * FS69/71/80 — Compact control strip; A/B/D-pad + START interactive (SELECT decorative).
    */
   .gb-shell__controls {
     display: block;
@@ -674,11 +674,25 @@
     height: 28%;
     min-height: 4px;
     margin-top: 8%;
+    padding: 0;
+    border: none;
     background: #999;
     border-radius: 999px;
     box-shadow: 0 0 0 0.55cqw #dfdfdf;
     font-size: 0;
     color: transparent;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* FS80: START opens main menu */
+  .gb-shell__btn-start {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .gb-shell__btn-start:active {
+    filter: brightness(0.92);
   }
 
   .gb-shell__btn-select::after,
@@ -1184,11 +1198,22 @@
   height: 28%;
   min-height: 4px;
   margin-top: 8%;
+  padding: 0;
+  border: none;
   background: #999;
   border-radius: 999px;
   box-shadow: 0 0 0 0.55cqw #dfdfdf;
   font-size: 0;
   color: transparent;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* FS80: START during intro ends video → menu (parent maps finish → phase menu) */
+.boot-intro .gb-shell__btn-start {
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 6;
 }
 
 .boot-intro .gb-shell__btn-select::after,
@@ -1250,6 +1275,357 @@
 }
 
 .boot-intro .gb-shell__on-off {
+  display: block;
+  position: absolute;
+  top: 0.35%;
+  left: 20%;
+  padding: 0.4% 1.2%;
+  transform: translateX(-50%);
+  color: #dadada;
+  background-color: #e8e8e8;
+  font-size: max(5px, 1.7cqw);
+  font-family: sans-serif;
+  text-transform: uppercase;
+  border-radius: 30px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ==========================================================================
+   FS80 — Main menu: same full-viewport GB chrome; bg + nav only in housing
+   ========================================================================== */
+
+.main-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background: #eee;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.main-menu .main-menu__slot.gb-shell-slot,
+.main-menu .gb-shell-slot {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #eee;
+}
+
+.main-menu .gb-shell-scale {
+  position: relative;
+  width: min(100%, calc(100dvh * 422 / 697));
+  height: min(100dvh, calc(100% * 697 / 422));
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 422 / 697;
+  container-type: size;
+}
+
+.main-menu .gb-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #eee;
+  border-radius: 2% 2% 1% 1% / 1% 1% 0.5% 0.5%;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 0.5cqw 1.2cqw rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.main-menu .gb-shell__screen-cont {
+  position: absolute;
+  top: 8.6%;
+  left: 9.5%;
+  width: 81%;
+  height: 39%;
+  background: #777;
+  border-radius: 2% / 3%;
+  box-shadow: inset 0 0 0 0.4cqw #555;
+  overflow: hidden;
+}
+
+.main-menu .gb-shell__header {
+  position: absolute;
+  top: 3.5%;
+  left: 8%;
+  right: 8%;
+  text-align: center;
+  font-size: max(5px, 1.5cqw);
+  letter-spacing: 0.08em;
+  color: #b8b8b8;
+  font-family: sans-serif;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.main-menu .gb-shell__power {
+  position: absolute;
+  top: 14%;
+  left: 3.5%;
+  width: 2.2%;
+  height: 2.2%;
+  border-radius: 50%;
+  background: #d33;
+  box-shadow: 0 0 0.4cqw #f66;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.main-menu .gb-shell__playfield,
+.main-menu .main-menu__playfield {
+  position: absolute;
+  top: 18%;
+  left: 8%;
+  right: 8%;
+  bottom: 10%;
+  overflow: hidden;
+  background: #000;
+  border-radius: 2%;
+  box-shadow: inset 0.4cqw 0.4cqw rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.main-menu__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+  z-index: 1;
+  background: #000;
+}
+
+.main-menu .gb-shell__controls {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.main-menu .gb-shell__btn-direction {
+  position: absolute;
+  left: 8%;
+  top: 64%;
+  width: 18%;
+  height: 10.5%;
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__btn-direction::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 33.33%;
+  left: 33.33%;
+  width: 33.33%;
+  height: 33.33%;
+  background-color: #353535;
+  border-radius: 100%;
+}
+
+.main-menu .gb-shell__btn-direction-v,
+.main-menu .gb-shell__btn-direction-h {
+  position: absolute;
+  left: 33.33%;
+  top: 0;
+  width: 33.33%;
+  height: 100%;
+  background: #444;
+  border-radius: 12%;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+}
+
+.main-menu .gb-shell__btn-direction-h {
+  transform: rotate(90deg);
+}
+
+.main-menu .gb-shell__btn-ab {
+  position: absolute;
+  top: 63.5%;
+  left: 58%;
+  width: 28%;
+  height: 9%;
+  background: #dfdfdf;
+  border-radius: 40% / 50%;
+  transform: rotate(-25deg);
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 0 6%;
+  box-sizing: border-box;
+  box-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__btn-b,
+.main-menu .gb-shell__btn-a {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34%;
+  aspect-ratio: 1;
+  height: auto;
+  max-height: 78%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 100%;
+  background: #a93671;
+  box-shadow:
+    inset 0 -0.25cqw 0.3cqw rgba(0, 0, 0, 0.25),
+    0 0.2cqw 0.25cqw rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__btn-b::after {
+  content: "B";
+  position: absolute;
+  bottom: -55%;
+  left: 15%;
+  font-size: max(5px, 1.7cqw);
+  font-weight: 700;
+  color: #4a4a6a;
+  font-family: sans-serif;
+}
+
+.main-menu .gb-shell__btn-a::after {
+  content: "A";
+  position: absolute;
+  bottom: -55%;
+  right: 10%;
+  font-size: max(5px, 1.7cqw);
+  font-weight: 700;
+  color: #4a4a6a;
+  font-family: sans-serif;
+}
+
+.main-menu .gb-shell__btn-start-select {
+  position: absolute;
+  top: 76.5%;
+  left: 28%;
+  width: 34%;
+  height: 5.5%;
+  transform: rotate(-25deg);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12%;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__btn-select,
+.main-menu .gb-shell__btn-start {
+  display: block;
+  position: relative;
+  flex: 1 1 40%;
+  height: 28%;
+  min-height: 4px;
+  margin-top: 8%;
+  padding: 0;
+  border: none;
+  background: #999;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0.55cqw #dfdfdf;
+  font-size: 0;
+  color: transparent;
+  appearance: none;
+}
+
+.main-menu .gb-shell__btn-start {
+  pointer-events: auto;
+  cursor: default;
+}
+
+.main-menu .gb-shell__btn-select::after,
+.main-menu .gb-shell__btn-start::after {
+  position: absolute;
+  top: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: sans-serif;
+  font-size: max(5px, 1.7cqw);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #4a4a6a;
+  white-space: nowrap;
+}
+
+.main-menu .gb-shell__btn-select::after {
+  content: "SELECT";
+}
+
+.main-menu .gb-shell__btn-start::after {
+  content: "START";
+}
+
+.main-menu .gb-shell__speakers {
+  display: block;
+  position: absolute;
+  height: 8%;
+  width: 1.7%;
+  top: 76%;
+  left: 74%;
+  margin: 0;
+  background: #ddd;
+  border-radius: 4px;
+  transform: rotate(-25deg);
+  box-shadow:
+    4cqw 0 #ddd,
+    8cqw 0 #ddd,
+    12cqw 0 #ddd,
+    16cqw 0 #ddd,
+    20cqw 0 #ddd;
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__phones {
+  display: block;
+  position: absolute;
+  bottom: 0.6%;
+  left: 50%;
+  padding: 0.4% 1.2%;
+  transform: translateX(-50%);
+  color: #dadada;
+  background-color: #e8e8e8;
+  font-size: max(5px, 1.7cqw);
+  font-family: sans-serif;
+  text-transform: uppercase;
+  border-radius: 30px;
+  pointer-events: none;
+}
+
+.main-menu .gb-shell__on-off {
   display: block;
   position: absolute;
   top: 0.35%;

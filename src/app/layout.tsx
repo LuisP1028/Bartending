@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, VT323 } from "next/font/google";
+import { Geist, Geist_Mono, VT323, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,6 +16,13 @@ const vt323 = VT323({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-receipt",
+});
+
+/** FS80 — synthwave main menu pixel type */
+const pressStart = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-press-start",
 });
 
 export const metadata: Metadata = {
@@ -38,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${vt323.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${vt323.variable} ${pressStart.variable}`}
     >
       <body>{children}</body>
     </html>

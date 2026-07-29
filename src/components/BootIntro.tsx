@@ -177,18 +177,29 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
                 />
               </div>
             </div>
-            <div className="gb-shell__controls" aria-hidden="true">
-              <div className="gb-shell__btn-direction">
+            <div className="gb-shell__controls" aria-hidden={false}>
+              <div className="gb-shell__btn-direction" aria-hidden="true">
                 <div className="gb-shell__btn-direction-v" />
                 <div className="gb-shell__btn-direction-h" />
               </div>
-              <div className="gb-shell__btn-ab">
+              <div className="gb-shell__btn-ab" aria-hidden="true">
                 <span className="gb-shell__btn-b" />
                 <span className="gb-shell__btn-a" />
               </div>
               <div className="gb-shell__btn-start-select">
-                <span className="gb-shell__btn-select">SELECT</span>
-                <span className="gb-shell__btn-start">START</span>
+                <span className="gb-shell__btn-select" aria-hidden="true">
+                  SELECT
+                </span>
+                <button
+                  type="button"
+                  className="gb-shell__btn-start"
+                  aria-label="Open menu"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    finish();
+                  }}
+                />
               </div>
             </div>
             <div className="gb-shell__speakers" aria-hidden="true" />

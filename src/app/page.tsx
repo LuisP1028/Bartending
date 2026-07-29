@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import GlobalSVGDefs from '@/components/GlobalSVGDefs';
 import BootIntro from '@/components/BootIntro';
+import MainMenu from '@/components/MainMenu';
 import BottleAsset from '@/components/BottleAsset';
 import GlassAsset from '@/components/GlassAsset';
 import GarnishAsset from '@/components/GarnishAsset';
@@ -1109,12 +1110,25 @@ export default function Home() {
     }
   };
 
-  /** FS79: boot cinematic on Game Boy screen before interactive game (5 taps skip) */
-  const [bootComplete, setBootComplete] = useState(false);
-  const onBootComplete = useCallback(() => setBootComplete(true), []);
+  /**
+   * FS79/FS80 phase machine:
+   * intro (boot video) → menu (synthwave nav) → play (interactive game).
+   * START during play returns to menu without full page reload (session state kept in hooks).
+   */
+  type AppPhase = 'intro' | 'menu' | 'play';
+  const [phase, setPhase] = useState<AppPhase>('intro');
+  const onBootComplete = useCallback(() => setPhase('menu'), []);
+  const onEnterPlay = useCallback(() => setPhase('play'), []);
+  const onOpenMenu = useCallback(() => {
+    setPhase('menu');
+  }, []);
 
-  if (!bootComplete) {
+  if (phase === 'intro') {
     return <BootIntro onComplete={onBootComplete} />;
+  }
+
+  if (phase === 'menu') {
+    return <MainMenu onEnterPlay={onEnterPlay} />;
   }
 
   if (!mode || !manifest) {
@@ -1556,9 +1570,16 @@ export default function Home() {
                       onClick={shellPressA}
                     />
                   </div>
-                  <div className="gb-shell__btn-start-select" aria-hidden="true">
-                    <span className="gb-shell__btn-select">SELECT</span>
-                    <span className="gb-shell__btn-start">START</span>
+                  <div className="gb-shell__btn-start-select">
+                    <span className="gb-shell__btn-select" aria-hidden="true">
+                      SELECT
+                    </span>
+                    <button
+                      type="button"
+                      className="gb-shell__btn-start"
+                      aria-label="Open menu"
+                      onClick={onOpenMenu}
+                    />
                   </div>
                 </div>
                 <div className="gb-shell__speakers" aria-hidden="true" />

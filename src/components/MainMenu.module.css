@@ -1,0 +1,167 @@
+/* FS80 — Synthwave Navigator menu (ported from test.html prototype) */
+
+.menuRoot {
+  --color-void-deep: #00000a;
+  --color-void-mid: #001a4d;
+  --color-sun-magenta: #ff1493;
+  --color-cyan-electric: #00ffff;
+  --color-mountain-purple: #3a285c;
+  --color-scanline: rgba(0, 0, 0, 0.35);
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  font-family: var(--font-press-start), 'Press Start 2P', monospace;
+  text-transform: uppercase;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.synthwaveNav {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    var(--color-void-mid) 0%,
+    var(--color-void-deep) 100%
+  );
+  padding: clamp(12px, 8%, 28px) clamp(16px, 10%, 40px) clamp(12px, 8%, 28px)
+    clamp(36px, 18%, 60px);
+  border: 2px solid #000;
+  box-shadow:
+    inset 0 0 50px rgba(0, 0, 10, 0.9),
+    0 0 30px rgba(0, 26, 77, 0.8);
+  min-width: min(72%, 220px);
+  max-width: 92%;
+  max-height: 92%;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 2px,
+    var(--color-scanline) 2px,
+    var(--color-scanline) 4px
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 6%, 22px);
+  position: relative;
+  z-index: 10;
+}
+
+.navList li {
+  display: block;
+}
+
+.navList button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: clamp(7px, 2.4cqw, 11px);
+  line-height: 1.5;
+  text-transform: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  position: relative;
+  color: var(--color-mountain-purple);
+  text-shadow: none;
+  transition:
+    color 0s,
+    text-shadow 0s;
+}
+
+.navList button:hover:not(.active) {
+  color: var(--color-cyan-electric);
+  text-shadow:
+    1px 1px 0px rgba(0, 255, 255, 0.5),
+    -1px -1px 0px rgba(0, 255, 255, 0.5),
+    1px -1px 0px rgba(0, 255, 255, 0.5),
+    -1px 1px 0px rgba(0, 255, 255, 0.5);
+}
+
+.active,
+.active:hover {
+  color: var(--color-sun-magenta) !important;
+  text-shadow:
+    0 0 4px var(--color-sun-magenta),
+    0 0 8px var(--color-sun-magenta),
+    0 0 16px var(--color-sun-magenta) !important;
+}
+
+.navList button:focus-visible {
+  outline: none;
+}
+
+.navList button:focus-visible::before {
+  content: '';
+  position: absolute;
+  inset: -6px -8px;
+  border: 2px dashed var(--color-cyan-electric);
+  pointer-events: none;
+  animation: mainMenuPulseFocus 0.8s steps(2, end) infinite;
+}
+
+@keyframes mainMenuPulseFocus {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.pointerGraphic {
+  position: absolute;
+  left: clamp(6px, 4%, 14px);
+  top: 0;
+  z-index: 20;
+  pointer-events: none;
+  transform: translateY(var(--target-y, 0px));
+  transition: transform 0.15s steps(5, end);
+}
+
+.pointerGraphic svg {
+  width: clamp(18px, 8cqw, 28px);
+  height: clamp(18px, 8cqw, 28px);
+  display: block;
+  shape-rendering: crispEdges;
+  fill: var(--color-cyan-electric);
+  filter: drop-shadow(0 0 2px var(--color-cyan-electric));
+}
+
+.pointerGraphic.bounceAnim {
+  animation: mainMenuPixelBounce 0.15s steps(3, end) forwards;
+}
+
+@keyframes mainMenuPixelBounce {
+  0% {
+    transform: translateY(var(--target-y, 0px)) translateY(0px);
+  }
+  50% {
+    transform: translateY(var(--target-y, 0px)) translateY(4px);
+  }
+  100% {
+    transform: translateY(var(--target-y, 0px)) translateY(-2px);
+  }
+}
