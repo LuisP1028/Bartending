@@ -4,6 +4,10 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import GlobalSVGDefs from '@/components/GlobalSVGDefs';
 import BootIntro from '@/components/BootIntro';
 import MainMenu from '@/components/MainMenu';
+import JoinBarCommLink, {
+  type JoinBarIdentity,
+} from '@/components/JoinBarCommLink';
+import JoinBarCamera from '@/components/JoinBarCamera';
 import BottleAsset from '@/components/BottleAsset';
 import GlassAsset from '@/components/GlassAsset';
 import GarnishAsset from '@/components/GarnishAsset';
@@ -39,7 +43,7 @@ import PatronLayer from '@/components/PatronLayer';
 // FS72: authoring editors commented out of UI — restore imports to re-enable
 // import HotspotPlacementEditor from '@/components/HotspotPlacementEditor';
 // import PatronPlacementEditor from '@/components/PatronPlacementEditor';
-import PatronSignupForm from '@/components/PatronSignupForm';
+// FS89: PatronSignupForm superseded by Join the bar Comm-Link → Camera flow
 import {
   CategoryKey,
   CATEGORY_TITLES,
@@ -445,7 +449,13 @@ export default function Home() {
   const [patronLayouts] = useState<Record<string, PatronLayout>>({});
   /** FS72: PATRON EDIT UI commented out — always false until editor restored */
   const patronEditOpen = false;
-  const [patronSignupOpen, setPatronSignupOpen] = useState(false);
+  /** FS89 Join the bar: null | comm-link | camera */
+  type JoinStage = null | 'comm' | 'camera';
+  const [joinStage, setJoinStage] = useState<JoinStage>(null);
+  const [joinIdentity, setJoinIdentity] = useState<JoinBarIdentity | null>(null);
+  const [joinBusy, setJoinBusy] = useState(false);
+  const [joinStatus, setJoinStatus] = useState<string | null>(null);
+  const [joinStatusError, setJoinStatusError] = useState(false);
 
   useEffect(() => {
     setHotspotOffsets(loadHotspotOffsets());
@@ -1110,16 +1120,121 @@ export default function Home() {
     setPhase('menu');
   }, []);
 
+  /** FS89: Join the bar! → Comm-Link first */
+  const onOpenJoinBar = useCallback(() => {
+    setJoinIdentity(null);
+    setJoinStatus(null);
+    setJoinStatusError(false);
+    setJoinBusy(false);
+    setJoinStage('comm');
+  }, []);
+
+  const onCloseJoin = useCallback(() => {
+    if (joinBusy) return;
+    setJoinStage(null);
+    setJoinIdentity(null);
+    setJoinStatus(null);
+    setJoinStatusError(false);
+  }, [joinBusy]);
+
+  const onJoinTransmit = useCallback((identity: JoinBarIdentity) => {
+    setJoinIdentity(identity);
+    setJoinStatus(null);
+    setJoinStatusError(false);
+    setJoinStage('camera');
+  }, []);
+
+  const onJoinCapture = useCallback(
+    async (file: File) => {
+      if (!joinIdentity) {
+        setJoinStatus('ERR: IDENTITY LOST — RESTART COMM-LINK');
+        setJoinStatusError(true);
+        return;
+      }
+      setJoinBusy(true);
+      setJoinStatus('TRANSMITTING UPLINK…');
+      setJoinStatusError(false);
+      try {
+        const body = new FormData();
+        body.set('name', joinIdentity.name);
+        if (joinIdentity.email) body.set('email', joinIdentity.email);
+        if (joinIdentity.phone) body.set('phone', joinIdentity.phone);
+        body.set('photo', file);
+        body.set('runPipeline', '1');
+
+        const res = await fetch('/api/patrons/register', {
+          method: 'POST',
+          body,
+        });
+        const data = (await res.json()) as {
+          error?: string;
+          characterId?: string;
+          displayName?: string;
+          registered?: { inserted?: boolean };
+          pipeline?: { ok?: boolean; error?: string };
+        };
+        if (!res.ok) {
+          throw new Error(data.error || res.statusText);
+        }
+        const parts = [
+          data.characterId ? `ID: ${data.characterId}` : null,
+          data.registered?.inserted
+            ? 'REGISTERED'
+            : 'ALREADY ON ROSTER',
+          data.pipeline?.ok
+            ? 'PIPELINE PREPARE OK'
+            : data.pipeline
+              ? `PIPELINE: ${data.pipeline.error || 'FAILED'}`
+              : 'FOLDER + META',
+        ].filter(Boolean);
+        setJoinStatus(parts.join(' · '));
+        setJoinStatusError(false);
+        // Brief success display then return to menu
+        window.setTimeout(() => {
+          setJoinBusy(false);
+          setJoinStage(null);
+          setJoinIdentity(null);
+          setJoinStatus(null);
+        }, 2200);
+      } catch (err) {
+        setJoinStatus(
+          err instanceof Error ? err.message : 'UPLINK FAILED'
+        );
+        setJoinStatusError(true);
+        setJoinBusy(false);
+      }
+    },
+    [joinIdentity]
+  );
+
   if (phase === 'intro') {
     return <BootIntro onComplete={onBootComplete} />;
   }
 
   if (phase === 'menu') {
     return (
-      <MainMenu
-        onEnterPlay={onEnterPlay}
-        onSelectModeAndPlay={onSelectModeAndPlay}
-      />
+      <>
+        <MainMenu
+          onEnterPlay={onEnterPlay}
+          onSelectModeAndPlay={onSelectModeAndPlay}
+          onOpenJoinBar={onOpenJoinBar}
+        />
+        {joinStage === 'comm' ? (
+          <JoinBarCommLink
+            onTransmit={onJoinTransmit}
+            onClose={onCloseJoin}
+          />
+        ) : null}
+        {joinStage === 'camera' ? (
+          <JoinBarCamera
+            onCapture={onJoinCapture}
+            onClose={onCloseJoin}
+            busy={joinBusy}
+            statusMessage={joinStatus}
+            statusError={joinStatusError}
+          />
+        ) : null}
+      </>
     );
   }
 

@@ -41,7 +41,6 @@ export const DEFAULT_WALK_FRAME_MS = 120;
  */
 export const LEGACY_FLAT_PATRON_IDS = new Set([
   'patron_elder',
-  'patron_user',
 ]);
 
 export function usesNestedPatronAssets(characterId: string): boolean {

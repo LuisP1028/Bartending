@@ -17,10 +17,10 @@ const MODE_LOGOS = [
 const MODE_SELECTION_INDEX = 0;
 
 const MENU_ITEMS = [
-  { id: 'mode-selection', label: 'Mode Selection', isModeSelection: true },
-  { id: 'starfield', label: 'Starfield Config', isModeSelection: false },
-  { id: 'diagnostics', label: 'Warp Diagnostics', isModeSelection: false },
-  { id: 'terminate', label: 'Terminate Uplink', isModeSelection: false },
+  { id: 'mode-selection', label: 'Mode Selection', isModeSelection: true, opensJoinBar: false },
+  { id: 'join-bar', label: 'Join the bar!', isModeSelection: false, opensJoinBar: true },
+  { id: 'diagnostics', label: 'Warp Diagnostics', isModeSelection: false, opensJoinBar: false },
+  { id: 'terminate', label: 'Terminate Uplink', isModeSelection: false, opensJoinBar: false },
 ] as const;
 
 export type MenuPlayMode = 'OBELISCO' | 'CLASSICS';
@@ -30,15 +30,18 @@ type MainMenuProps = {
   onEnterPlay: () => void;
   /** Enter play after selecting a mode from MODE SELECTION logos. */
   onSelectModeAndPlay: (mode: MenuPlayMode) => void;
+  /** FS89: open Join the bar Comm-Link → camera flow. */
+  onOpenJoinBar: () => void;
 };
 
 /**
- * FS80/82/87 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * FS80/82/87/89 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
  * Shell: ↑↓ navigate, ←→ mode logos, A select, B back (root → play), START → play.
  */
 export default function MainMenu({
   onEnterPlay,
   onSelectModeAndPlay,
+  onOpenJoinBar,
 }: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
@@ -199,8 +202,12 @@ export default function MainMenu({
       activateModeLogo(logoIndexRef.current);
       return;
     }
-    // Stub items: highlight only
-  }, [activateModeLogo]);
+    const item = MENU_ITEMS[activeIndexRef.current];
+    if (item?.opensJoinBar) {
+      onOpenJoinBar();
+    }
+    // Other stubs: highlight only
+  }, [activateModeLogo, onOpenJoinBar]);
 
   const returnToGame = useCallback(() => {
     onEnterPlay();
@@ -228,10 +235,14 @@ export default function MainMenu({
 
   const onStubClick = useCallback(
     (index: number) => {
-      if (index === activeIndexRef.current) return;
+      const item = MENU_ITEMS[index];
+      if (index === activeIndexRef.current) {
+        if (item?.opensJoinBar) onOpenJoinBar();
+        return;
+      }
       selectIndex(index, true);
     },
-    [selectIndex]
+    [selectIndex, onOpenJoinBar]
   );
 
   const onNavKeyDown = useCallback(
@@ -400,7 +411,7 @@ export default function MainMenu({
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
-                                  // stubs: no enter-play
+                                  if (item.opensJoinBar) onOpenJoinBar();
                                 }
                               }}
                             >

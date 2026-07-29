@@ -146,7 +146,7 @@ export function requireProductSkills(repoRoot = PIPELINE_REPO_ROOT) {
   return paths;
 }
 
-export const LEGACY_FLAT_PATRON_IDS = new Set(['patron_elder', 'patron_user']);
+export const LEGACY_FLAT_PATRON_IDS = new Set(['patron_elder']);
 
 export function usesNestedPatronAssets(characterId) {
   return !LEGACY_FLAT_PATRON_IDS.has(characterId);
