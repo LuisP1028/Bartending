@@ -35,8 +35,9 @@
   box-shadow:
     inset 0 0 50px rgba(0, 0, 10, 0.9),
     0 0 30px rgba(0, 26, 77, 0.8);
-  min-width: min(72%, 220px);
-  max-width: 92%;
+  /* FS87: slightly wider so dual mode logos fit without clipping */
+  min-width: min(78%, 260px);
+  max-width: 94%;
   max-height: 92%;
   overflow: hidden;
   pointer-events: auto;
@@ -119,6 +120,103 @@
   border: 2px dashed var(--color-cyan-electric);
   pointer-events: none;
   animation: mainMenuPulseFocus 0.8s steps(2, end) infinite;
+}
+
+/* FS87 — MODE SELECTION row: title + dual gold logos */
+.modeSelectionItem {
+  width: 100%;
+}
+
+.modeSelectionBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(6px, 3%, 12px);
+  width: 100%;
+}
+
+.modeSelectionBlockActive .modeSelectionTitle {
+  color: var(--color-sun-magenta);
+  text-shadow:
+    0 0 4px var(--color-sun-magenta),
+    0 0 8px var(--color-sun-magenta),
+    0 0 16px var(--color-sun-magenta);
+}
+
+.modeSelectionTitle {
+  font-family: inherit;
+  font-size: clamp(7px, 2.4cqw, 11px);
+  line-height: 1.5;
+  text-transform: inherit;
+  color: var(--color-mountain-purple);
+  text-shadow: none;
+  width: 100%;
+  text-align: left;
+}
+
+.modeLogoRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(8px, 4%, 16px);
+  width: 100%;
+  max-width: 100%;
+}
+
+.modeLogoBtn {
+  background: none;
+  border: none;
+  padding: clamp(2px, 1%, 4px);
+  margin: 0;
+  cursor: pointer;
+  width: auto !important;
+  max-width: min(48%, 110px);
+  line-height: 0;
+  position: relative;
+  color: inherit;
+  text-shadow: none !important;
+  border-radius: 2px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modeLogoBtn:hover:not(.modeLogoBtnActive) .modeLogoImg {
+  filter: drop-shadow(0 0 3px rgba(0, 255, 255, 0.75))
+    drop-shadow(0 0 6px rgba(0, 255, 255, 0.45));
+}
+
+.modeLogoBtnActive .modeLogoImg,
+.modeLogoBtnActive:hover .modeLogoImg {
+  filter: drop-shadow(0 0 3px rgba(255, 20, 147, 0.95))
+    drop-shadow(0 0 8px rgba(255, 20, 147, 0.7))
+    drop-shadow(0 0 14px rgba(255, 176, 0, 0.45));
+}
+
+.modeLogoBtn:focus-visible {
+  outline: none;
+}
+
+.modeLogoBtn:focus-visible::before {
+  content: '';
+  position: absolute;
+  inset: -4px -6px;
+  border: 2px dashed var(--color-cyan-electric);
+  pointer-events: none;
+  animation: mainMenuPulseFocus 0.8s steps(2, end) infinite;
+}
+
+.modeLogoImg {
+  display: block;
+  height: clamp(22px, 9cqw, 40px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 @keyframes mainMenuPulseFocus {

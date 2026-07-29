@@ -1096,6 +1096,16 @@ export default function Home() {
   const [phase, setPhase] = useState<AppPhase>('intro');
   const onBootComplete = useCallback(() => setPhase('menu'), []);
   const onEnterPlay = useCallback(() => setPhase('play'), []);
+  /** FS87: MODE SELECTION logo → set mode then enter play. */
+  const onSelectModeAndPlay = useCallback(
+    (mode: 'OBELISCO' | 'CLASSICS') => {
+      if (mode !== modeName) {
+        switchMode(mode);
+      }
+      setPhase('play');
+    },
+    [modeName, switchMode]
+  );
   const onOpenMenu = useCallback(() => {
     setPhase('menu');
   }, []);
@@ -1105,7 +1115,12 @@ export default function Home() {
   }
 
   if (phase === 'menu') {
-    return <MainMenu onEnterPlay={onEnterPlay} />;
+    return (
+      <MainMenu
+        onEnterPlay={onEnterPlay}
+        onSelectModeAndPlay={onSelectModeAndPlay}
+      />
+    );
   }
 
   if (!mode || !manifest) {

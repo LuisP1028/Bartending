@@ -5,35 +5,69 @@ import styles from './MainMenu.module.css';
 
 const MENU_BG_SRC = '/assets/boot/menu_background.jpg';
 
+/** Gold cutouts — same family as in-game sys-header mode controls (FS87). */
+const OBELISCO_MODE_LOGO_SRC = '/assets/logos/obelisco/obelisco-logo-gold.png';
+const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
+
+const MODE_LOGOS = [
+  { mode: 'OBELISCO' as const, src: OBELISCO_MODE_LOGO_SRC, label: 'OBELISCO' },
+  { mode: 'CLASSICS' as const, src: CLASSICS_MODE_LOGO_SRC, label: 'CLASSICS' },
+];
+
+const MODE_SELECTION_INDEX = 0;
+
 const MENU_ITEMS = [
-  { id: 'initiate', label: 'Initiate Sequence', entersPlay: true },
-  { id: 'starfield', label: 'Starfield Config', entersPlay: false },
-  { id: 'diagnostics', label: 'Warp Diagnostics', entersPlay: false },
-  { id: 'terminate', label: 'Terminate Uplink', entersPlay: false },
+  { id: 'mode-selection', label: 'Mode Selection', isModeSelection: true },
+  { id: 'starfield', label: 'Starfield Config', isModeSelection: false },
+  { id: 'diagnostics', label: 'Warp Diagnostics', isModeSelection: false },
+  { id: 'terminate', label: 'Terminate Uplink', isModeSelection: false },
 ] as const;
 
+export type MenuPlayMode = 'OBELISCO' | 'CLASSICS';
+
 type MainMenuProps = {
-  /** Leave menu → interactive game (Initiate Sequence, root B, START). */
+  /** Enter play without changing mode (root B, START). */
   onEnterPlay: () => void;
+  /** Enter play after selecting a mode from MODE SELECTION logos. */
+  onSelectModeAndPlay: (mode: MenuPlayMode) => void;
 };
 
 /**
- * FS80/82 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
- * Shell: ↑↓ navigate, A select, B back (root → play), START → play.
+ * FS80/82/87 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * Shell: ↑↓ navigate, ←→ mode logos, A select, B back (root → play), START → play.
  */
-export default function MainMenu({ onEnterPlay }: MainMenuProps) {
+export default function MainMenu({
+  onEnterPlay,
+  onSelectModeAndPlay,
+}: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
-  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  /** Focus targets for pointer snap: logo buttons when on MODE SELECTION, else row buttons. */
+  const focusTargetRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const logoButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const phaseShiftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bounceCleanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
+  const logoIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  /** 0 = OBELISCO, 1 = CLASSICS — only meaningful on MODE SELECTION row. */
+  const [logoIndex, setLogoIndex] = useState(0);
   /** v1: only root screen; depth > 1 reserved for future sub-screens (FS82 O8). */
   const [screenStack] = useState<string[]>(['root']);
   const ANIMATION_DURATION_MS = 150;
 
   activeIndexRef.current = activeIndex;
+  logoIndexRef.current = logoIndex;
+
+  const resolveFocusTarget = useCallback(
+    (rowIndex: number, logo: number): HTMLButtonElement | null => {
+      if (rowIndex === MODE_SELECTION_INDEX) {
+        return logoButtonRefs.current[logo] ?? null;
+      }
+      return focusTargetRefs.current[rowIndex] ?? null;
+    },
+    []
+  );
 
   const snapPointer = useCallback((targetElement: HTMLElement, bypassAnimation = false) => {
     const navWrapper = navWrapperRef.current;
@@ -68,27 +102,29 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
     }, ANIMATION_DURATION_MS);
   }, []);
 
-  useEffect(() => {
-    const active = buttonRefs.current[activeIndex];
-    if (!active) return;
+  const snapToCurrent = useCallback(
+    (bypassAnimation: boolean) => {
+      const el = resolveFocusTarget(activeIndexRef.current, logoIndexRef.current);
+      if (el) snapPointer(el, bypassAnimation);
+    },
+    [resolveFocusTarget, snapPointer]
+  );
 
-    const run = () => snapPointer(active, true);
+  useEffect(() => {
+    const run = () => snapToCurrent(true);
     if (document.fonts?.ready) {
       document.fonts.ready.then(run);
     } else {
       const t = window.setTimeout(run, 200);
       return () => window.clearTimeout(t);
     }
-  }, [activeIndex, snapPointer]);
+  }, [activeIndex, logoIndex, snapToCurrent]);
 
   useEffect(() => {
-    const onResize = () => {
-      const active = buttonRefs.current[activeIndex];
-      if (active) snapPointer(active, true);
-    };
+    const onResize = () => snapToCurrent(true);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [activeIndex, snapPointer]);
+  }, [snapToCurrent]);
 
   useEffect(() => {
     return () => {
@@ -98,33 +134,73 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
   }, []);
 
   const selectIndex = useCallback(
-    (index: number, animatePointer: boolean) => {
+    (index: number, animatePointer: boolean, nextLogoIndex?: number) => {
       const n = MENU_ITEMS.length;
       const next = ((index % n) + n) % n;
       setActiveIndex(next);
-      const el = buttonRefs.current[next];
-      if (el) snapPointer(el, !animatePointer);
+      const logo =
+        next === MODE_SELECTION_INDEX
+          ? nextLogoIndex !== undefined
+            ? nextLogoIndex
+            : next === activeIndexRef.current
+              ? logoIndexRef.current
+              : 0
+          : logoIndexRef.current;
+      if (next === MODE_SELECTION_INDEX) {
+        setLogoIndex(logo);
+        logoIndexRef.current = logo;
+      }
+      activeIndexRef.current = next;
+      const el = resolveFocusTarget(next, logo);
+      if (el) {
+        snapPointer(el, !animatePointer);
+        el.focus();
+      }
     },
-    [snapPointer]
+    [resolveFocusTarget, snapPointer]
   );
 
   const moveSelection = useCallback(
     (delta: -1 | 1) => {
       const next =
         (activeIndexRef.current + delta + MENU_ITEMS.length) % MENU_ITEMS.length;
-      selectIndex(next, true);
-      buttonRefs.current[next]?.focus();
+      // Landing on MODE SELECTION defaults logo focus to OBELISCO
+      selectIndex(next, true, next === MODE_SELECTION_INDEX ? 0 : undefined);
     },
     [selectIndex]
   );
 
+  const moveLogo = useCallback(
+    (delta: -1 | 1) => {
+      if (activeIndexRef.current !== MODE_SELECTION_INDEX) return;
+      const next = (logoIndexRef.current + delta + MODE_LOGOS.length) % MODE_LOGOS.length;
+      setLogoIndex(next);
+      logoIndexRef.current = next;
+      const el = logoButtonRefs.current[next];
+      if (el) {
+        snapPointer(el, false);
+        el.focus();
+      }
+    },
+    [snapPointer]
+  );
+
+  const activateModeLogo = useCallback(
+    (index: number) => {
+      const entry = MODE_LOGOS[index];
+      if (!entry) return;
+      onSelectModeAndPlay(entry.mode);
+    },
+    [onSelectModeAndPlay]
+  );
+
   const activateCurrent = useCallback(() => {
-    const item = MENU_ITEMS[activeIndexRef.current];
-    if (item?.entersPlay) {
-      onEnterPlay();
+    if (activeIndexRef.current === MODE_SELECTION_INDEX) {
+      activateModeLogo(logoIndexRef.current);
+      return;
     }
-    // Stub items: highlight only (future: push sub-screen onto screenStack)
-  }, [onEnterPlay]);
+    // Stub items: highlight only
+  }, [activateModeLogo]);
 
   const returnToGame = useCallback(() => {
     onEnterPlay();
@@ -139,27 +215,23 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
     onEnterPlay();
   }, [onEnterPlay, screenStack.length]);
 
-  const activateIndex = useCallback(
+  const onLogoClick = useCallback(
     (index: number) => {
-      const item = MENU_ITEMS[index];
-      if (item?.entersPlay) {
-        onEnterPlay();
-      }
+      setActiveIndex(MODE_SELECTION_INDEX);
+      activeIndexRef.current = MODE_SELECTION_INDEX;
+      setLogoIndex(index);
+      logoIndexRef.current = index;
+      activateModeLogo(index);
     },
-    [onEnterPlay]
+    [activateModeLogo]
   );
 
-  const onItemClick = useCallback(
+  const onStubClick = useCallback(
     (index: number) => {
-      const item = MENU_ITEMS[index];
-      if (!item) return;
-      if (index === activeIndexRef.current) {
-        if (item.entersPlay) onEnterPlay();
-        return;
-      }
+      if (index === activeIndexRef.current) return;
       selectIndex(index, true);
     },
-    [onEnterPlay, selectIndex]
+    [selectIndex]
   );
 
   const onNavKeyDown = useCallback(
@@ -170,12 +242,18 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         moveSelection(-1);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        moveLogo(-1);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        moveLogo(1);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         goBack();
       }
     },
-    [goBack, moveSelection]
+    [goBack, moveLogo, moveSelection]
   );
 
   return (
@@ -230,29 +308,107 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
                       </svg>
                     </div>
                     <ul className={styles.navList} role="menu">
-                      {MENU_ITEMS.map((item, index) => (
-                        <li key={item.id} role="none">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            ref={(el) => {
-                              buttonRefs.current[index] = el;
-                            }}
-                            className={index === activeIndex ? styles.active : undefined}
-                            aria-selected={index === activeIndex}
-                            onClick={() => onItemClick(index)}
-                            onFocus={() => selectIndex(index, true)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                activateIndex(index);
+                      {MENU_ITEMS.map((item, index) => {
+                        if (item.isModeSelection) {
+                          const rowActive = index === activeIndex;
+                          return (
+                            <li
+                              key={item.id}
+                              role="none"
+                              className={styles.modeSelectionItem}
+                            >
+                              <div
+                                className={`${styles.modeSelectionBlock}${
+                                  rowActive ? ` ${styles.modeSelectionBlockActive}` : ''
+                                }`}
+                                aria-label="Mode selection"
+                              >
+                                <div
+                                  className={`${styles.modeSelectionTitle}${
+                                    rowActive ? ` ${styles.active}` : ''
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  {item.label}
+                                </div>
+                                <div className={styles.modeLogoRow} role="group">
+                                  {MODE_LOGOS.map((logo, li) => {
+                                    const focused =
+                                      rowActive && logoIndex === li;
+                                    return (
+                                      <button
+                                        key={logo.mode}
+                                        type="button"
+                                        role="menuitem"
+                                        ref={(el) => {
+                                          logoButtonRefs.current[li] = el;
+                                          if (li === 0) {
+                                            focusTargetRefs.current[index] = el;
+                                          }
+                                        }}
+                                        className={`${styles.modeLogoBtn}${
+                                          focused ? ` ${styles.modeLogoBtnActive}` : ''
+                                        }`}
+                                        aria-label={logo.label}
+                                        aria-selected={focused}
+                                        onClick={() => onLogoClick(li)}
+                                        onFocus={() => {
+                                          setActiveIndex(MODE_SELECTION_INDEX);
+                                          activeIndexRef.current = MODE_SELECTION_INDEX;
+                                          setLogoIndex(li);
+                                          logoIndexRef.current = li;
+                                          if (logoButtonRefs.current[li]) {
+                                            snapPointer(logoButtonRefs.current[li]!, true);
+                                          }
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            activateModeLogo(li);
+                                          }
+                                        }}
+                                      >
+                                        <img
+                                          src={logo.src}
+                                          alt=""
+                                          draggable={false}
+                                          className={styles.modeLogoImg}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={item.id} role="none">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              ref={(el) => {
+                                focusTargetRefs.current[index] = el;
+                              }}
+                              className={
+                                index === activeIndex ? styles.active : undefined
                               }
-                            }}
-                          >
-                            {item.label}
-                          </button>
-                        </li>
-                      ))}
+                              aria-selected={index === activeIndex}
+                              onClick={() => onStubClick(index)}
+                              onFocus={() => selectIndex(index, true)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  // stubs: no enter-play
+                                }
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </nav>
                 </div>
@@ -278,17 +434,13 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--left"
                   aria-label="Menu left"
-                  onClick={() => {
-                    /* root list: no-op */
-                  }}
+                  onClick={() => moveLogo(-1)}
                 />
                 <button
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--right"
                   aria-label="Menu right"
-                  onClick={() => {
-                    /* root list: no-op */
-                  }}
+                  onClick={() => moveLogo(1)}
                 />
               </div>
               <div className="gb-shell__btn-ab">
