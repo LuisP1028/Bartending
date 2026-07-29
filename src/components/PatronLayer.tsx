@@ -47,18 +47,9 @@ type PatronInstance = {
 
 type PatronLayerProps = {
   seats: PatronSeatInput[];
-  /**
-   * Optional per-character layout overrides (PATRON EDIT / localStorage map).
-   * Defaults resolve via resolvePatronLayout when omitted.
-   */
   layoutOverrides?: Record<string, PatronLayout>;
-  /**
-   * Stage-space bar_cutoff path (HOTSPOT EDIT offsets applied).
-   * Patron is clipped to stage − this region so lower body sits behind the bar photo.
-   */
   barCutoffD?: string;
   editMode?: boolean;
-  /** Optional; reserved for sit-complete order print (FS51). */
   onSitComplete?: (info: {
     instanceKey: string;
     characterId: string;
@@ -76,7 +67,9 @@ function freeSeats(
   return seats.filter(
     (s) =>
       s.zoneId &&
-      BAR_SEAT_ZONE_IDS.includes(s.zoneId as (typeof BAR_SEAT_ZONE_IDS)[number]) &&
+      BAR_SEAT_ZONE_IDS.includes(
+        s.zoneId as (typeof BAR_SEAT_ZONE_IDS)[number]
+      ) &&
       !taken.has(s.zoneId)
   );
 }
@@ -114,8 +107,8 @@ function nextInstanceKey(): string {
 }
 
 /**
- * FS83 multi-patron layer: auto-fill free seats with unique character ids.
- * Invariants: living count ≤ seats; one living patron per seat; no clone ids.
+ * FS83/84 multi-patron layer: auto-fill free seats with unique character ids.
+ * Walk motion starts immediately on successful claim (FS84 unfreeze).
  */
 export default function PatronLayer({
   seats,
@@ -127,8 +120,8 @@ export default function PatronLayer({
   const layerRef = useRef<HTMLDivElement>(null);
   const [layerSize, setLayerSize] = useState({ w: 0, h: 0 });
   const [instances, setInstances] = useState<PatronInstance[]>([]);
+  /** Authoritative living list for spawn exclusivity + motion; never overwritten from stale render. */
   const instancesRef = useRef<PatronInstance[]>([]);
-  instancesRef.current = instances;
 
   const seatsRef = useRef(seats);
   seatsRef.current = seats;
@@ -139,6 +132,7 @@ export default function PatronLayer({
 
   const rafByKey = useRef(new Map<string, number>());
   const walkStartByKey = useRef(new Map<string, number>());
+  const walkMsByKey = useRef(new Map<string, number>());
 
   useEffect(() => {
     const el = layerRef.current;
@@ -172,6 +166,7 @@ export default function PatronLayer({
       rafByKey.current.delete(instanceKey);
     }
     walkStartByKey.current.delete(instanceKey);
+    walkMsByKey.current.delete(instanceKey);
   }, []);
 
   const cancelAllMotion = useCallback(() => {
@@ -180,65 +175,79 @@ export default function PatronLayer({
     }
     rafByKey.current.clear();
     walkStartByKey.current.clear();
+    walkMsByKey.current.clear();
+  }, []);
+
+  /** Commit array to both React state and exclusivity ref (single source after claim). */
+  const commitInstances = useCallback((next: PatronInstance[]) => {
+    instancesRef.current = next;
+    setInstances(next);
   }, []);
 
   const runWalkMotion = useCallback(
     (instanceKey: string, walkMs: number) => {
       cancelMotion(instanceKey);
+      const duration = Math.max(400, walkMs);
+      walkMsByKey.current.set(instanceKey, duration);
       walkStartByKey.current.set(instanceKey, performance.now());
 
       const tick = (now: number) => {
         const start = walkStartByKey.current.get(instanceKey);
         if (start == null) return;
-        const t = Math.min(1, (now - start) / Math.max(400, walkMs));
 
-        setInstances((prev) => {
-          const idx = prev.findIndex((p) => p.instanceKey === instanceKey);
-          if (idx < 0) return prev;
-          const cur = prev[idx];
-          if (cur.phase !== 'walking') return prev;
+        const durationMs = walkMsByKey.current.get(instanceKey) ?? duration;
+        const t = Math.min(1, (now - start) / durationMs);
 
+        const prev = instancesRef.current;
+        const idx = prev.findIndex((p) => p.instanceKey === instanceKey);
+
+        // Instance not claimed into ref yet — keep ticking until it appears or cancelled
+        if (idx < 0) {
           if (t < 1) {
-            const next = [...prev];
-            next[idx] = { ...cur, t };
-            instancesRef.current = next;
-            return next;
+            rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
           }
+          return;
+        }
 
-          const seated: PatronInstance = {
-            ...cur,
-            phase: 'seated',
-            t: 1,
-            flipX: false,
-            walkFrameIndex: 0,
-          };
-          const next = [...prev];
-          next[idx] = seated;
-          instancesRef.current = next;
-          return next;
-        });
+        const cur = prev[idx];
+        if (cur.phase !== 'walking') {
+          cancelMotion(instanceKey);
+          return;
+        }
 
         if (t < 1) {
+          const next = [...prev];
+          next[idx] = { ...cur, t };
+          commitInstances(next);
           rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
-        } else {
-          rafByKey.current.delete(instanceKey);
-          walkStartByKey.current.delete(instanceKey);
-          const done = instancesRef.current.find(
-            (p) => p.instanceKey === instanceKey
-          );
-          if (done?.phase === 'seated') {
-            onSitCompleteRef.current?.({
-              instanceKey,
-              characterId: done.characterId,
-              seatId: done.seatId,
-            });
-          }
+          return;
         }
+
+        // Sit
+        const seated: PatronInstance = {
+          ...cur,
+          phase: 'seated',
+          t: 1,
+          flipX: false,
+          walkFrameIndex: 0,
+        };
+        const next = [...prev];
+        next[idx] = seated;
+        commitInstances(next);
+        rafByKey.current.delete(instanceKey);
+        walkStartByKey.current.delete(instanceKey);
+        walkMsByKey.current.delete(instanceKey);
+
+        onSitCompleteRef.current?.({
+          instanceKey,
+          characterId: seated.characterId,
+          seatId: seated.seatId,
+        });
       };
 
       rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
     },
-    [cancelMotion]
+    [cancelMotion, commitInstances]
   );
 
   const trySpawn = useCallback(() => {
@@ -247,8 +256,6 @@ export default function PatronLayer({
     const current = instancesRef.current;
     const seatList = seatsRef.current;
     if (!seatList.length) return;
-
-    // Capacity: never exceed total seats available
     if (current.length >= seatList.length) return;
 
     const free = freeSeats(seatList, current);
@@ -262,67 +269,57 @@ export default function PatronLayer({
     const built = buildEntryForSeat(seat, layout);
     if (!built) return;
 
+    // Atomic claim on ref first (before React paint) so motion never races state
+    const latest = instancesRef.current;
+    if (latest.length >= seatList.length) return;
+    if (latest.some((p) => p.seatId === built.seatId)) return;
+    if (latest.some((p) => p.characterId === characterId)) return;
+
     const def = characterToPatronDef(requireCharacter(characterId));
     const instanceKey = nextInstanceKey();
-    const start = built.walkPath[0];
-    const end = built.walkPath[built.walkPath.length - 1];
-    const flipX = end.x < start.x;
+    const pathStart = built.walkPath[0];
+    const pathEnd = built.walkPath[built.walkPath.length - 1];
+    const flipX = pathEnd.x < pathStart.x;
 
-    let spawned: PatronInstance | null = null;
+    const nextInst: PatronInstance = {
+      instanceKey,
+      characterId,
+      def,
+      layout,
+      phase: 'walking',
+      seatId: built.seatId,
+      t: 0,
+      walkPath: built.walkPath,
+      sitPoint: built.sitPoint,
+      flipX,
+      walkFrameIndex: 0,
+    };
 
-    setInstances((prev) => {
-      // Atomic re-check: seat + character exclusivity + capacity
-      if (prev.length >= seatList.length) return prev;
-      if (prev.some((p) => p.seatId === built.seatId)) return prev;
-      if (prev.some((p) => p.characterId === characterId)) return prev;
+    commitInstances([...latest, nextInst]);
 
-      const nextInst: PatronInstance = {
-        instanceKey,
-        characterId,
-        def,
-        layout,
-        phase: 'walking',
-        seatId: built.seatId,
-        t: 0,
-        walkPath: built.walkPath,
-        sitPoint: built.sitPoint,
-        flipX,
-        walkFrameIndex: 0,
-      };
-      const next = [...prev, nextInst];
-      instancesRef.current = next;
-      spawned = nextInst;
-      return next;
-    });
+    // FS84: start walk immediately — do not wait for a later rAF state check
+    runWalkMotion(instanceKey, layout.walkMs);
+  }, [editMode, commitInstances, runWalkMotion]);
 
-    // Start motion after claim succeeds (raf next frame so state is committed)
-    requestAnimationFrame(() => {
-      const still = instancesRef.current.find((p) => p.instanceKey === instanceKey);
-      if (still && still.phase === 'walking') {
-        runWalkMotion(instanceKey, still.layout.walkMs);
-      }
-    });
+  // Auto-fill scheduler — stable deps: do not tear down when trySpawn identity churns mid-session
+  const trySpawnRef = useRef(trySpawn);
+  trySpawnRef.current = trySpawn;
 
-    void spawned;
-  }, [editMode, runWalkMotion]);
-
-  // Auto-fill scheduler
   useEffect(() => {
     if (editMode) {
       cancelAllMotion();
-      setInstances([]);
-      instancesRef.current = [];
+      commitInstances([]);
       return;
     }
     if (!seats.length) return;
 
     let cancelled = false;
     const initial = window.setTimeout(() => {
-      if (!cancelled) trySpawn();
+      if (!cancelled) trySpawnRef.current();
     }, AUTO_FILL_INITIAL_DELAY_MS);
 
     const interval = window.setInterval(() => {
-      if (!cancelled) trySpawn();
+      if (!cancelled) trySpawnRef.current();
     }, AUTO_FILL_INTERVAL_MS);
 
     return () => {
@@ -330,34 +327,30 @@ export default function PatronLayer({
       window.clearTimeout(initial);
       window.clearInterval(interval);
     };
-  }, [editMode, seats, trySpawn, cancelAllMotion]);
+  }, [editMode, seats, cancelAllMotion, commitInstances]);
 
   const walkingCount = instances.filter((i) => i.phase === 'walking').length;
 
-  // Walk frame animation for all walking patrons
   useEffect(() => {
     if (walkingCount === 0) return;
     const id = window.setInterval(() => {
-      setInstances((prev) => {
-        let changed = false;
-        const next = prev.map((p) => {
-          if (p.phase !== 'walking') return p;
-          const n = p.def.walkFrames.length;
-          if (n <= 0) return p;
-          changed = true;
-          return {
-            ...p,
-            walkFrameIndex: (p.walkFrameIndex + 1) % n,
-          };
-        });
-        if (changed) instancesRef.current = next;
-        return changed ? next : prev;
+      const prev = instancesRef.current;
+      let changed = false;
+      const next = prev.map((p) => {
+        if (p.phase !== 'walking') return p;
+        const n = p.def.walkFrames.length;
+        if (n <= 0) return p;
+        changed = true;
+        return {
+          ...p,
+          walkFrameIndex: (p.walkFrameIndex + 1) % n,
+        };
       });
+      if (changed) commitInstances(next);
     }, 120);
     return () => window.clearInterval(id);
-  }, [walkingCount]);
+  }, [walkingCount, commitInstances]);
 
-  // Cleanup rAF on unmount
   useEffect(() => {
     return () => cancelAllMotion();
   }, [cancelAllMotion]);
@@ -371,7 +364,11 @@ export default function PatronLayer({
       ref={layerRef}
       className="pov-patron-layer"
       aria-hidden="true"
-      style={barClipCss ? { clipPath: barClipCss, WebkitClipPath: barClipCss } : undefined}
+      style={
+        barClipCss
+          ? { clipPath: barClipCss, WebkitClipPath: barClipCss }
+          : undefined
+      }
     >
       {instances.map((inst) => {
         const isSeated = inst.phase === 'seated';
