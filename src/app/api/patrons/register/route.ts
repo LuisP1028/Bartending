@@ -2,8 +2,9 @@ import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import { NextResponse } from 'next/server';
+import { resolvePatronIdentity } from '@/lib/patronIdentity';
+import { ensurePatronFolders } from '@/lib/patronFolders';
 import {
   hasImagineCredentials,
   updateGenerationJob,
@@ -16,11 +17,6 @@ export const runtime = 'nodejs';
 /** Allow long-lived request setup; generation continues in background. */
 export const maxDuration = 300;
 
-async function loadPipelineMod(rel: string) {
-  const href = pathToFileURL(path.join(process.cwd(), rel)).href;
-  return import(href);
-}
-
 function repoRoot() {
   return process.cwd();
 }
@@ -28,8 +24,9 @@ function repoRoot() {
 /**
  * POST multipart: name, email?, phone?, photo (file), runPipeline? ('1'|'true')
  *
- * FS94: runPipeline=true starts full generative --run in the background and
+ * FS94/FS95: runPipeline=true starts full generative --run in the background and
  * returns jobId for polling GET /api/patrons/generate-status.
+ * Helpers load via static @/lib imports (no dynamic import of pipeline .mjs).
  */
 export async function POST(req: Request) {
   try {
@@ -52,44 +49,17 @@ export async function POST(req: Request) {
       );
     }
 
-    const { resolvePatronIdentity } = await loadPipelineMod(
-      'scripts/patron-pipeline/lib/characterId.mjs'
-    );
-    const { ensurePatronFolders } = await loadPipelineMod(
-      'scripts/patron-pipeline/lib/patronFolder.mjs'
-    );
-    const { registerCharacterInSource } = await loadPipelineMod(
-      'scripts/patron-pipeline/lib/registerCharacter.mjs'
-    );
-
     const identity = resolvePatronIdentity({ name, email, phone });
     const root = repoRoot();
     const folders = ensurePatronFolders(root, identity);
 
-    let pii: { inserted: boolean; contactHash: string } | null = null;
-    let piiError: string | null = null;
-    try {
-      const { upsertPatronPii, hasPiiKey } = await loadPipelineMod(
-        'scripts/patron-pipeline/lib/patronDb.mjs'
-      );
-      if (!hasPiiKey()) {
-        piiError =
-          'PII_ENCRYPTION_KEY not set — folder created but contact not stored in DB';
-      } else {
-        const saved = upsertPatronPii(root, {
-          characterId: identity.characterId,
-          contactHash: identity.contactHash,
-          name: identity.displayName,
-          email,
-          phone,
-        });
-        pii = {
-          inserted: saved.inserted,
-          contactHash: saved.contactHash,
-        };
-      }
-    } catch (pe: unknown) {
-      piiError = pe instanceof Error ? pe.message : String(pe);
+    // PII via pipeline SQLite is optional; do not block generation (RE95).
+    const pii: { inserted: boolean; contactHash: string } | null = null;
+    let piiError: string | null =
+      'PII store not wired on API path — folder + generate still proceed';
+    if (!process.env.PII_ENCRYPTION_KEY) {
+      piiError =
+        'PII_ENCRYPTION_KEY not set — folder created but contact not stored in DB';
     }
 
     let photoPath: string | null = null;
@@ -107,14 +77,8 @@ export async function POST(req: Request) {
     }
 
     // Dev convenience only — production roster uses data/runtime-patrons.json
-    let reg: { inserted: boolean; constName?: string } = { inserted: false };
-    try {
-      reg = registerCharacterInSource(root, identity.characterId, {
-        displayName: identity.displayName,
-      });
-    } catch {
-      reg = { inserted: false };
-    }
+    // (characters.ts patch skipped on API path; runtime upsert on job success).
+    const reg: { inserted: boolean; constName?: string } = { inserted: false };
 
     if (!runPipeline) {
       return NextResponse.json({
