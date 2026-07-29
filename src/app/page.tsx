@@ -6,6 +6,7 @@ import BootIntro from '@/components/BootIntro';
 import MainMenu from '@/components/MainMenu';
 import JoinBarCommLink, {
   type JoinBarIdentity,
+  type JoinBarCommLinkHandle,
 } from '@/components/JoinBarCommLink';
 import JoinBarCamera from '@/components/JoinBarCamera';
 import BottleAsset from '@/components/BottleAsset';
@@ -456,6 +457,8 @@ export default function Home() {
   const [joinBusy, setJoinBusy] = useState(false);
   const [joinStatus, setJoinStatus] = useState<string | null>(null);
   const [joinStatusError, setJoinStatusError] = useState(false);
+  /** FS93: Comm-Link D-pad / A bridge */
+  const joinCommRef = useRef<JoinBarCommLinkHandle | null>(null);
 
   useEffect(() => {
     setHotspotOffsets(loadHotspotOffsets());
@@ -1164,6 +1167,23 @@ export default function Home() {
     return false;
   }, [joinBusy, joinStage, onCameraBack, onCloseJoin]);
 
+  /** FS93 — D-pad while Comm-Link open */
+  const onShellDpad = useCallback(
+    (dir: 'up' | 'down' | 'left' | 'right'): boolean => {
+      if (joinStage !== 'comm' || !joinCommRef.current) return false;
+      if (dir === 'up' || dir === 'left') joinCommRef.current.moveFocus(-1);
+      else joinCommRef.current.moveFocus(1);
+      return true;
+    },
+    [joinStage]
+  );
+
+  const onShellA = useCallback((): boolean => {
+    if (joinStage !== 'comm' || !joinCommRef.current) return false;
+    joinCommRef.current.activate();
+    return true;
+  }, [joinStage]);
+
   const onJoinTransmit = useCallback((identity: JoinBarIdentity) => {
     setJoinIdentity(identity);
     setJoinStatus(null);
@@ -1241,7 +1261,11 @@ export default function Home() {
   if (phase === 'menu') {
     const joinOverlay =
       joinStage === 'comm' ? (
-        <JoinBarCommLink onTransmit={onJoinTransmit} onClose={onCloseJoin} />
+        <JoinBarCommLink
+          ref={joinCommRef}
+          onTransmit={onJoinTransmit}
+          onClose={onCloseJoin}
+        />
       ) : joinStage === 'camera' ? (
         <JoinBarCamera
           onCapture={onJoinCapture}
@@ -1258,6 +1282,8 @@ export default function Home() {
         onSelectModeAndPlay={onSelectModeAndPlay}
         onOpenJoinBar={onOpenJoinBar}
         onShellBack={onShellBack}
+        onShellDpad={onShellDpad}
+        onShellA={onShellA}
         joinOverlay={joinOverlay}
       />
     );

@@ -43,10 +43,16 @@ type MainMenuProps = {
    * Host owns the stack (e.g. camera → comm → menu).
    */
   onShellBack?: () => boolean;
+  /**
+   * FS93: When join (or other) glass screen owns D-pad / A, host supplies handlers.
+   * Return true if consumed (do not move main menu selection).
+   */
+  onShellDpad?: (dir: 'up' | 'down' | 'left' | 'right') => boolean;
+  onShellA?: () => boolean;
 };
 
 /**
- * FS80/82/87/89/90/92 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * FS80/82/87/89/90/92/93 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
  * Shell: ↑↓ navigate, ←→ mode logos, A select, B = back (stack) or root → play.
  */
 export default function MainMenu({
@@ -55,6 +61,8 @@ export default function MainMenu({
   onOpenJoinBar,
   joinOverlay = null,
   onShellBack,
+  onShellDpad,
+  onShellA,
 }: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
@@ -211,6 +219,8 @@ export default function MainMenu({
   );
 
   const activateCurrent = useCallback(() => {
+    // FS93: nested glass screen owns A first
+    if (onShellA?.()) return;
     if (activeIndexRef.current === MODE_SELECTION_INDEX) {
       activateModeLogo(logoIndexRef.current);
       return;
@@ -220,7 +230,18 @@ export default function MainMenu({
       onOpenJoinBar();
     }
     // Other stubs: highlight only
-  }, [activateModeLogo, onOpenJoinBar]);
+  }, [activateModeLogo, onOpenJoinBar, onShellA]);
+
+  const shellDpad = useCallback(
+    (dir: 'up' | 'down' | 'left' | 'right') => {
+      if (onShellDpad?.(dir)) return;
+      if (dir === 'up') moveSelection(-1);
+      else if (dir === 'down') moveSelection(1);
+      else if (dir === 'left') moveLogo(-1);
+      else moveLogo(1);
+    },
+    [onShellDpad, moveSelection, moveLogo]
+  );
 
   const returnToGame = useCallback(() => {
     onEnterPlay();
@@ -456,25 +477,25 @@ export default function MainMenu({
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--up"
                   aria-label="Menu up"
-                  onClick={() => moveSelection(-1)}
+                  onClick={() => shellDpad('up')}
                 />
                 <button
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--down"
                   aria-label="Menu down"
-                  onClick={() => moveSelection(1)}
+                  onClick={() => shellDpad('down')}
                 />
                 <button
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--left"
                   aria-label="Menu left"
-                  onClick={() => moveLogo(-1)}
+                  onClick={() => shellDpad('left')}
                 />
                 <button
                   type="button"
                   className="gb-shell__dpad gb-shell__dpad--right"
                   aria-label="Menu right"
-                  onClick={() => moveLogo(1)}
+                  onClick={() => shellDpad('right')}
                 />
               </div>
               <div className="gb-shell__btn-ab">

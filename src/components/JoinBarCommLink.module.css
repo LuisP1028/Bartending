@@ -139,12 +139,19 @@
   border: 2px solid var(--color-mountain-purple);
   color: var(--color-cyan-electric);
   font-family: inherit;
-  font-size: clamp(10px, 2.4vw, 13px);
-  padding: clamp(12px, 3vw, 16px) 12px;
+  /*
+   * FS93: iOS Safari zooms focused inputs when font-size < 16px.
+   * Keep ≥16px so Comm-Link does not zoom the glass.
+   */
+  font-size: 16px;
+  line-height: 1.25;
+  padding: clamp(10px, 2.5%, 14px) 12px;
   text-transform: uppercase;
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  /* Prevent iOS from resizing text and reflow-zoom in some versions */
+  -webkit-text-size-adjust: 100%;
 }
 
 .synthInput::placeholder {
@@ -206,4 +213,20 @@
 .submitBtn:active {
   border-color: var(--color-sun-magenta);
   color: var(--color-sun-magenta);
+}
+
+/* FS93 — D-pad focused control ring */
+.controlFocused {
+  border-color: var(--color-sun-magenta) !important;
+  color: var(--color-cyan-electric);
+  box-shadow:
+    0 0 0 2px rgba(255, 20, 147, 0.45),
+    0 0 12px rgba(255, 20, 147, 0.35) !important;
+}
+
+.submitBtn.controlFocused {
+  color: var(--color-sun-magenta) !important;
+  text-shadow:
+    0 0 4px var(--color-sun-magenta),
+    0 0 8px var(--color-sun-magenta);
 }
