@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import {
   characterToPatronDef,
   listCharacters,
@@ -43,6 +44,12 @@ type PatronInstance = {
   sitPoint: StagePoint;
   flipX: boolean;
   walkFrameIndex: number;
+};
+
+type MotionClock = {
+  startMs: number;
+  walkMs: number;
+  frameMs: number;
 };
 
 type PatronLayerProps = {
@@ -107,8 +114,10 @@ function nextInstanceKey(): string {
 }
 
 /**
- * FS83/84 multi-patron layer: auto-fill free seats with unique character ids.
- * Walk motion starts immediately on successful claim (FS84 unfreeze).
+ * FS83/85 multi-patron layer.
+ * Exclusivity: living ≤ seats; one per seat; unique character ids.
+ * Motion: single rAF driver advances all walkers each frame (future-proof; no last-write-wins).
+ * Leave can join the same driver later as phase `leaving`.
  */
 export default function PatronLayer({
   seats,
@@ -120,7 +129,6 @@ export default function PatronLayer({
   const layerRef = useRef<HTMLDivElement>(null);
   const [layerSize, setLayerSize] = useState({ w: 0, h: 0 });
   const [instances, setInstances] = useState<PatronInstance[]>([]);
-  /** Authoritative living list for spawn exclusivity + motion; never overwritten from stale render. */
   const instancesRef = useRef<PatronInstance[]>([]);
 
   const seatsRef = useRef(seats);
@@ -130,9 +138,14 @@ export default function PatronLayer({
   const onSitCompleteRef = useRef(onSitComplete);
   onSitCompleteRef.current = onSitComplete;
 
-  const rafByKey = useRef(new Map<string, number>());
-  const walkStartByKey = useRef(new Map<string, number>());
-  const walkMsByKey = useRef(new Map<string, number>());
+  /** Per-instance walk clocks (data only). Single driver owns progression. */
+  const motionClockRef = useRef(new Map<string, MotionClock>());
+  const driverRafRef = useRef(0);
+  const driverRunningRef = useRef(false);
+  /** Sit-complete events queued during functional update, flushed after. */
+  const pendingSitRef = useRef<
+    { instanceKey: string; characterId: string; seatId: string }[]
+  >([]);
 
   useEffect(() => {
     const el = layerRef.current;
@@ -159,109 +172,128 @@ export default function PatronLayer({
     [barCutoffD, layerSize.w, layerSize.h]
   );
 
-  const cancelMotion = useCallback((instanceKey: string) => {
-    const id = rafByKey.current.get(instanceKey);
-    if (id) {
-      cancelAnimationFrame(id);
-      rafByKey.current.delete(instanceKey);
+  const stopMotionDriver = useCallback(() => {
+    if (driverRafRef.current) {
+      cancelAnimationFrame(driverRafRef.current);
+      driverRafRef.current = 0;
     }
-    walkStartByKey.current.delete(instanceKey);
-    walkMsByKey.current.delete(instanceKey);
+    driverRunningRef.current = false;
   }, []);
 
-  const cancelAllMotion = useCallback(() => {
-    for (const id of rafByKey.current.values()) {
-      cancelAnimationFrame(id);
-    }
-    rafByKey.current.clear();
-    walkStartByKey.current.clear();
-    walkMsByKey.current.clear();
-  }, []);
+  const clearAllMotion = useCallback(() => {
+    stopMotionDriver();
+    motionClockRef.current.clear();
+    pendingSitRef.current = [];
+  }, [stopMotionDriver]);
 
-  /** Commit array to both React state and exclusivity ref (single source after claim). */
-  const commitInstances = useCallback((next: PatronInstance[]) => {
-    instancesRef.current = next;
-    setInstances(next);
-  }, []);
+  /**
+   * Single rAF loop — advances every walking patron from wall-clock.
+   * One setInstances(prev => …) per frame so concurrent walkers never clobber each other.
+   */
+  const ensureMotionDriver = useCallback(() => {
+    if (driverRunningRef.current) return;
+    driverRunningRef.current = true;
 
-  const runWalkMotion = useCallback(
-    (instanceKey: string, walkMs: number) => {
-      cancelMotion(instanceKey);
-      const duration = Math.max(400, walkMs);
-      walkMsByKey.current.set(instanceKey, duration);
-      walkStartByKey.current.set(instanceKey, performance.now());
+    const tick = (now: number) => {
+      pendingSitRef.current = [];
+      let stillWalking = false;
 
-      const tick = (now: number) => {
-        const start = walkStartByKey.current.get(instanceKey);
-        if (start == null) return;
+      // Sync apply so instancesRef + stillWalking are correct this frame
+      flushSync(() => {
+        setInstances((prev) => {
+          let changed = false;
 
-        const durationMs = walkMsByKey.current.get(instanceKey) ?? duration;
-        const t = Math.min(1, (now - start) / durationMs);
+          const next = prev.map((p) => {
+            if (p.phase !== 'walking') return p;
 
-        const prev = instancesRef.current;
-        const idx = prev.findIndex((p) => p.instanceKey === instanceKey);
+            const clock = motionClockRef.current.get(p.instanceKey);
+            if (!clock) {
+              stillWalking = true;
+              return p;
+            }
 
-        // Instance not claimed into ref yet — keep ticking until it appears or cancelled
-        if (idx < 0) {
-          if (t < 1) {
-            rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
+            const t = Math.min(1, (now - clock.startMs) / clock.walkMs);
+            const nFrames = Math.max(p.def.walkFrames.length, 1);
+            const frameIndex =
+              Math.floor((now - clock.startMs) / clock.frameMs) % nFrames;
+
+            if (t < 1) {
+              stillWalking = true;
+              if (
+                Math.abs(p.t - t) < 0.0001 &&
+                p.walkFrameIndex === frameIndex
+              ) {
+                return p;
+              }
+              changed = true;
+              return { ...p, t, walkFrameIndex: frameIndex };
+            }
+
+            changed = true;
+            motionClockRef.current.delete(p.instanceKey);
+            pendingSitRef.current.push({
+              instanceKey: p.instanceKey,
+              characterId: p.characterId,
+              seatId: p.seatId,
+            });
+            return {
+              ...p,
+              phase: 'seated' as const,
+              t: 1,
+              flipX: false,
+              walkFrameIndex: 0,
+            };
+          });
+
+          // Drop orphan clocks (no matching living instance)
+          for (const key of [...motionClockRef.current.keys()]) {
+            if (!next.some((p) => p.instanceKey === key)) {
+              motionClockRef.current.delete(key);
+            }
           }
-          return;
-        }
 
-        const cur = prev[idx];
-        if (cur.phase !== 'walking') {
-          cancelMotion(instanceKey);
-          return;
-        }
+          if (motionClockRef.current.size > 0) {
+            stillWalking = true;
+          }
 
-        if (t < 1) {
-          const next = [...prev];
-          next[idx] = { ...cur, t };
-          commitInstances(next);
-          rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
-          return;
-        }
-
-        // Sit
-        const seated: PatronInstance = {
-          ...cur,
-          phase: 'seated',
-          t: 1,
-          flipX: false,
-          walkFrameIndex: 0,
-        };
-        const next = [...prev];
-        next[idx] = seated;
-        commitInstances(next);
-        rafByKey.current.delete(instanceKey);
-        walkStartByKey.current.delete(instanceKey);
-        walkMsByKey.current.delete(instanceKey);
-
-        onSitCompleteRef.current?.({
-          instanceKey,
-          characterId: seated.characterId,
-          seatId: seated.seatId,
+          if (!changed) {
+            instancesRef.current = prev;
+            return prev;
+          }
+          instancesRef.current = next;
+          return next;
         });
-      };
+      });
 
-      rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
-    },
-    [cancelMotion, commitInstances]
-  );
+      const sits = pendingSitRef.current;
+      pendingSitRef.current = [];
+      for (const ev of sits) {
+        onSitCompleteRef.current?.(ev);
+      }
+
+      if (stillWalking) {
+        driverRafRef.current = requestAnimationFrame(tick);
+      } else {
+        driverRunningRef.current = false;
+        driverRafRef.current = 0;
+      }
+    };
+
+    driverRafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   const trySpawn = useCallback(() => {
     if (editMode) return;
-
-    const current = instancesRef.current;
     const seatList = seatsRef.current;
     if (!seatList.length) return;
-    if (current.length >= seatList.length) return;
 
-    const free = freeSeats(seatList, current);
+    const snapshot = instancesRef.current;
+    if (snapshot.length >= seatList.length) return;
+
+    const free = freeSeats(seatList, snapshot);
     if (!free.length) return;
 
-    const characterId = pickRandomFreeCharacterId(current);
+    const characterId = pickRandomFreeCharacterId(snapshot);
     if (!characterId) return;
 
     const seat = free[Math.floor(Math.random() * free.length)];
@@ -269,17 +301,13 @@ export default function PatronLayer({
     const built = buildEntryForSeat(seat, layout);
     if (!built) return;
 
-    // Atomic claim on ref first (before React paint) so motion never races state
-    const latest = instancesRef.current;
-    if (latest.length >= seatList.length) return;
-    if (latest.some((p) => p.seatId === built.seatId)) return;
-    if (latest.some((p) => p.characterId === characterId)) return;
-
     const def = characterToPatronDef(requireCharacter(characterId));
     const instanceKey = nextInstanceKey();
     const pathStart = built.walkPath[0];
     const pathEnd = built.walkPath[built.walkPath.length - 1];
     const flipX = pathEnd.x < pathStart.x;
+    const walkMs = Math.max(400, layout.walkMs);
+    const frameMs = Math.max(60, def.walkFrameMs ?? 120);
 
     const nextInst: PatronInstance = {
       instanceKey,
@@ -295,20 +323,53 @@ export default function PatronLayer({
       walkFrameIndex: 0,
     };
 
-    commitInstances([...latest, nextInst]);
+    let accepted = false;
 
-    // FS84: start walk immediately — do not wait for a later rAF state check
-    runWalkMotion(instanceKey, layout.walkMs);
-  }, [editMode, commitInstances, runWalkMotion]);
+    // flushSync: functional claim runs now so clock attaches only after success
+    flushSync(() => {
+      setInstances((prev) => {
+        if (prev.length >= seatList.length) {
+          instancesRef.current = prev;
+          return prev;
+        }
+        if (prev.some((p) => p.seatId === built.seatId)) {
+          instancesRef.current = prev;
+          return prev;
+        }
+        if (prev.some((p) => p.characterId === characterId)) {
+          instancesRef.current = prev;
+          return prev;
+        }
+        if (prev.some((p) => p.instanceKey === instanceKey)) {
+          instancesRef.current = prev;
+          return prev;
+        }
 
-  // Auto-fill scheduler — stable deps: do not tear down when trySpawn identity churns mid-session
+        accepted = true;
+        const next = [...prev, nextInst];
+        instancesRef.current = next;
+        return next;
+      });
+    });
+
+    if (!accepted) return;
+
+    motionClockRef.current.set(instanceKey, {
+      startMs: performance.now(),
+      walkMs,
+      frameMs,
+    });
+    ensureMotionDriver();
+  }, [editMode, ensureMotionDriver]);
+
   const trySpawnRef = useRef(trySpawn);
   trySpawnRef.current = trySpawn;
 
   useEffect(() => {
     if (editMode) {
-      cancelAllMotion();
-      commitInstances([]);
+      clearAllMotion();
+      instancesRef.current = [];
+      setInstances([]);
       return;
     }
     if (!seats.length) return;
@@ -327,33 +388,11 @@ export default function PatronLayer({
       window.clearTimeout(initial);
       window.clearInterval(interval);
     };
-  }, [editMode, seats, cancelAllMotion, commitInstances]);
-
-  const walkingCount = instances.filter((i) => i.phase === 'walking').length;
+  }, [editMode, seats, clearAllMotion]);
 
   useEffect(() => {
-    if (walkingCount === 0) return;
-    const id = window.setInterval(() => {
-      const prev = instancesRef.current;
-      let changed = false;
-      const next = prev.map((p) => {
-        if (p.phase !== 'walking') return p;
-        const n = p.def.walkFrames.length;
-        if (n <= 0) return p;
-        changed = true;
-        return {
-          ...p,
-          walkFrameIndex: (p.walkFrameIndex + 1) % n,
-        };
-      });
-      if (changed) commitInstances(next);
-    }, 120);
-    return () => window.clearInterval(id);
-  }, [walkingCount, commitInstances]);
-
-  useEffect(() => {
-    return () => cancelAllMotion();
-  }, [cancelAllMotion]);
+    return () => clearAllMotion();
+  }, [clearAllMotion]);
 
   if (editMode) {
     return <div ref={layerRef} className="pov-patron-layer" aria-hidden="true" />;
