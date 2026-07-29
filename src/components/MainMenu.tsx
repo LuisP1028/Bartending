@@ -37,17 +37,24 @@ type MainMenuProps = {
    * (playfield) so it stretches to screen size, not the full browser viewport.
    */
   joinOverlay?: React.ReactNode;
+  /**
+   * FS92: Game Boy B / Escape back handler.
+   * Return true if the active nested screen consumed back (do not enter play).
+   * Host owns the stack (e.g. camera → comm → menu).
+   */
+  onShellBack?: () => boolean;
 };
 
 /**
- * FS80/82/87/89/90 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
- * Shell: ↑↓ navigate, ←→ mode logos, A select, B back (root → play), START → play.
+ * FS80/82/87/89/90/92 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * Shell: ↑↓ navigate, ←→ mode logos, A select, B = back (stack) or root → play.
  */
 export default function MainMenu({
   onEnterPlay,
   onSelectModeAndPlay,
   onOpenJoinBar,
   joinOverlay = null,
+  onShellBack,
 }: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
@@ -219,14 +226,20 @@ export default function MainMenu({
     onEnterPlay();
   }, [onEnterPlay]);
 
-  /** B: pop menu stack when depth > 1; root → play. */
+  /**
+   * FS92 — B / Escape: abstract shell back.
+   * 1) Host nested flow (join, etc.) via onShellBack
+   * 2) Future in-menu screenStack pop
+   * 3) Root menu only → enter play
+   */
   const goBack = useCallback(() => {
+    if (onShellBack?.()) return;
     if (screenStack.length > 1) {
       // Future: setScreenStack((s) => s.slice(0, -1));
       return;
     }
     onEnterPlay();
-  }, [onEnterPlay, screenStack.length]);
+  }, [onEnterPlay, onShellBack, screenStack.length]);
 
   const onLogoClick = useCallback(
     (index: number) => {

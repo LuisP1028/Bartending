@@ -1129,13 +1129,40 @@ export default function Home() {
     setJoinStage('comm');
   }, []);
 
+  /** Close join entirely → main menu list (not play). */
   const onCloseJoin = useCallback(() => {
     if (joinBusy) return;
     setJoinStage(null);
     setJoinIdentity(null);
     setJoinStatus(null);
     setJoinStatusError(false);
+    setJoinBusy(false);
   }, [joinBusy]);
+
+  /** Camera Abort/Escape = back to Comm-Link (same as shell B). */
+  const onCameraBack = useCallback(() => {
+    if (joinBusy) return;
+    setJoinStatus(null);
+    setJoinStatusError(false);
+    setJoinStage('comm');
+  }, [joinBusy]);
+
+  /**
+   * FS92 — Game Boy B / nested back for join stack:
+   * camera → comm → menu. Returns true if handled (do not enter play).
+   */
+  const onShellBack = useCallback((): boolean => {
+    if (joinBusy) return true;
+    if (joinStage === 'camera') {
+      onCameraBack();
+      return true;
+    }
+    if (joinStage === 'comm') {
+      onCloseJoin();
+      return true;
+    }
+    return false;
+  }, [joinBusy, joinStage, onCameraBack, onCloseJoin]);
 
   const onJoinTransmit = useCallback((identity: JoinBarIdentity) => {
     setJoinIdentity(identity);
@@ -1218,7 +1245,7 @@ export default function Home() {
       ) : joinStage === 'camera' ? (
         <JoinBarCamera
           onCapture={onJoinCapture}
-          onClose={onCloseJoin}
+          onClose={onCameraBack}
           busy={joinBusy}
           statusMessage={joinStatus}
           statusError={joinStatusError}
@@ -1230,6 +1257,7 @@ export default function Home() {
         onEnterPlay={onEnterPlay}
         onSelectModeAndPlay={onSelectModeAndPlay}
         onOpenJoinBar={onOpenJoinBar}
+        onShellBack={onShellBack}
         joinOverlay={joinOverlay}
       />
     );
