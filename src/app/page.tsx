@@ -1199,7 +1199,7 @@ export default function Home() {
         return;
       }
       setJoinBusy(true);
-      setJoinStatus('TRANSMITTING UPLINK…');
+      setJoinStatus('GENERATING PATRON…');
       setJoinStatusError(false);
       try {
         const body = new FormData();
@@ -1217,32 +1217,75 @@ export default function Home() {
           error?: string;
           characterId?: string;
           displayName?: string;
-          registered?: { inserted?: boolean };
-          pipeline?: { ok?: boolean; error?: string };
+          jobId?: string | null;
+          status?: string;
         };
         if (!res.ok) {
           throw new Error(data.error || res.statusText);
         }
-        const parts = [
-          data.characterId ? `ID: ${data.characterId}` : null,
-          data.registered?.inserted
-            ? 'REGISTERED'
-            : 'ALREADY ON ROSTER',
-          data.pipeline?.ok
-            ? 'PIPELINE PREPARE OK'
-            : data.pipeline
-              ? `PIPELINE: ${data.pipeline.error || 'FAILED'}`
-              : 'FOLDER + META',
-        ].filter(Boolean);
-        setJoinStatus(parts.join(' · '));
-        setJoinStatusError(false);
-        // Brief success display then return to menu
+
+        const jobId = data.jobId;
+        if (!jobId) {
+          throw new Error(data.error || 'No generation job started');
+        }
+
+        setJoinStatus(
+          `GENERATING ${data.displayName || joinIdentity.name}… (THIS MAY TAKE A FEW MINUTES)`
+        );
+
+        // FS94 — poll until full --run completes
+        const started = Date.now();
+        const maxMs = 15 * 60 * 1000;
+        const pollMs = 4000;
+
+        await new Promise<void>((resolve, reject) => {
+          const tick = async () => {
+            try {
+              if (Date.now() - started > maxMs) {
+                reject(new Error('Generation timed out — try again later'));
+                return;
+              }
+              const sr = await fetch(
+                `/api/patrons/generate-status?jobId=${encodeURIComponent(jobId)}`
+              );
+              const sj = (await sr.json()) as {
+                status?: string;
+                error?: string;
+                characterId?: string;
+              };
+              if (!sr.ok) {
+                reject(new Error(sj.error || sr.statusText));
+                return;
+              }
+              if (sj.status === 'done') {
+                setJoinStatus(
+                  `READY: ${data.displayName || joinIdentity.name} (${sj.characterId || data.characterId})`
+                );
+                setJoinStatusError(false);
+                resolve();
+                return;
+              }
+              if (sj.status === 'failed') {
+                reject(new Error(sj.error || 'Generation failed'));
+                return;
+              }
+              setJoinStatus(
+                `GENERATING ${data.displayName || joinIdentity.name}…`
+              );
+              window.setTimeout(tick, pollMs);
+            } catch (e) {
+              reject(e instanceof Error ? e : new Error(String(e)));
+            }
+          };
+          void tick();
+        });
+
         window.setTimeout(() => {
           setJoinBusy(false);
           setJoinStage(null);
           setJoinIdentity(null);
           setJoinStatus(null);
-        }, 2200);
+        }, 2800);
       } catch (err) {
         setJoinStatus(
           err instanceof Error ? err.message : 'UPLINK FAILED'

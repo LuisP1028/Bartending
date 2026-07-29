@@ -8,6 +8,7 @@ import {
   requireCharacter,
   type PatronDef,
 } from '@/data/characters';
+import { setClientRuntimePatronCache } from '@/data/runtimePatrons';
 import {
   buildWalkPath,
   pointAlongPath,
@@ -158,6 +159,52 @@ export default function PatronLayer({
     ro.observe(el);
     setLayerSize({ w: el.clientWidth, h: el.clientHeight });
     return () => ro.disconnect();
+  }, []);
+
+  /** FS94 — refresh runtime (join-generated) patrons into listCharacters pool */
+  useEffect(() => {
+    let cancelled = false;
+    const loadRoster = async () => {
+      try {
+        const res = await fetch('/api/patrons/roster');
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          characters?: {
+            id: string;
+            displayName: string;
+            personality: string;
+            walkFrameCount?: number;
+            walkFrameMs?: number;
+          }[];
+        };
+        if (cancelled || !data.characters) return;
+        // Built-ins are already in CHARACTERS; only cache join-generated extras
+        const BUILTIN = new Set([
+          'patron_elder',
+          'caesar_9aea2cd1a4bf32d6',
+          'trump_ca36306f5c662816',
+        ]);
+        setClientRuntimePatronCache(
+          data.characters
+            .filter((c) => !BUILTIN.has(c.id))
+            .map((c) => ({
+              id: c.id,
+              displayName: c.displayName,
+              personality: c.personality,
+              walkFrameCount: c.walkFrameCount ?? 2,
+              walkFrameMs: c.walkFrameMs ?? 120,
+            }))
+        );
+      } catch {
+        /* roster optional offline */
+      }
+    };
+    void loadRoster();
+    const t = window.setInterval(loadRoster, 20000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
   }, []);
 
   const barClipCss = useMemo(

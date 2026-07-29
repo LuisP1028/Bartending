@@ -34,9 +34,10 @@ Optional secrets (Space → Settings → Variables and secrets):
 | `HUGGINGFACE_TOKEN` | Menu LLM mapping (if used) |
 | `HUGGINGFACE_MODEL` | Override default HF model |
 | `PII_ENCRYPTION_KEY` | Patron signup contact encryption |
-| `XAI_API_KEY` | Patron art pipeline (optional) |
+| `XAI_API_KEY` | **Join the bar** character generation (Imagine full `--run`) |
+| `XAIKEY` | Alias for `XAI_API_KEY` |
 
-SQLite under `/data` is **ephemeral** on free Spaces (lost on restart) unless you attach persistent storage.
+SQLite / `data/runtime-patrons.json` under `/data` is **ephemeral** on free Spaces (lost on restart) unless you attach persistent storage.
 
 ## GitHub Pages iframe shell
 

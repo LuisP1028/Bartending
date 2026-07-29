@@ -58,3 +58,7 @@ next-env.d.ts
 /wayfinder/
 /UI_Upgrade.md/
 scripts/patron-pipeline/staging/
+data/*.sqlite
+data/*.sqlite-*
+data/*.db
+data/generation-jobs/

@@ -120,17 +120,27 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   [CHARACTER_TRUMP_CA36306F5C662816.id]: CHARACTER_TRUMP_CA36306F5C662816,
 };
 
+/** Built-in + client runtime cache (FS94). Safe on browser after roster fetch. */
 export function listCharacters(): CharacterDef[] {
-  return Object.values(CHARACTERS);
+  // Deferred import keeps buildCharacterDef cycle one-way at runtime
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const rt = require('./runtimePatrons') as {
+    listAllCharactersClient: () => CharacterDef[];
+  };
+  return rt.listAllCharactersClient();
 }
 
 export function getCharacter(id: string): CharacterDef | undefined {
-  return CHARACTERS[id];
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const rt = require('./runtimePatrons') as {
+    getCharacterMerged: (id: string) => CharacterDef | undefined;
+  };
+  return rt.getCharacterMerged(id);
 }
 
 /** Resolve character; unknown ids fall back to elder. */
 export function requireCharacter(id: string): CharacterDef {
-  return CHARACTERS[id] ?? CHARACTER_ELDER;
+  return getCharacter(id) ?? CHARACTER_ELDER;
 }
 
 export function getCharacterAssets(id: string): PatronAssets {

@@ -1,19 +1,25 @@
-import { execFile } from 'child_process';
+import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
-import { promisify } from 'util';
 import { NextResponse } from 'next/server';
+import {
+  hasImagineCredentials,
+  updateGenerationJob,
+  upsertRuntimePatron,
+  writeGenerationJob,
+  type GenerationJobRecord,
+} from '@/lib/runtimePatronStore';
 
-const execFileAsync = promisify(execFile);
+export const runtime = 'nodejs';
+/** Allow long-lived request setup; generation continues in background. */
+export const maxDuration = 300;
 
 async function loadPipelineMod(rel: string) {
   const href = pathToFileURL(path.join(process.cwd(), rel)).href;
   return import(href);
 }
-
-export const runtime = 'nodejs';
-export const maxDuration = 120;
 
 function repoRoot() {
   return process.cwd();
@@ -22,10 +28,8 @@ function repoRoot() {
 /**
  * POST multipart: name, email?, phone?, photo (file), runPipeline? ('1'|'true')
  *
- * Creates patron folder + meta + optional photo save.
- * runPipeline=true runs **--prepare only** (W3 skill plan). Full image generation
- * is agent-driven (see scripts/patron-pipeline/run-via-agent.md), then --install.
- * Does not require Imagine keys or VLM for prepare success.
+ * FS94: runPipeline=true starts full generative --run in the background and
+ * returns jobId for polling GET /api/patrons/generate-status.
  */
 export async function POST(req: Request) {
   try {
@@ -102,92 +106,145 @@ export async function POST(req: Request) {
       }
     }
 
-    const reg = registerCharacterInSource(root, identity.characterId, {
+    // Dev convenience only — production roster uses data/runtime-patrons.json
+    let reg: { inserted: boolean; constName?: string } = { inserted: false };
+    try {
+      reg = registerCharacterInSource(root, identity.characterId, {
+        displayName: identity.displayName,
+      });
+    } catch {
+      reg = { inserted: false };
+    }
+
+    if (!runPipeline) {
+      return NextResponse.json({
+        ok: true,
+        characterId: identity.characterId,
+        displayName: identity.displayName,
+        registered: reg,
+        pii,
+        piiError,
+        pipeline: null,
+        jobId: null,
+        status: 'registered',
+        generationNote: 'runPipeline not set — folder + meta only',
+        sitSrc: `/assets/patrons/${identity.characterId}/sit.png`,
+      });
+    }
+
+    if (!photoPath) {
+      return NextResponse.json(
+        {
+          error: 'photo is required when generating a character',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!hasImagineCredentials()) {
+      return NextResponse.json(
+        {
+          error:
+            'Imagine credentials missing. Set XAI_API_KEY (or XAIKEY / HF_TOKEN) on the server to generate characters.',
+        },
+        { status: 503 }
+      );
+    }
+
+    const jobId = randomUUID();
+    const now = new Date().toISOString();
+    const job: GenerationJobRecord = {
+      jobId,
+      characterId: identity.characterId,
       displayName: identity.displayName,
+      status: 'running',
+      createdAt: now,
+      updatedAt: now,
+      photoPath,
+    };
+    writeGenerationJob(root, job);
+
+    const script = path.join(
+      root,
+      'scripts/patron-pipeline/generate-patron-assets.mjs'
+    );
+    const args = [
+      script,
+      '--run',
+      '--photo',
+      photoPath,
+      '--name',
+      name,
+      '--character-id',
+      identity.characterId,
+      '--no-register',
+      ...(email ? ['--email', email] : []),
+      ...(phone ? ['--phone', phone] : []),
+    ];
+
+    const child = spawn(process.execPath, args, {
+      cwd: root,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
     });
 
-    let pipeline: {
-      ok: boolean;
-      mode?: string;
-      log?: string;
-      error?: string;
-      planPath?: string;
-      agentDoc?: string;
-    } | null = null;
+    let logBuf = '';
+    const appendLog = (chunk: Buffer) => {
+      logBuf = (logBuf + chunk.toString('utf8')).slice(-12000);
+    };
+    child.stdout?.on('data', appendLog);
+    child.stderr?.on('data', appendLog);
 
-    if (runPipeline) {
-      if (!photoPath) {
-        return NextResponse.json(
-          {
-            error: 'photo is required when runPipeline is true (prepare needs photo)',
-            identity,
-            folders: {
-              publicDir: folders.publicDir,
-              stagingDir: folders.stagingDir,
-            },
-          },
-          { status: 400 }
-        );
-      }
-      const script = path.join(
-        root,
-        'scripts/patron-pipeline/generate-patron-assets.mjs'
-      );
-      const args = [
-        script,
-        '--prepare',
-        '--photo',
-        photoPath,
-        '--name',
-        name,
-        ...(email ? ['--email', email] : []),
-        ...(phone ? ['--phone', phone] : []),
-      ];
-      try {
-        const { stdout, stderr } = await execFileAsync(process.execPath, args, {
-          cwd: root,
-          env: process.env,
-          maxBuffer: 5 * 1024 * 1024,
-          timeout: 60000,
+    child.on('error', (err) => {
+      updateGenerationJob(root, jobId, {
+        status: 'failed',
+        error: err.message || String(err),
+        logTail: logBuf,
+      });
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        upsertRuntimePatron(root, {
+          id: identity.characterId,
+          displayName: identity.displayName,
+          personality: `${identity.characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`,
+          walkFrameCount: 2,
+          walkFrameMs: 120,
+          createdAt: new Date().toISOString(),
         });
-        pipeline = {
-          ok: true,
-          mode: 'prepare',
-          planPath: 'scripts/patron-pipeline/.last-plan.json',
-          agentDoc: 'scripts/patron-pipeline/run-via-agent.md',
-          log: `${stdout}\n${stderr}`.slice(-8000),
-        };
-      } catch (e: unknown) {
-        const err = e as {
-          message?: string;
-          stdout?: string;
-          stderr?: string;
-        };
-        pipeline = {
-          ok: false,
-          mode: 'prepare',
-          error: err.message || String(e),
-          log: `${err.stdout || ''}\n${err.stderr || ''}`.slice(-8000),
-        };
+        updateGenerationJob(root, jobId, {
+          status: 'done',
+          logTail: logBuf,
+          error: undefined,
+        });
+      } else {
+        updateGenerationJob(root, jobId, {
+          status: 'failed',
+          error: `Pipeline exited with code ${code}`,
+          logTail: logBuf,
+        });
       }
-    }
+    });
 
     return NextResponse.json({
       ok: true,
       characterId: identity.characterId,
-      folderSlug: identity.folderSlug,
       displayName: identity.displayName,
       contactHash: identity.contactHash,
-      publicDir: folders.publicDir,
-      stagingDir: folders.stagingDir,
-      metaPath: folders.metaPath,
       registered: reg,
       walkFrameCount: 2,
       pii,
       piiError,
-      pipeline,
+      jobId,
+      status: 'running',
+      pipeline: {
+        ok: true,
+        mode: 'run-async',
+      },
       generationNote:
-        'Full image generation is agent-driven (W3). After prepare, follow run-via-agent.md then --install.',
+        'Full generative --run started in background. Poll /api/patrons/generate-status?jobId=',
       sitSrc: `/assets/patrons/${identity.characterId}/sit.png`,
     });
   } catch (e: unknown) {
