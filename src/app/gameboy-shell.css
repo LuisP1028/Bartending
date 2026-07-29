@@ -1261,12 +1261,72 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* FS80/81: START hit target (intro → menu; menu no-op; play wired in page) */
+/* FS80/81/82: START hit target (intro → menu; menu → play; play opens menu) */
 .boot-intro .gb-shell__btn-start,
 .main-menu .gb-shell__btn-start {
   pointer-events: auto;
   cursor: pointer;
   z-index: 6;
+}
+
+/* FS82 — Menu shell input: D-pad + A/B hittable (boot stays decorative except START) */
+.main-menu .gb-shell__btn-a,
+.main-menu .gb-shell__btn-b {
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 6;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.main-menu .gb-shell__btn-a:active,
+.main-menu .gb-shell__btn-b:active {
+  filter: brightness(0.9);
+}
+
+.main-menu .gb-shell__dpad {
+  position: absolute;
+  z-index: 6;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+}
+
+.main-menu .gb-shell__dpad:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.main-menu .gb-shell__dpad--up {
+  left: 33%;
+  top: 0;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--down {
+  left: 33%;
+  bottom: 0;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--left {
+  left: 0;
+  top: 33%;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--right {
+  right: 0;
+  top: 33%;
+  width: 34%;
+  height: 34%;
 }
 
 .boot-intro .gb-shell__btn-select::after,

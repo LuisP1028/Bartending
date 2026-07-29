@@ -13,12 +13,13 @@ const MENU_ITEMS = [
 ] as const;
 
 type MainMenuProps = {
+  /** Leave menu → interactive game (Initiate Sequence, root B, START). */
   onEnterPlay: () => void;
 };
 
 /**
- * FS80 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu in glass.
- * START while already on menu is a no-op (O8).
+ * FS80/82 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * Shell: ↑↓ navigate, A select, B back (root → play), START → play.
  */
 export default function MainMenu({ onEnterPlay }: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
@@ -26,8 +27,13 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const phaseShiftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bounceCleanTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  /** v1: only root screen; depth > 1 reserved for future sub-screens (FS82 O8). */
+  const [screenStack] = useState<string[]>(['root']);
   const ANIMATION_DURATION_MS = 150;
+
+  activeIndexRef.current = activeIndex;
 
   const snapPointer = useCallback((targetElement: HTMLElement, bypassAnimation = false) => {
     const navWrapper = navWrapperRef.current;
@@ -93,12 +99,45 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
 
   const selectIndex = useCallback(
     (index: number, animatePointer: boolean) => {
-      setActiveIndex(index);
-      const el = buttonRefs.current[index];
+      const n = MENU_ITEMS.length;
+      const next = ((index % n) + n) % n;
+      setActiveIndex(next);
+      const el = buttonRefs.current[next];
       if (el) snapPointer(el, !animatePointer);
     },
     [snapPointer]
   );
+
+  const moveSelection = useCallback(
+    (delta: -1 | 1) => {
+      const next =
+        (activeIndexRef.current + delta + MENU_ITEMS.length) % MENU_ITEMS.length;
+      selectIndex(next, true);
+      buttonRefs.current[next]?.focus();
+    },
+    [selectIndex]
+  );
+
+  const activateCurrent = useCallback(() => {
+    const item = MENU_ITEMS[activeIndexRef.current];
+    if (item?.entersPlay) {
+      onEnterPlay();
+    }
+    // Stub items: highlight only (future: push sub-screen onto screenStack)
+  }, [onEnterPlay]);
+
+  const returnToGame = useCallback(() => {
+    onEnterPlay();
+  }, [onEnterPlay]);
+
+  /** B: pop menu stack when depth > 1; root → play. */
+  const goBack = useCallback(() => {
+    if (screenStack.length > 1) {
+      // Future: setScreenStack((s) => s.slice(0, -1));
+      return;
+    }
+    onEnterPlay();
+  }, [onEnterPlay, screenStack.length]);
 
   const activateIndex = useCallback(
     (index: number) => {
@@ -114,34 +153,29 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
     (index: number) => {
       const item = MENU_ITEMS[index];
       if (!item) return;
-      if (index === activeIndex) {
+      if (index === activeIndexRef.current) {
         if (item.entersPlay) onEnterPlay();
         return;
       }
       selectIndex(index, true);
     },
-    [activeIndex, onEnterPlay, selectIndex]
+    [onEnterPlay, selectIndex]
   );
 
   const onNavKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const focused = document.activeElement;
-      const currentIndex = buttonRefs.current.findIndex((b) => b === focused);
-      if (currentIndex === -1) return;
-
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        const next = (currentIndex + 1) % MENU_ITEMS.length;
-        buttonRefs.current[next]?.focus();
-        selectIndex(next, true);
+        moveSelection(1);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        const prev = (currentIndex - 1 + MENU_ITEMS.length) % MENU_ITEMS.length;
-        buttonRefs.current[prev]?.focus();
-        selectIndex(prev, true);
+        moveSelection(-1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        goBack();
       }
     },
-    [selectIndex]
+    [goBack, moveSelection]
   );
 
   return (
@@ -224,27 +258,62 @@ export default function MainMenu({ onEnterPlay }: MainMenuProps) {
                 </div>
               </div>
             </div>
-            <div className="gb-shell__controls" aria-hidden={false}>
-              <div className="gb-shell__btn-direction" aria-hidden="true">
-                <div className="gb-shell__btn-direction-v" />
-                <div className="gb-shell__btn-direction-h" />
+            <div className="gb-shell__controls">
+              <div className="gb-shell__btn-direction">
+                <div className="gb-shell__btn-direction-v" aria-hidden="true" />
+                <div className="gb-shell__btn-direction-h" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="gb-shell__dpad gb-shell__dpad--up"
+                  aria-label="Menu up"
+                  onClick={() => moveSelection(-1)}
+                />
+                <button
+                  type="button"
+                  className="gb-shell__dpad gb-shell__dpad--down"
+                  aria-label="Menu down"
+                  onClick={() => moveSelection(1)}
+                />
+                <button
+                  type="button"
+                  className="gb-shell__dpad gb-shell__dpad--left"
+                  aria-label="Menu left"
+                  onClick={() => {
+                    /* root list: no-op */
+                  }}
+                />
+                <button
+                  type="button"
+                  className="gb-shell__dpad gb-shell__dpad--right"
+                  aria-label="Menu right"
+                  onClick={() => {
+                    /* root list: no-op */
+                  }}
+                />
               </div>
-              <div className="gb-shell__btn-ab" aria-hidden="true">
-                <span className="gb-shell__btn-b" />
-                <span className="gb-shell__btn-a" />
+              <div className="gb-shell__btn-ab">
+                <button
+                  type="button"
+                  className="gb-shell__btn-b"
+                  aria-label="Back"
+                  onClick={goBack}
+                />
+                <button
+                  type="button"
+                  className="gb-shell__btn-a"
+                  aria-label="Select"
+                  onClick={activateCurrent}
+                />
               </div>
               <div className="gb-shell__btn-start-select">
                 <span className="gb-shell__btn-select" aria-hidden="true">
                   SELECT
                 </span>
-                {/* O8: already on menu — START is a no-op control */}
                 <button
                   type="button"
                   className="gb-shell__btn-start"
-                  aria-label="Open menu"
-                  onClick={() => {
-                    /* already on menu */
-                  }}
+                  aria-label="Return to game"
+                  onClick={returnToGame}
                 />
               </div>
             </div>
