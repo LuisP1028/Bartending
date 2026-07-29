@@ -58,13 +58,7 @@ import {
   loadHotspotOffsets,
   type HotspotOffset,
 } from '@/lib/hotspotOffsets';
-import {
-  CHARACTER_ELDER,
-  characterToPatronDef,
-  requireCharacter,
-} from '@/data/characters';
 import { type PatronLayout } from '@/data/patronLayout';
-import { resolvePatronLayout } from '@/lib/patronLayoutStorage';
 import {
   ReceiptProvider,
   ReceiptStageOverlay,
@@ -452,27 +446,10 @@ export default function Home() {
   /** FS72: PATRON EDIT UI commented out — always false until editor restored */
   const patronEditOpen = false;
   const [patronSignupOpen, setPatronSignupOpen] = useState(false);
-  /** Active character id (registry); drives assets + layout for PatronLayer */
-  const [activeCharacterId, setActiveCharacterId] = useState(CHARACTER_ELDER.id);
 
   useEffect(() => {
     setHotspotOffsets(loadHotspotOffsets());
   }, []);
-
-  const activeCharacter = useMemo(
-    () => requireCharacter(activeCharacterId),
-    [activeCharacterId]
-  );
-
-  const activePatronLayout = useMemo(
-    () => resolvePatronLayout(activeCharacterId, patronLayouts),
-    [activeCharacterId, patronLayouts]
-  );
-
-  const activePatronDef = useMemo(
-    () => characterToPatronDef(activeCharacter),
-    [activeCharacter]
-  );
 
   const barSeatInputs = useMemo(
     () =>
@@ -1286,9 +1263,7 @@ export default function Home() {
                           */}
                           <PatronLayer
                             seats={barSeatInputs}
-                            layout={activePatronLayout}
-                            patron={activePatronDef}
-                            characterId={activeCharacterId}
+                            layoutOverrides={patronLayouts}
                             editMode={patronEditOpen}
                             barCutoffD={pathWithStoredOffset(
                               POV_BAR_CUTOFF.zoneId,

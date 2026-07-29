@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CHARACTER_ELDER,
   characterToPatronDef,
+  listCharacters,
   requireCharacter,
   type PatronDef,
 } from '@/data/characters';
@@ -15,8 +15,14 @@ import {
   type StagePoint,
 } from '@/data/patronLayout';
 import { resolveBarSeatAnchor } from '@/lib/patronSeats';
+import { resolvePatronLayout } from '@/lib/patronLayoutStorage';
 import { POV_VIEWBOX } from '@/data/hotspotGeometry';
 import { roomMinusBarClipPathCss } from '@/lib/svgPathScale';
+import {
+  AUTO_FILL_INITIAL_DELAY_MS,
+  AUTO_FILL_INTERVAL_MS,
+} from '@/data/patronServiceConstants';
+import { BAR_SEAT_ZONE_IDS } from '@/data/patrons';
 
 export type PatronSeatInput = {
   zoneId: string;
@@ -26,6 +32,8 @@ export type PatronSeatInput = {
 type Phase = 'walking' | 'seated';
 
 type PatronInstance = {
+  instanceKey: string;
+  characterId: string;
   def: PatronDef;
   layout: PatronLayout;
   phase: Phase;
@@ -39,48 +47,99 @@ type PatronInstance = {
 
 type PatronLayerProps = {
   seats: PatronSeatInput[];
-  layout: PatronLayout;
+  /**
+   * Optional per-character layout overrides (PATRON EDIT / localStorage map).
+   * Defaults resolve via resolvePatronLayout when omitted.
+   */
+  layoutOverrides?: Record<string, PatronLayout>;
   /**
    * Stage-space bar_cutoff path (HOTSPOT EDIT offsets applied).
    * Patron is clipped to stage − this region so lower body sits behind the bar photo.
    */
   barCutoffD?: string;
   editMode?: boolean;
-  spawnDelayMs?: number;
-  /** Stage sprite pack (from characterToPatronDef). */
-  patron?: PatronDef;
-  /**
-   * Character id — when set (and patron omitted), resolves assets via registry.
-   * Shared walk path is always layout-driven, not character-branched.
-   */
-  characterId?: string;
+  /** Optional; reserved for sit-complete order print (FS51). */
+  onSitComplete?: (info: {
+    instanceKey: string;
+    characterId: string;
+    seatId: string;
+  }) => void;
 };
 
+function freeSeats(
+  seats: PatronSeatInput[],
+  instances: PatronInstance[]
+): PatronSeatInput[] {
+  const taken = new Set(
+    instances.map((i) => i.seatId).filter((id) => Boolean(id))
+  );
+  return seats.filter(
+    (s) =>
+      s.zoneId &&
+      BAR_SEAT_ZONE_IDS.includes(s.zoneId as (typeof BAR_SEAT_ZONE_IDS)[number]) &&
+      !taken.has(s.zoneId)
+  );
+}
+
+function livingCharacterIds(instances: PatronInstance[]): Set<string> {
+  return new Set(instances.map((i) => i.characterId));
+}
+
+function pickRandomFreeCharacterId(instances: PatronInstance[]): string | null {
+  const living = livingCharacterIds(instances);
+  const pool = listCharacters().filter((c) => !living.has(c.id));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)].id;
+}
+
+function buildEntryForSeat(
+  seat: PatronSeatInput,
+  layout: PatronLayout
+): { walkPath: StagePoint[]; sitPoint: StagePoint; seatId: string } | null {
+  const a = resolveBarSeatAnchor(seat.zoneId, seat.d);
+  if (!a) return null;
+  const seatEnd: StagePoint = {
+    x: (a.leftPct / 100) * POV_VIEWBOX.width,
+    y: (a.topPct / 100) * POV_VIEWBOX.height,
+  };
+  const { walkPath, sitPoint } = buildWalkPath(layout, seatEnd);
+  if (walkPath.length < 2) return null;
+  return { walkPath, sitPoint, seatId: seat.zoneId };
+}
+
+let keySeq = 0;
+function nextInstanceKey(): string {
+  keySeq += 1;
+  return `patron-${keySeq}-${Date.now().toString(36)}`;
+}
+
 /**
- * Runtime walk/sit using PatronLayout (character-agnostic path math).
- * Depth: CSS even-odd clip (room minus bar_cutoff) — no second bar re-paint.
+ * FS83 multi-patron layer: auto-fill free seats with unique character ids.
+ * Invariants: living count ≤ seats; one living patron per seat; no clone ids.
  */
 export default function PatronLayer({
   seats,
-  layout,
+  layoutOverrides = {},
   barCutoffD = '',
   editMode = false,
-  spawnDelayMs = 400,
-  patron: patronProp,
-  characterId,
+  onSitComplete,
 }: PatronLayerProps) {
-  const patron =
-    patronProp ??
-    characterToPatronDef(
-      characterId ? requireCharacter(characterId) : CHARACTER_ELDER
-    );
   const layerRef = useRef<HTMLDivElement>(null);
   const [layerSize, setLayerSize] = useState({ w: 0, h: 0 });
-  const [instance, setInstance] = useState<PatronInstance | null>(null);
-  const rafRef = useRef(0);
-  const startRef = useRef(0);
+  const [instances, setInstances] = useState<PatronInstance[]>([]);
+  const instancesRef = useRef<PatronInstance[]>([]);
+  instancesRef.current = instances;
 
-  // Measure layer so clip-path path() is in element pixels (matches stage box)
+  const seatsRef = useRef(seats);
+  seatsRef.current = seats;
+  const layoutOverridesRef = useRef(layoutOverrides);
+  layoutOverridesRef.current = layoutOverrides;
+  const onSitCompleteRef = useRef(onSitComplete);
+  onSitCompleteRef.current = onSitComplete;
+
+  const rafByKey = useRef(new Map<string, number>());
+  const walkStartByKey = useRef(new Map<string, number>());
+
   useEffect(() => {
     const el = layerRef.current;
     if (!el) return;
@@ -106,65 +165,121 @@ export default function PatronLayer({
     [barCutoffD, layerSize.w, layerSize.h]
   );
 
-  const seatKey = useMemo(
-    () => seats.map((s) => `${s.zoneId}:${s.d}`).join('|'),
-    [seats]
-  );
+  const cancelMotion = useCallback((instanceKey: string) => {
+    const id = rafByKey.current.get(instanceKey);
+    if (id) {
+      cancelAnimationFrame(id);
+      rafByKey.current.delete(instanceKey);
+    }
+    walkStartByKey.current.delete(instanceKey);
+  }, []);
 
-  const layoutKey = useMemo(() => JSON.stringify(layout), [layout]);
+  const cancelAllMotion = useCallback(() => {
+    for (const id of rafByKey.current.values()) {
+      cancelAnimationFrame(id);
+    }
+    rafByKey.current.clear();
+    walkStartByKey.current.clear();
+  }, []);
 
-  const buildPaths = useMemo(() => {
-    return (): {
-      walkPath: StagePoint[];
-      sitPoint: StagePoint;
-      seatId: string;
-    } | null => {
-      if (!seats.length) return null;
+  const runWalkMotion = useCallback(
+    (instanceKey: string, walkMs: number) => {
+      cancelMotion(instanceKey);
+      walkStartByKey.current.set(instanceKey, performance.now());
 
-      let seatId = layout.preferredSeatId;
-      if (!seatId || !seats.some((s) => s.zoneId === seatId)) {
-        seatId = seats[Math.floor(Math.random() * seats.length)].zoneId;
-      }
-      const seat = seats.find((s) => s.zoneId === seatId);
-      if (!seat) return null;
+      const tick = (now: number) => {
+        const start = walkStartByKey.current.get(instanceKey);
+        if (start == null) return;
+        const t = Math.min(1, (now - start) / Math.max(400, walkMs));
 
-      const a = resolveBarSeatAnchor(seat.zoneId, seat.d);
-      if (!a) return null;
+        setInstances((prev) => {
+          const idx = prev.findIndex((p) => p.instanceKey === instanceKey);
+          if (idx < 0) return prev;
+          const cur = prev[idx];
+          if (cur.phase !== 'walking') return prev;
 
-      const seatEnd: StagePoint = {
-        x: (a.leftPct / 100) * POV_VIEWBOX.width,
-        y: (a.topPct / 100) * POV_VIEWBOX.height,
+          if (t < 1) {
+            const next = [...prev];
+            next[idx] = { ...cur, t };
+            instancesRef.current = next;
+            return next;
+          }
+
+          const seated: PatronInstance = {
+            ...cur,
+            phase: 'seated',
+            t: 1,
+            flipX: false,
+            walkFrameIndex: 0,
+          };
+          const next = [...prev];
+          next[idx] = seated;
+          instancesRef.current = next;
+          return next;
+        });
+
+        if (t < 1) {
+          rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
+        } else {
+          rafByKey.current.delete(instanceKey);
+          walkStartByKey.current.delete(instanceKey);
+          const done = instancesRef.current.find(
+            (p) => p.instanceKey === instanceKey
+          );
+          if (done?.phase === 'seated') {
+            onSitCompleteRef.current?.({
+              instanceKey,
+              characterId: done.characterId,
+              seatId: done.seatId,
+            });
+          }
+        }
       };
 
-      const { walkPath, sitPoint } = buildWalkPath(layout, seatEnd);
-      return { walkPath, sitPoint, seatId };
-    };
-  }, [seats, layout]);
+      rafByKey.current.set(instanceKey, requestAnimationFrame(tick));
+    },
+    [cancelMotion]
+  );
 
-  useEffect(() => {
-    if (editMode) {
-      setInstance(null);
-      return;
-    }
-    if (!seats.length) return;
+  const trySpawn = useCallback(() => {
+    if (editMode) return;
 
-    let cancelled = false;
-    let startTimer: ReturnType<typeof setTimeout> | null = null;
+    const current = instancesRef.current;
+    const seatList = seatsRef.current;
+    if (!seatList.length) return;
 
-    const begin = () => {
-      if (cancelled) return;
-      const built = buildPaths();
-      if (!built || built.walkPath.length < 2) {
-        startTimer = setTimeout(begin, 120);
-        return;
-      }
+    // Capacity: never exceed total seats available
+    if (current.length >= seatList.length) return;
 
-      const start = built.walkPath[0];
-      const end = built.walkPath[built.walkPath.length - 1];
-      const flipX = end.x < start.x;
+    const free = freeSeats(seatList, current);
+    if (!free.length) return;
 
-      setInstance({
-        def: patron,
+    const characterId = pickRandomFreeCharacterId(current);
+    if (!characterId) return;
+
+    const seat = free[Math.floor(Math.random() * free.length)];
+    const layout = resolvePatronLayout(characterId, layoutOverridesRef.current);
+    const built = buildEntryForSeat(seat, layout);
+    if (!built) return;
+
+    const def = characterToPatronDef(requireCharacter(characterId));
+    const instanceKey = nextInstanceKey();
+    const start = built.walkPath[0];
+    const end = built.walkPath[built.walkPath.length - 1];
+    const flipX = end.x < start.x;
+
+    let spawned: PatronInstance | null = null;
+
+    setInstances((prev) => {
+      // Atomic re-check: seat + character exclusivity + capacity
+      if (prev.length >= seatList.length) return prev;
+      if (prev.some((p) => p.seatId === built.seatId)) return prev;
+      if (prev.some((p) => p.characterId === characterId)) return prev;
+
+      const nextInst: PatronInstance = {
+        instanceKey,
+        characterId,
+        def,
         layout,
         phase: 'walking',
         seatId: built.seatId,
@@ -173,83 +288,83 @@ export default function PatronLayer({
         sitPoint: built.sitPoint,
         flipX,
         walkFrameIndex: 0,
-      });
-
-      startRef.current = performance.now();
-      const walkMs = Math.max(400, layout.walkMs);
-
-      const tick = (now: number) => {
-        if (cancelled) return;
-        const elapsed = now - startRef.current;
-        const t = Math.min(1, elapsed / walkMs);
-        setInstance((prev) =>
-          prev && prev.phase === 'walking' ? { ...prev, t } : prev
-        );
-        if (t < 1) {
-          rafRef.current = requestAnimationFrame(tick);
-        } else {
-          setInstance((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  phase: 'seated',
-                  t: 1,
-                  flipX: false,
-                  walkFrameIndex: 0,
-                }
-              : prev
-          );
-        }
       };
-      rafRef.current = requestAnimationFrame(tick);
-    };
+      const next = [...prev, nextInst];
+      instancesRef.current = next;
+      spawned = nextInst;
+      return next;
+    });
 
-    startTimer = setTimeout(begin, spawnDelayMs);
+    // Start motion after claim succeeds (raf next frame so state is committed)
+    requestAnimationFrame(() => {
+      const still = instancesRef.current.find((p) => p.instanceKey === instanceKey);
+      if (still && still.phase === 'walking') {
+        runWalkMotion(instanceKey, still.layout.walkMs);
+      }
+    });
+
+    void spawned;
+  }, [editMode, runWalkMotion]);
+
+  // Auto-fill scheduler
+  useEffect(() => {
+    if (editMode) {
+      cancelAllMotion();
+      setInstances([]);
+      instancesRef.current = [];
+      return;
+    }
+    if (!seats.length) return;
+
+    let cancelled = false;
+    const initial = window.setTimeout(() => {
+      if (!cancelled) trySpawn();
+    }, AUTO_FILL_INITIAL_DELAY_MS);
+
+    const interval = window.setInterval(() => {
+      if (!cancelled) trySpawn();
+    }, AUTO_FILL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      if (startTimer) clearTimeout(startTimer);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seatKey, layoutKey, editMode, spawnDelayMs, patron]);
+  }, [editMode, seats, trySpawn, cancelAllMotion]);
 
+  const walkingCount = instances.filter((i) => i.phase === 'walking').length;
+
+  // Walk frame animation for all walking patrons
   useEffect(() => {
-    if (!instance || instance.phase !== 'walking') return;
-    const frames = instance.def.walkFrames;
-    if (!frames.length) return;
-    const ms = instance.def.walkFrameMs ?? 120;
+    if (walkingCount === 0) return;
     const id = window.setInterval(() => {
-      setInstance((prev) => {
-        if (!prev || prev.phase !== 'walking') return prev;
-        const n = prev.def.walkFrames.length;
-        return { ...prev, walkFrameIndex: (prev.walkFrameIndex + 1) % n };
+      setInstances((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          if (p.phase !== 'walking') return p;
+          const n = p.def.walkFrames.length;
+          if (n <= 0) return p;
+          changed = true;
+          return {
+            ...p,
+            walkFrameIndex: (p.walkFrameIndex + 1) % n,
+          };
+        });
+        if (changed) instancesRef.current = next;
+        return changed ? next : prev;
       });
-    }, ms);
+    }, 120);
     return () => window.clearInterval(id);
-  }, [instance?.phase, instance?.def.walkFrameMs, instance?.def.walkFrames]);
+  }, [walkingCount]);
 
-  // Edit mode: PatronPlacementEditor owns walk + sit previews (no double ghosts).
+  // Cleanup rAF on unmount
+  useEffect(() => {
+    return () => cancelAllMotion();
+  }, [cancelAllMotion]);
+
   if (editMode) {
     return <div ref={layerRef} className="pov-patron-layer" aria-hidden="true" />;
   }
-
-  if (!instance) {
-    return <div ref={layerRef} className="pov-patron-layer" aria-hidden="true" />;
-  }
-
-  const isSeated = instance.phase === 'seated';
-  const pos = isSeated
-    ? instance.sitPoint
-    : pointAlongPath(instance.walkPath, instance.t);
-  const pct = stagePointToPct(pos);
-  const frames = instance.def.walkFrames;
-  const src = isSeated
-    ? instance.def.sitSrc
-    : frames[instance.walkFrameIndex % Math.max(frames.length, 1)] ?? frames[0];
-  const widthPct = isSeated
-    ? layout.sitDisplayWidthPct
-    : layout.walkDisplayWidthPct;
 
   return (
     <div
@@ -258,23 +373,44 @@ export default function PatronLayer({
       aria-hidden="true"
       style={barClipCss ? { clipPath: barClipCss, WebkitClipPath: barClipCss } : undefined}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className={`pov-patron-sprite${
-          isSeated ? ' pov-patron-sprite--sit' : ' pov-patron-sprite--walk'
-        }`}
-        src={src}
-        alt=""
-        draggable={false}
-        style={{
-          left: `${pct.leftPct}%`,
-          top: `${pct.topPct}%`,
-          width: `${widthPct}%`,
-          transform: `translate(-50%, -100%)${
-            instance.flipX ? ' scaleX(-1)' : ''
-          }`,
-        }}
-      />
+      {instances.map((inst) => {
+        const isSeated = inst.phase === 'seated';
+        const pos = isSeated
+          ? inst.sitPoint
+          : pointAlongPath(inst.walkPath, inst.t);
+        const pct = stagePointToPct(pos);
+        const frames = inst.def.walkFrames;
+        const src = isSeated
+          ? inst.def.sitSrc
+          : frames[inst.walkFrameIndex % Math.max(frames.length, 1)] ??
+            frames[0];
+        const widthPct = isSeated
+          ? inst.layout.sitDisplayWidthPct
+          : inst.layout.walkDisplayWidthPct;
+
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={inst.instanceKey}
+            className={`pov-patron-sprite${
+              isSeated ? ' pov-patron-sprite--sit' : ' pov-patron-sprite--walk'
+            }`}
+            src={src}
+            alt=""
+            draggable={false}
+            data-character-id={inst.characterId}
+            data-seat-id={inst.seatId}
+            style={{
+              left: `${pct.leftPct}%`,
+              top: `${pct.topPct}%`,
+              width: `${widthPct}%`,
+              transform: `translate(-50%, -100%)${
+                inst.flipX ? ' scaleX(-1)' : ''
+              }`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
