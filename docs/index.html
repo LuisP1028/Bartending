@@ -77,10 +77,14 @@
           Loading game…<br />
           If this stays blank, wait for the Space to wake.
         </p>
+        <!--
+          FS91: camera must be delegated to the HF Space iframe or getUserMedia
+          fails with no permission prompt (GH Pages shell only; Space direct works).
+        -->
         <iframe
           id="game"
           title="DITHER-OS Bartending"
-          allow="fullscreen; autoplay; clipboard-write"
+          allow="fullscreen; autoplay; clipboard-write; camera; microphone"
           allowfullscreen
           loading="eager"
           referrerpolicy="no-referrer-when-downgrade"

@@ -99,6 +99,10 @@ Edit `docs/index.html`:
 const SPACE_URL = "https://choppedcheese-dither-os-bartending.hf.space";
 ```
 
+### 3b. Camera (Join the bar / Visual Uplink) — FS91
+
+The Pages shell loads the Space in an **iframe**. The iframe `allow` list must include **`camera`** (see `docs/index.html`), or the browser blocks `getUserMedia` **without** a permission prompt. Opening the Space URL directly still works without this; only the GitHub embed needs the delegation.
+
 Commit and push. Pages rebuilds in a minute or two.
 
 ---
