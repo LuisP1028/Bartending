@@ -1212,29 +1212,26 @@ export default function Home() {
   }
 
   if (phase === 'menu') {
-    return (
-      <>
-        <MainMenu
-          onEnterPlay={onEnterPlay}
-          onSelectModeAndPlay={onSelectModeAndPlay}
-          onOpenJoinBar={onOpenJoinBar}
+    const joinOverlay =
+      joinStage === 'comm' ? (
+        <JoinBarCommLink onTransmit={onJoinTransmit} onClose={onCloseJoin} />
+      ) : joinStage === 'camera' ? (
+        <JoinBarCamera
+          onCapture={onJoinCapture}
+          onClose={onCloseJoin}
+          busy={joinBusy}
+          statusMessage={joinStatus}
+          statusError={joinStatusError}
         />
-        {joinStage === 'comm' ? (
-          <JoinBarCommLink
-            onTransmit={onJoinTransmit}
-            onClose={onCloseJoin}
-          />
-        ) : null}
-        {joinStage === 'camera' ? (
-          <JoinBarCamera
-            onCapture={onJoinCapture}
-            onClose={onCloseJoin}
-            busy={joinBusy}
-            statusMessage={joinStatus}
-            statusError={joinStatusError}
-          />
-        ) : null}
-      </>
+      ) : null;
+
+    return (
+      <MainMenu
+        onEnterPlay={onEnterPlay}
+        onSelectModeAndPlay={onSelectModeAndPlay}
+        onOpenJoinBar={onOpenJoinBar}
+        joinOverlay={joinOverlay}
+      />
     );
   }
 

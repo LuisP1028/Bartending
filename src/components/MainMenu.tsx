@@ -32,16 +32,22 @@ type MainMenuProps = {
   onSelectModeAndPlay: (mode: MenuPlayMode) => void;
   /** FS89: open Join the bar Comm-Link → camera flow. */
   onOpenJoinBar: () => void;
+  /**
+   * FS90: Join Comm-Link / Camera UI mounted inside the Game Boy glass
+   * (playfield) so it stretches to screen size, not the full browser viewport.
+   */
+  joinOverlay?: React.ReactNode;
 };
 
 /**
- * FS80/82/87/89 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
+ * FS80/82/87/89/90 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
  * Shell: ↑↓ navigate, ←→ mode logos, A select, B back (root → play), START → play.
  */
 export default function MainMenu({
   onEnterPlay,
   onSelectModeAndPlay,
   onOpenJoinBar,
+  joinOverlay = null,
 }: MainMenuProps) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
@@ -294,6 +300,8 @@ export default function MainMenu({
                     className={styles.synthwaveNav}
                     aria-label="Main Navigation Terminal"
                     onKeyDown={onNavKeyDown}
+                    style={joinOverlay ? { visibility: 'hidden' } : undefined}
+                    aria-hidden={joinOverlay ? true : undefined}
                   >
                     <div className={styles.scanlines} aria-hidden="true" />
                     <div
@@ -423,6 +431,8 @@ export default function MainMenu({
                     </ul>
                   </nav>
                 </div>
+                {/* FS90: Join overlays fill the glass hole (playfield), not the browser window */}
+                {joinOverlay}
               </div>
             </div>
             <div className="gb-shell__controls">
