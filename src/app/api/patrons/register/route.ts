@@ -147,9 +147,18 @@ export async function POST(req: Request) {
       ...(phone ? ['--phone', phone] : []),
     ];
 
+    // Ensure child sees Imagine key under the name pipeline expects
+    const childEnv = { ...process.env };
+    if (!childEnv.XAI_API_KEY && childEnv.XAIKEY) {
+      childEnv.XAI_API_KEY = childEnv.XAIKEY;
+    }
+    if (!childEnv.XAI_API_KEY && childEnv.XAI_KEY) {
+      childEnv.XAI_API_KEY = childEnv.XAI_KEY;
+    }
+
     const child = spawn(process.execPath, args, {
       cwd: root,
-      env: process.env,
+      env: childEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
     });
@@ -227,8 +236,10 @@ export async function POST(req: Request) {
         mode: 'run-async',
       },
       generationNote:
-        'Full generative --run started in background. Poll /api/patrons/generate-status?jobId=',
-      sitSrc: `/assets/patrons/${identity.characterId}/sit.png`,
+        'Full generative --run started (runtime-only storage on host disk, not git). Poll /api/patrons/generate-status?jobId=',
+      // FS98 — served from disk via API after install
+      sitSrc: `/api/patrons/assets/${identity.characterId}/sit.png`,
+      storage: 'runtime-only',
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

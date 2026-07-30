@@ -17,6 +17,10 @@ export type RuntimePatronPublic = {
   personality: string;
   walkFrameCount: number;
   walkFrameMs: number;
+  /** FS98 — optional explicit URLs (runtime-served API paths) */
+  sitSrc?: string;
+  walkFrames?: string[];
+  talkSrc?: string;
 };
 
 /** Client/module cache of runtime patrons (filled by roster fetch). */
@@ -35,12 +39,24 @@ export function getClientRuntimePatronCache(): RuntimePatronPublic[] {
 export function characterDefFromRuntime(
   r: RuntimePatronPublic
 ): CharacterDef {
+  const walkN = r.walkFrameCount ?? 2;
+  const apiBase = `/api/patrons/assets/${r.id}`;
+  const defaultWalks = Array.from({ length: walkN }, (_, i) => {
+    const n = String(i + 1).padStart(2, '0');
+    return `${apiBase}/walk_${n}.png`;
+  });
   const input: CharacterDefInput = {
     id: r.id,
     displayName: r.displayName,
     personality: r.personality,
-    walkFrameCount: r.walkFrameCount ?? 2,
+    walkFrameCount: walkN,
     walkFrameMs: r.walkFrameMs ?? 120,
+    assetsOverride: {
+      sitSrc: r.sitSrc || `${apiBase}/sit.png`,
+      talkSrc: r.talkSrc || `${apiBase}/talk.png`,
+      walkFrames:
+        r.walkFrames && r.walkFrames.length > 0 ? r.walkFrames : defaultWalks,
+    },
   };
   return buildCharacterDef(input);
 }

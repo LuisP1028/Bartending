@@ -185,6 +185,8 @@ export default function PatronLayer({
             walkFrameCount?: number;
             walkFrameMs?: number;
             sitSrc?: string;
+            walkFrames?: string[];
+            talkSrc?: string | null;
           }[];
         };
         if (cancelled || !data.characters) return;
@@ -200,19 +202,32 @@ export default function PatronLayer({
           personality: string;
           walkFrameCount: number;
           walkFrameMs: number;
+          sitSrc?: string;
+          walkFrames?: string[];
+          talkSrc?: string;
         }[] = [];
         await Promise.all(
           candidates.map(async (c) => {
-            const sit = c.sitSrc || `/assets/patrons/${c.id}/sit.png`;
+            // FS98 — prefer runtime API asset path (disk-served)
+            const sit =
+              c.sitSrc ||
+              `/api/patrons/assets/${c.id}/sit.png`;
             try {
               const hr = await fetch(sit, { method: 'HEAD', cache: 'no-store' });
               if (!hr.ok) return;
+              const ct = hr.headers.get('content-type') || '';
+              if (ct && !ct.includes('image') && !ct.includes('octet-stream')) {
+                return;
+              }
               ready.push({
                 id: c.id,
                 displayName: c.displayName,
                 personality: c.personality,
                 walkFrameCount: c.walkFrameCount ?? 2,
                 walkFrameMs: c.walkFrameMs ?? 120,
+                sitSrc: sit,
+                walkFrames: c.walkFrames,
+                talkSrc: c.talkSrc || undefined,
               });
             } catch {
               /* ghost — skip */
