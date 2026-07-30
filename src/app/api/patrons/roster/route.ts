@@ -13,11 +13,13 @@ function repoRoot() {
 }
 
 /**
- * FS94 — Built-in patrons + data/runtime-patrons.json (join-generated).
+ * FS94/FS96 — Built-in patrons + ready-pack join-generated runtime patrons.
+ * readRuntimePatrons already drops ghosts (missing sit/talk/walks).
  */
 export async function GET() {
   try {
     const builtIns = Object.values(CHARACTERS);
+    // Ready-pack filtered (and pruned on disk when incomplete)
     const runtime = readRuntimePatrons(repoRoot());
     const extras: CharacterDef[] = runtime
       .filter((r) => !CHARACTERS[r.id])

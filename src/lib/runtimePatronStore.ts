@@ -2,10 +2,12 @@
  * FS94 — Writable runtime patron registry (production-safe).
  * Built-ins live in characters.ts; join-generated patrons append here.
  * File: data/runtime-patrons.json (ephemeral on free HF Spaces without volume).
+ * FS96 — Only ready-pack ids should remain (prune incomplete on read).
  */
 
 import fs from 'fs';
 import path from 'path';
+import { isPatronPackReady } from '@/lib/patronPackReady';
 
 export type RuntimePatronRecord = {
   id: string;
@@ -54,7 +56,7 @@ function jobPath(repoRoot: string, jobId: string): string {
   return path.join(jobsDir(repoRoot), `${jobId}.json`);
 }
 
-export function readRuntimePatrons(repoRoot: string): RuntimePatronRecord[] {
+function readRuntimePatronsRaw(repoRoot: string): RuntimePatronRecord[] {
   const p = patronsPath(repoRoot);
   if (!fs.existsSync(p)) return [];
   try {
@@ -67,17 +69,48 @@ export function readRuntimePatrons(repoRoot: string): RuntimePatronRecord[] {
   }
 }
 
-export function upsertRuntimePatron(
+function writeRuntimePatronsList(
   repoRoot: string,
-  record: RuntimePatronRecord
+  list: RuntimePatronRecord[]
 ): void {
-  const list = readRuntimePatrons(repoRoot).filter((r) => r.id !== record.id);
-  list.push(record);
   fs.writeFileSync(
     patronsPath(repoRoot),
     JSON.stringify({ patrons: list }, null, 2),
     'utf8'
   );
+}
+
+/**
+ * Runtime joiners only — drops ghost entries (missing ready pack) and
+ * rewrites JSON when pruned so ephemeral hosts do not keep ghosts.
+ */
+export function readRuntimePatrons(repoRoot: string): RuntimePatronRecord[] {
+  const all = readRuntimePatronsRaw(repoRoot);
+  const ready = all.filter((r) => isPatronPackReady(repoRoot, r.id));
+  if (ready.length !== all.length) {
+    try {
+      writeRuntimePatronsList(repoRoot, ready);
+    } catch {
+      /* still return filtered list if prune write fails */
+    }
+  }
+  return ready;
+}
+
+export function upsertRuntimePatron(
+  repoRoot: string,
+  record: RuntimePatronRecord
+): void {
+  if (!isPatronPackReady(repoRoot, record.id)) {
+    throw new Error(
+      `Cannot upsert runtime patron "${record.id}": ready pack missing (sit/talk/walk_01/walk_02)`
+    );
+  }
+  const list = readRuntimePatronsRaw(repoRoot)
+    .filter((r) => r.id !== record.id)
+    .filter((r) => isPatronPackReady(repoRoot, r.id));
+  list.push(record);
+  writeRuntimePatronsList(repoRoot, list);
 }
 
 export function writeGenerationJob(

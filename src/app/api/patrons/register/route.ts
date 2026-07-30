@@ -5,6 +5,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { resolvePatronIdentity } from '@/lib/patronIdentity';
 import { ensurePatronFolders } from '@/lib/patronFolders';
+import { isPatronPackReady } from '@/lib/patronPackReady';
 import {
   hasImagineCredentials,
   updateGenerationJob,
@@ -169,19 +170,37 @@ export async function POST(req: Request) {
     });
 
     child.on('close', (code) => {
-      if (code === 0) {
-        upsertRuntimePatron(root, {
-          id: identity.characterId,
-          displayName: identity.displayName,
-          personality: `${identity.characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`,
-          walkFrameCount: 2,
-          walkFrameMs: 120,
-          createdAt: new Date().toISOString(),
-        });
+      // FS96 — only roster when nested ready pack is on disk (sit/talk/walk_01/walk_02)
+      const packReady = isPatronPackReady(root, identity.characterId);
+
+      if (code === 0 && packReady) {
+        try {
+          upsertRuntimePatron(root, {
+            id: identity.characterId,
+            displayName: identity.displayName,
+            personality: `${identity.characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`,
+            walkFrameCount: 2,
+            walkFrameMs: 120,
+            createdAt: new Date().toISOString(),
+          });
+          updateGenerationJob(root, jobId, {
+            status: 'done',
+            logTail: logBuf,
+            error: undefined,
+          });
+        } catch (e: unknown) {
+          updateGenerationJob(root, jobId, {
+            status: 'failed',
+            error: e instanceof Error ? e.message : String(e),
+            logTail: logBuf,
+          });
+        }
+      } else if (code === 0 && !packReady) {
         updateGenerationJob(root, jobId, {
-          status: 'done',
+          status: 'failed',
+          error:
+            'Pipeline exited 0 but ready pack missing (sit/talk/walk_01/walk_02 under public/assets/patrons/{id}/)',
           logTail: logBuf,
-          error: undefined,
         });
       } else {
         updateGenerationJob(root, jobId, {
