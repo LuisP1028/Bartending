@@ -86,11 +86,20 @@ function livingCharacterIds(instances: PatronInstance[]): Set<string> {
   return new Set(instances.map((i) => i.characterId));
 }
 
+/** Stock cast — prefer these so the bar fills with known-good art first (FS97 A). */
+const STOCK_CHARACTER_IDS = new Set([
+  'patron_elder',
+  'caesar_9aea2cd1a4bf32d6',
+  'trump_ca36306f5c662816',
+]);
+
 function pickRandomFreeCharacterId(instances: PatronInstance[]): string | null {
   const living = livingCharacterIds(instances);
   const pool = listCharacters().filter((c) => !living.has(c.id));
   if (!pool.length) return null;
-  return pool[Math.floor(Math.random() * pool.length)].id;
+  const stock = pool.filter((c) => STOCK_CHARACTER_IDS.has(c.id));
+  const use = stock.length > 0 ? stock : pool;
+  return use[Math.floor(Math.random() * use.length)].id;
 }
 
 function buildEntryForSeat(
@@ -161,7 +170,7 @@ export default function PatronLayer({
     return () => ro.disconnect();
   }, []);
 
-  /** FS94 — refresh runtime (join-generated) patrons into listCharacters pool */
+  /** FS94/FS97 — joiners only if sit art actually loads (client ghost filter). */
   useEffect(() => {
     let cancelled = false;
     const loadRoster = async () => {
@@ -175,26 +184,43 @@ export default function PatronLayer({
             personality: string;
             walkFrameCount?: number;
             walkFrameMs?: number;
+            sitSrc?: string;
           }[];
         };
         if (cancelled || !data.characters) return;
-        // Built-ins are already in CHARACTERS; only cache join-generated extras
         const BUILTIN = new Set([
           'patron_elder',
           'caesar_9aea2cd1a4bf32d6',
           'trump_ca36306f5c662816',
         ]);
-        setClientRuntimePatronCache(
-          data.characters
-            .filter((c) => !BUILTIN.has(c.id))
-            .map((c) => ({
-              id: c.id,
-              displayName: c.displayName,
-              personality: c.personality,
-              walkFrameCount: c.walkFrameCount ?? 2,
-              walkFrameMs: c.walkFrameMs ?? 120,
-            }))
+        const candidates = data.characters.filter((c) => !BUILTIN.has(c.id));
+        const ready: {
+          id: string;
+          displayName: string;
+          personality: string;
+          walkFrameCount: number;
+          walkFrameMs: number;
+        }[] = [];
+        await Promise.all(
+          candidates.map(async (c) => {
+            const sit = c.sitSrc || `/assets/patrons/${c.id}/sit.png`;
+            try {
+              const hr = await fetch(sit, { method: 'HEAD', cache: 'no-store' });
+              if (!hr.ok) return;
+              ready.push({
+                id: c.id,
+                displayName: c.displayName,
+                personality: c.personality,
+                walkFrameCount: c.walkFrameCount ?? 2,
+                walkFrameMs: c.walkFrameMs ?? 120,
+              });
+            } catch {
+              /* ghost — skip */
+            }
+          })
         );
+        if (cancelled) return;
+        setClientRuntimePatronCache(ready);
       } catch {
         /* roster optional offline */
       }

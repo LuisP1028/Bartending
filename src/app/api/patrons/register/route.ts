@@ -5,7 +5,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { resolvePatronIdentity } from '@/lib/patronIdentity';
 import { ensurePatronFolders } from '@/lib/patronFolders';
-import { isPatronPackReady } from '@/lib/patronPackReady';
+import { isPatronPackReady, resolveAppRoot } from '@/lib/patronPackReady';
 import {
   hasImagineCredentials,
   updateGenerationJob,
@@ -19,7 +19,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 function repoRoot() {
-  return process.cwd();
+  return resolveAppRoot(process.cwd());
 }
 
 /**

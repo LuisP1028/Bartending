@@ -2,12 +2,12 @@
  * FS94 — Writable runtime patron registry (production-safe).
  * Built-ins live in characters.ts; join-generated patrons append here.
  * File: data/runtime-patrons.json (ephemeral on free HF Spaces without volume).
- * FS96 — Only ready-pack ids should remain (prune incomplete on read).
+ * FS96/FS97 — Only ready-pack ids should remain (prune incomplete on read).
  */
 
 import fs from 'fs';
 import path from 'path';
-import { isPatronPackReady } from '@/lib/patronPackReady';
+import { isPatronPackReady, resolveAppRoot } from '@/lib/patronPackReady';
 
 export type RuntimePatronRecord = {
   id: string;
@@ -37,7 +37,7 @@ export type GenerationJobRecord = {
 };
 
 function dataDir(repoRoot: string): string {
-  const d = path.join(repoRoot, 'data');
+  const d = path.join(resolveAppRoot(repoRoot), 'data');
   fs.mkdirSync(d, { recursive: true });
   return d;
 }
@@ -85,11 +85,12 @@ function writeRuntimePatronsList(
  * rewrites JSON when pruned so ephemeral hosts do not keep ghosts.
  */
 export function readRuntimePatrons(repoRoot: string): RuntimePatronRecord[] {
-  const all = readRuntimePatronsRaw(repoRoot);
-  const ready = all.filter((r) => isPatronPackReady(repoRoot, r.id));
+  const root = resolveAppRoot(repoRoot);
+  const all = readRuntimePatronsRaw(root);
+  const ready = all.filter((r) => isPatronPackReady(root, r.id));
   if (ready.length !== all.length) {
     try {
-      writeRuntimePatronsList(repoRoot, ready);
+      writeRuntimePatronsList(root, ready);
     } catch {
       /* still return filtered list if prune write fails */
     }
@@ -101,16 +102,17 @@ export function upsertRuntimePatron(
   repoRoot: string,
   record: RuntimePatronRecord
 ): void {
-  if (!isPatronPackReady(repoRoot, record.id)) {
+  const root = resolveAppRoot(repoRoot);
+  if (!isPatronPackReady(root, record.id)) {
     throw new Error(
       `Cannot upsert runtime patron "${record.id}": ready pack missing (sit/talk/walk_01/walk_02)`
     );
   }
-  const list = readRuntimePatronsRaw(repoRoot)
+  const list = readRuntimePatronsRaw(root)
     .filter((r) => r.id !== record.id)
-    .filter((r) => isPatronPackReady(repoRoot, r.id));
+    .filter((r) => isPatronPackReady(root, r.id));
   list.push(record);
-  writeRuntimePatronsList(repoRoot, list);
+  writeRuntimePatronsList(root, list);
 }
 
 export function writeGenerationJob(

@@ -120,22 +120,49 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   [CHARACTER_TRUMP_CA36306F5C662816.id]: CHARACTER_TRUMP_CA36306F5C662816,
 };
 
-/** Built-in + client runtime cache (FS94). Safe on browser after roster fetch. */
+/**
+ * Built-in + client runtime cache (FS94).
+ * FS97: never return empty — stock CHARACTERS if runtime merge fails
+ * (require()/ESM interop has broken client pools in production).
+ */
 export function listCharacters(): CharacterDef[] {
-  // Deferred import keeps buildCharacterDef cycle one-way at runtime
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rt = require('./runtimePatrons') as {
-    listAllCharactersClient: () => CharacterDef[];
-  };
-  return rt.listAllCharactersClient();
+  try {
+    // Deferred import keeps buildCharacterDef cycle one-way at runtime
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const rt = require('./runtimePatrons') as {
+      listAllCharactersClient?: () => CharacterDef[];
+      default?: { listAllCharactersClient?: () => CharacterDef[] };
+    };
+    const fn =
+      rt.listAllCharactersClient ?? rt.default?.listAllCharactersClient;
+    if (typeof fn === 'function') {
+      const list = fn();
+      if (Array.isArray(list) && list.length > 0) return list;
+    }
+  } catch {
+    /* fall through to stock */
+  }
+  return Object.values(CHARACTERS);
 }
 
 export function getCharacter(id: string): CharacterDef | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const rt = require('./runtimePatrons') as {
-    getCharacterMerged: (id: string) => CharacterDef | undefined;
-  };
-  return rt.getCharacterMerged(id);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const rt = require('./runtimePatrons') as {
+      getCharacterMerged?: (id: string) => CharacterDef | undefined;
+      default?: {
+        getCharacterMerged?: (id: string) => CharacterDef | undefined;
+      };
+    };
+    const fn = rt.getCharacterMerged ?? rt.default?.getCharacterMerged;
+    if (typeof fn === 'function') {
+      const hit = fn(id);
+      if (hit) return hit;
+    }
+  } catch {
+    /* fall through */
+  }
+  return CHARACTERS[id];
 }
 
 /** Resolve character; unknown ids fall back to elder. */
