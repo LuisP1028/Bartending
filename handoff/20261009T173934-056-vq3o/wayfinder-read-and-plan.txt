@@ -1,0 +1,7 @@
+functional_specification_104.md
+wayfinder/20261009T173934-056-vq3o/map.md
+wayfinder/20261009T173934-056-vq3o/tickets/ticket-001.md
+wayfinder/20261009T173934-056-vq3o/tickets/ticket-002.md
+wayfinder/20261009T173934-056-vq3o/tickets/ticket-003.md
+wayfinder/20261009T173934-056-vq3o/tickets/ticket-004.md
+required_edits_104.md
