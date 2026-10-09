@@ -219,6 +219,7 @@ export async function POST(req: Request) {
         });
       }
     }, 5000);
+    watchdogTimer.unref();
 
     const handleOutput = (chunk: Buffer) => {
       lastActivityMs = Date.now();

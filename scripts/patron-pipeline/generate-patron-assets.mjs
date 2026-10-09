@@ -44,7 +44,9 @@ import { installPackFromStagingDir } from './lib/writeAssets.mjs';
 loadRepoEnv();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-let REPO_ROOT = path.resolve(__dirname, '../..');
+let REPO_ROOT = process.env.REPO_ROOT
+  ? path.resolve(process.env.REPO_ROOT)
+  : path.resolve(__dirname, '../..');
 const LAST_PLAN = path.join(__dirname, '.last-plan.json');
 
 function printHelp() {
