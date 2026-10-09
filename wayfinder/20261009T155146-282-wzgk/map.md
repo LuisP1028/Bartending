@@ -10,10 +10,10 @@ Establish a complete, deterministic, and verified decision set detailing every a
 - **Primary Skills Consulted:** `/wayfinder`, `/functionality-understanding-check`, `/documentation-sufficient?`
 - **Core Invariants:**
   - `INV-BOUNDARY-01`: No implementation code written during planning; output files omit coding prohibitions and downstream execution holds.
-  - `INV-MAP-01`: Monotonic ticketing in run directory (`ticket-001.md` through `ticket-006.md`); human-readable titles used throughout.
+  - `INV-MAP-01`: Monotonic ticketing in run directory (`ticket-001.md` through `ticket-007.md`); human-readable titles used throughout.
   - `INV-ATOMIC-01`: Discrete, atomic decision tickets resolving one architectural question each.
   - `INV-FAILFAST-01`: Fail fast without silent fallbacks, hack patches, or arbitrary timeouts.
-  - `INV-HANDOFF-01`: Deterministic manifest overwrite at `handoff/20261009T155146-282-wzgk/wayfinder-read-and-plan.txt`.
+  - `INV-HANDOFF-01`: Deterministic manifest overwrite at `handoff/20261009T155146-282-wzgk/wayfinder-read-and-plan.txt` and `handoff/20261009T155146-282-wzgk/test-plan.txt`.
 
 ## Decisions so far
 - [Boot Console Viewport Containment & Proportional Sizing (ticket-001.md)](./tickets/ticket-001.md) — Decouple `.boot-intro .gb-shell` from cover-sized menu geometry and enforce proportional containment (`min(...)` aspect ratio scaling with `max-width: 100%`, `max-height: 100%`, and `transform: none`), ensuring 100% unclipped visibility of casing, branding header, D-pad, action buttons, and SELECT/START controls across all viewport sizes and aspect ratios.
@@ -22,9 +22,10 @@ Establish a complete, deterministic, and verified decision set detailing every a
 - [Patron Seated State Persistence & Asset Switching (ticket-004.md)](./tickets/ticket-004.md) — Enforce immutability of `phase === 'seated'` so seated patrons permanently display their stationary bust asset (`inst.def.sitSrc`) at counter anchor coordinates (`inst.sitPoint`) without spontaneously reverting to walking animations or being re-spawned upon.
 - [In-Place Drawer & Carousel Presentation (Zero Stage Translation) (ticket-005.md)](./tickets/ticket-005.md) — Lock `stagePan` to `{ x: 0, y: 0 }`, remove `shellStagePan` displacement logic on carousel activation, and neutralize CSS transforms on `.gb-shell__playfield .pov-stage` to guarantee strictly `0px` displacement of the underlying bar stage when opening, browsing, or closing equipment drawers.
 - [Fixed HUD, Status Element & Receipt Alignment (ticket-006.md)](./tickets/ticket-006.md) — Decouple `shellHudNudge` from drawer toggle events so HUD status banners, jigger controls, and receipt printer hardware remain anchored to fixed glass and stage coordinates with zero jitter or coordinate drift.
+- [FS100 Integration Test Decision Mapping, Payload Admissibility Governance & Master Verification Protocol (ticket-007.md)](./tickets/ticket-007.md) — Establish exhaustive integration test decisions, authentic schema mappings, 12 observed input payloads, and specification oracles across modified components (src/app/gameboy-shell.css, src/components/PatronLayer.tsx, src/app/page.tsx) without synthetic mocks, fully locking the testing frontier for FS100.
 
 ## Not yet specified
-*(None. All architectural, styling, and state machine decisions required for FS100 are fully specified and locked across decision tickets ticket-001.md through ticket-006.md and required_edits_100.md).*
+*(None. All architectural, styling, state machine, and integration test decisions required for FS100 are fully specified and locked across decision tickets ticket-001.md through ticket-007.md, required_edits_100.md, and test_matrix_100.md).*
 
 ## Out of scope
 - Implementation of new cocktail recipes, drink methods, or inventory items beyond current mode definitions.
