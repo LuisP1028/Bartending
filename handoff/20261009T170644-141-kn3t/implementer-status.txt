@@ -1,0 +1,5 @@
+src/components/PatronLayer.tsx CHANGED ticket-001
+src/components/PatronLayer.tsx CHANGED ticket-002
+src/components/PatronLayer.tsx CHANGED ticket-003
+src/app/globals.css UNCHANGED ticket-002
+src/app/page.tsx UNCHANGED ticket-003

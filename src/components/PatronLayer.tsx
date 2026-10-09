@@ -313,7 +313,7 @@ export default function PatronLayer({
             const frameMs = clock.frameMs > 0 ? clock.frameMs : 120;
             const frameIndex = Math.floor(elapsed / frameMs) % nFrames;
 
-            if (t < 1) {
+            if (t < 1 && elapsed < walkMs) {
               stillWalking = true;
               if (
                 Math.abs(p.t - t) < 0.0001 &&
