@@ -8,7 +8,10 @@ import {
   requireCharacter,
   type PatronDef,
 } from '@/data/characters';
-import { setClientRuntimePatronCache } from '@/data/runtimePatrons';
+import {
+  setClientRuntimePatronCache,
+  type RuntimePatronPublic,
+} from '@/data/runtimePatrons';
 import {
   AUTHORITATIVE_SPAWN_ORIGIN,
   STANDARDIZED_PATRON_SCALE,
@@ -191,6 +194,7 @@ export default function PatronLayer({
           id: string;
           displayName: string;
           personality: string;
+          aspectRatio?: number;
           walkFrameCount?: number;
           walkFrameMs?: number;
           sitSrc?: string;
@@ -205,16 +209,7 @@ export default function PatronLayer({
         'trump_ca36306f5c662816',
       ]);
       const candidates = data.characters.filter((c) => !BUILTIN.has(c.id));
-      const ready: {
-        id: string;
-        displayName: string;
-        personality: string;
-        walkFrameCount: number;
-        walkFrameMs: number;
-        sitSrc?: string;
-        walkFrames?: string[];
-        talkSrc?: string;
-      }[] = [];
+      const ready: RuntimePatronPublic[] = [];
       await Promise.all(
         candidates.map(async (c) => {
           // FS98 — prefer runtime API asset path (disk-served)
@@ -232,6 +227,7 @@ export default function PatronLayer({
               id: c.id,
               displayName: c.displayName,
               personality: c.personality,
+              aspectRatio: c.aspectRatio,
               walkFrameCount: c.walkFrameCount ?? 2,
               walkFrameMs: c.walkFrameMs ?? 120,
               sitSrc: sit,

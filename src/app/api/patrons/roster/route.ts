@@ -5,6 +5,20 @@ import { readRuntimePatronsDb } from '@/lib/runtimePatronStore';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+function serializeRosterCharacter(c: CharacterDef) {
+  return {
+    id: c.id,
+    displayName: c.displayName,
+    personality: c.personality,
+    aspectRatio: c.aspectRatio ?? 1.0,
+    walkFrameCount: c.assets.walkFrames.length,
+    walkFrameMs: c.assets.walkFrameMs,
+    sitSrc: c.assets.sitSrc,
+    walkFrames: c.assets.walkFrames,
+    talkSrc: c.assets.talkSrc ?? null,
+  };
+}
+
 export async function GET() {
   const builtIns = Object.values(CHARACTERS);
 
@@ -33,17 +47,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       storage: 'gcs-postgres',
-      characters: characters.map((c) => ({
-        id: c.id,
-        displayName: c.displayName,
-        personality: c.personality,
-        aspectRatio: c.aspectRatio ?? 1.0,
-        walkFrameCount: c.assets.walkFrames.length,
-        walkFrameMs: c.assets.walkFrameMs,
-        sitSrc: c.assets.sitSrc,
-        walkFrames: c.assets.walkFrames,
-        talkSrc: c.assets.talkSrc ?? null,
-      })),
+      characters: characters.map(serializeRosterCharacter),
       runtimeCount: extras.length,
     });
   } catch (dbError: unknown) {
@@ -52,17 +56,7 @@ export async function GET() {
       ok: true,
       storage: 'stock-fallback',
       fallback: true,
-      characters: builtIns.map((c) => ({
-        id: c.id,
-        displayName: c.displayName,
-        personality: c.personality,
-        aspectRatio: c.aspectRatio ?? 1.0,
-        walkFrameCount: c.assets.walkFrames.length,
-        walkFrameMs: c.assets.walkFrameMs,
-        sitSrc: c.assets.sitSrc,
-        walkFrames: c.assets.walkFrames,
-        talkSrc: c.assets.talkSrc ?? null,
-      })),
+      characters: builtIns.map(serializeRosterCharacter),
       runtimeCount: 0,
     });
   }
