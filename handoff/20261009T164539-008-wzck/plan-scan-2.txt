@@ -1,0 +1,7 @@
+src/app/gameboy-shell.css
+src/app/globals.css
+src/app/layout.tsx
+src/app/page.tsx
+src/components/BootIntro.tsx
+src/components/MainMenu.module.css
+src/components/MainMenu.tsx
