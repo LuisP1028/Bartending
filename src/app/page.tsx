@@ -82,7 +82,6 @@ const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
 function PovStageShell({
   openCategory,
   povStageRef,
-  stagePan,
   shellHudNudge,
   children,
 }: {
