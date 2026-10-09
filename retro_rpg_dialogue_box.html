@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retro RPG Dialogue Box</title>
+  <!-- Authentic 8-bit Pixel Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0b0f19;
+      padding: 16px;
+      font-family: 'Press Start 2P', monospace;
+      color: #e2e8f0;
+      overflow: hidden;
+    }
+
+    .pixel-art {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Outer Dialogue Box Container */
+    .rpg-box-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    /* Dual white border and deep navy interior */
+    .rpg-dialogue-window {
+      position: relative;
+      background-color: #09133b;
+      border: 3px solid #ffffff;
+      outline: 2px solid #000000;
+      box-shadow: 
+        inset 0 0 0 3px #09133b,
+        inset 0 0 0 5px #ffffff,
+        0 8px 24px rgba(0, 0, 0, 0.7);
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      min-height: 140px;
+    }
+
+    /* Metallic silver beveled portrait frame */
+    .portrait-frame {
+      flex-shrink: 0;
+      width: 92px;
+      height: 92px;
+      background-color: #060b1c;
+      border: 3px solid #cbd5e1;
+      border-radius: 4px;
+      box-shadow: 
+        inset 2px 2px 0px #ffffff,
+        inset -2px -2px 0px #475569,
+        0 0 0 2px #000000,
+        0 4px 10px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .portrait-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      display: block;
+    }
+
+    /* Corner loops matching 16-bit scrollwork corners */
+    .corner-loop {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    /* Message Content Area */
+    .dialogue-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .speaker-name {
+      font-size: 13px;
+      font-weight: bold;
+      color: #f7ca18;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      text-shadow: 2px 2px 0px #000000;
+    }
+
+    .dialogue-body {
+      position: relative;
+      min-height: 48px;
+      padding-right: 24px;
+    }
+
+    .dialogue-text {
+      font-size: 12px;
+      line-height: 1.8;
+      color: #ffffff;
+      text-transform: uppercase;
+      word-break: break-word;
+      letter-spacing: 0.04em;
+      text-shadow: 2px 2px 0px #030612;
+      margin: 0;
+    }
+
+    /* Downward animated prompt arrow */
+    @keyframes retro-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(4px); }
+    }
+
+    .prompt-arrow {
+      position: absolute;
+      bottom: -6px;
+      right: 0;
+      animation: retro-bounce 0.75s steps(2, jump-none) infinite;
+      visibility: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="rpgBox" class="rpg-box-wrapper" title="Click to complete or replay text">
+    
+    <!-- Ornate Corner Loops -->
+    <svg class="corner-loop pixel-art" style="top: -6px; left: -6px;" viewBox="0 0 24 24">
+      <rect x="0" y="0" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+      <rect x="2" y="2" width="4" height="4" fill="#09133b" />
+      <rect x="8" y="2" width="6" height="4" fill="#ffffff" />
+      <rect x="2" y="8" width="4" height="6" fill="#ffffff" />
+      <rect x="7" y="7" width="5" height="5" fill="#ffffff" />
+    </svg>
+
+    <svg class="corner-loop pixel-art" style="top: -6px; right: -6px;" viewBox="0 0 24 24">
+      <rect x="16" y="0" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+      <rect x="18" y="2" width="4" height="4" fill="#09133b" />
+      <rect x="10" y="2" width="6" height="4" fill="#ffffff" />
+      <rect x="18" y="8" width="4" height="6" fill="#ffffff" />
+      <rect x="12" y="7" width="5" height="5" fill="#ffffff" />
+    </svg>
+
+    <svg class="corner-loop pixel-art" style="bottom: -6px; left: -6px;" viewBox="0 0 24 24">
+      <rect x="0" y="16" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+      <rect x="2" y="18" width="4" height="4" fill="#09133b" />
+      <rect x="8" y="18" width="6" height="4" fill="#ffffff" />
+      <rect x="2" y="10" width="4" height="6" fill="#ffffff" />
+      <rect x="7" y="12" width="5" height="5" fill="#ffffff" />
+    </svg>
+
+    <svg class="corner-loop pixel-art" style="bottom: -6px; right: -6px;" viewBox="0 0 24 24">
+      <rect x="16" y="16" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+      <rect x="18" y="18" width="4" height="4" fill="#09133b" />
+      <rect x="10" y="18" width="6" height="4" fill="#ffffff" />
+      <rect x="18" y="10" width="4" height="6" fill="#ffffff" />
+      <rect x="12" y="12" width="5" height="5" fill="#ffffff" />
+    </svg>
+
+    <!-- Dialogue Window Frame -->
+    <div class="rpg-dialogue-window">
+      
+      <!-- Character Portrait Frame -->
+      <div class="portrait-frame">
+        <img id="characterPortraitImg" 
+             src="public/assets/patrons/caesar_9aea2cd1a4bf32d6/talk.png" 
+             onerror="if (!this.dataset.tried) { this.dataset.tried='1'; this.src='/assets/patrons/caesar_9aea2cd1a4bf32d6/talk.png'; }"
+             alt="Character Portrait" 
+             class="portrait-img">
+      </div>
+
+      <!-- Dialogue Content -->
+      <div class="dialogue-content">
+        <div id="speakerNameDisplay" class="speaker-name">CAESAR:</div>
+        <div class="dialogue-body">
+          <p id="dialogueTextDisplay" class="dialogue-text"></p>
+          <div id="promptArrow" class="prompt-arrow">
+            <svg width="14" height="10" viewBox="0 0 10 7" class="pixel-art">
+              <polygon points="0,0 10,0 5,6" fill="#ffffff" stroke="#000000" stroke-width="0.8" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    const speakerName = "CAESAR:";
+    const dialogueMessage = "I REQUIRE A NEGRONI.\nMAKE IT STRONG, BARTENDER.";
+    const speed = 35; // ms per character
+
+    const dialogueTextDisplay = document.getElementById("dialogueTextDisplay");
+    const promptArrow = document.getElementById("promptArrow");
+    const rpgBox = document.getElementById("rpgBox");
+
+    let isTyping = false;
+    let timeoutId = null;
+
+    function runTypewriter() {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+
+      promptArrow.style.visibility = 'hidden';
+      isTyping = true;
+      dialogueTextDisplay.innerHTML = "";
+      let index = 0;
+
+      function step() {
+        if (index < dialogueMessage.length) {
+          const char = dialogueMessage[index];
+          if (char === '\n') {
+            dialogueTextDisplay.innerHTML += '<br>';
+          } else {
+            dialogueTextDisplay.innerHTML += char;
+          }
+          index++;
+
+          let delay = speed;
+          if (['.', '!', '?'].includes(char)) {
+            delay += 120;
+          }
+          timeoutId = setTimeout(step, delay);
+        } else {
+          isTyping = false;
+          promptArrow.style.visibility = 'visible';
+        }
+      }
+
+      step();
+    }
+
+    function handleClick() {
+      if (isTyping) {
+        if (timeoutId) clearTimeout(timeoutId);
+        dialogueTextDisplay.innerHTML = dialogueMessage.replace(/\n/g, '<br>');
+        isTyping = false;
+        promptArrow.style.visibility = 'visible';
+      } else {
+        runTypewriter();
+      }
+    }
+
+    rpgBox.addEventListener("click", handleClick);
+    window.addEventListener("DOMContentLoaded", runTypewriter);
+  </script>
+</body>
+</html>

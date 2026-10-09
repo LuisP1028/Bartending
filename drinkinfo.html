@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retro RPG Drink Info Box</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Pixel Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #040814;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .font-pixel {
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    .pixel-render {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Authentic 16-Bit Deep Navy RPG Message Box */
+    .rpg-box-container {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      user-select: none;
+    }
+
+    .rpg-dialogue-window {
+      position: relative;
+      background-color: #08103b;
+      border: 3px solid #ffffff;
+      outline: 2px solid #000000;
+      box-shadow: 
+        inset 0 0 0 3px #08103b,
+        inset 0 0 0 5px #ffffff,
+        0 14px 35px rgba(0, 0, 0, 0.85);
+      padding: 16px 18px;
+    }
+
+    /* Beveled Metallic Silver Portrait / Item Window */
+    .beveled-drink-frame {
+      width: 76px;
+      height: 76px;
+      flex-shrink: 0;
+      background-color: #040817;
+      border: 3px solid #cbd5e1;
+      border-radius: 2px;
+      box-shadow: 
+        inset 2px 2px 0px #ffffff,
+        inset -2px -2px 0px #334155,
+        0 0 0 2px #000000,
+        0 4px 10px rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 4 Corner Loop Flourishes matching the reference artwork */
+    .corner-loop {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    /* Interactive Retro Action Button */
+    .rpg-drink-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 5px 10px;
+      background-color: #0e1e54;
+      color: #f7ca18;
+      border: 2px solid #ffffff;
+      box-shadow: 
+        inset 1px 1px 0px #60a5fa,
+        inset -1px -1px 0px #030712,
+        0 2px 0px #000000;
+      cursor: pointer;
+      transition: all 0.08s ease-in-out;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .rpg-drink-btn:hover {
+      background-color: #1e3a8a;
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .rpg-drink-btn:active {
+      transform: translateY(1px);
+      box-shadow: inset 1px 1px 0px #030712;
+    }
+
+    /* Downward arrow animation */
+    @keyframes retro-bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(3px); }
+    }
+
+    .bounce-indicator {
+      animation: retro-bounce 0.8s infinite steps(2, jump-none);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6">
+
+  <!-- Main Container -->
+  <div class="w-full max-w-xl flex flex-col items-center gap-6">
+
+    <!-- Header Title -->
+    <div class="text-center space-y-1">
+      <div class="text-[10px] font-pixel text-amber-400 tracking-wider flex items-center justify-center gap-2">
+        <span>&#9670;</span> RETRO RPG ITEM SHOWCASE <span>&#9670;</span>
+      </div>
+      <p class="text-xs text-slate-400">Lightweight, customizable pixel message box for potions & drinks</p>
+    </div>
+
+    <!-- PREVIEW AREA -->
+    <div class="w-full flex justify-center py-4">
+      <div class="rpg-box-container" id="rpgBoxContainer">
+
+        <!-- 4 Corner Loop Flourishes -->
+        <svg class="corner-loop -top-[5px] -left-[5px] pixel-render" viewBox="0 0 24 24">
+          <rect x="0" y="0" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+          <rect x="2" y="2" width="4" height="4" fill="#08103b" />
+          <rect x="8" y="2" width="6" height="4" fill="#ffffff" />
+          <rect x="2" y="8" width="4" height="6" fill="#ffffff" />
+          <rect x="7" y="7" width="5" height="5" fill="#ffffff" />
+        </svg>
+
+        <svg class="corner-loop -top-[5px] -right-[5px] pixel-render" viewBox="0 0 24 24">
+          <rect x="16" y="0" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+          <rect x="18" y="2" width="4" height="4" fill="#08103b" />
+          <rect x="10" y="2" width="6" height="4" fill="#ffffff" />
+          <rect x="18" y="8" width="4" height="6" fill="#ffffff" />
+          <rect x="12" y="7" width="5" height="5" fill="#ffffff" />
+        </svg>
+
+        <svg class="corner-loop -bottom-[5px] -left-[5px] pixel-render" viewBox="0 0 24 24">
+          <rect x="0" y="16" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+          <rect x="2" y="18" width="4" height="4" fill="#08103b" />
+          <rect x="8" y="18" width="6" height="4" fill="#ffffff" />
+          <rect x="2" y="10" width="4" height="6" fill="#ffffff" />
+          <rect x="7" y="12" width="5" height="5" fill="#ffffff" />
+        </svg>
+
+        <svg class="corner-loop -bottom-[5px] -right-[5px] pixel-render" viewBox="0 0 24 24">
+          <rect x="16" y="16" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="0.5" />
+          <rect x="18" y="18" width="4" height="4" fill="#08103b" />
+          <rect x="10" y="18" width="6" height="4" fill="#ffffff" />
+          <rect x="18" y="10" width="4" height="6" fill="#ffffff" />
+          <rect x="12" y="12" width="5" height="5" fill="#ffffff" />
+        </svg>
+
+        <!-- Navy Message Box Body -->
+        <div class="rpg-dialogue-window flex items-start gap-4">
+
+          <!-- Left: Silver Beveled Drink Frame -->
+          <div class="beveled-drink-frame" id="drinkFrame">
+            <!-- Custom Image if loaded -->
+            <img id="customDrinkImg" src="" alt="Drink Icon" class="w-full h-full object-cover pixel-render hidden">
+
+            <!-- Default Cute Pixel Art Potion Icon -->
+            <div id="defaultDrinkSvg" class="w-full h-full flex items-center justify-center p-2.5">
+              <svg class="w-12 h-12 pixel-render" viewBox="0 0 32 32" fill="none">
+                <!-- Bottle Stopper / Cork -->
+                <rect x="13" y="2" width="6" height="4" fill="#d97706" />
+                <rect x="14" y="3" width="4" height="2" fill="#fef3c7" />
+                <!-- Bottle Neck -->
+                <rect x="12" y="6" width="8" height="3" fill="#cbd5e1" />
+                <rect x="14" y="6" width="4" height="3" fill="#94a3b8" />
+                <!-- Glass Body Outline -->
+                <path d="M10 9 H22 V14 L26 19 V28 H6 V19 L10 9 Z" fill="#1e293b" />
+                <!-- Elixir Liquid Base -->
+                <path d="M8 20 L10 13 H22 L24 20 V26 H8 V20 Z" fill="#ef4444" />
+                <!-- Liquid Glowing Core -->
+                <path d="M10 18 H22 V24 H10 V18 Z" fill="#f87171" />
+                <!-- Bubbles -->
+                <rect x="12" y="16" width="2" height="2" fill="#ffffff" />
+                <rect x="18" y="19" width="2" height="2" fill="#ffffff" />
+                <rect x="14" y="22" width="2" height="2" fill="#fee2e2" />
+                <!-- Glass Specular Highlight -->
+                <path d="M9 14 L7 20 V26 H9 V21 L11 14 H9 Z" fill="#ffffff" opacity="0.75" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Right: Drink Details & Action -->
+          <div class="flex-1 min-w-0 flex flex-col gap-2">
+            
+            <!-- Title & Effect Badge -->
+            <div class="flex flex-wrap items-baseline justify-between gap-1.5 border-b border-[#1b2b6e] pb-1.5">
+              <span id="drinkNameDisplay" class="font-pixel text-[11px] sm:text-xs text-[#f7ca18] tracking-wide" style="text-shadow: 2px 2px 0px #000000;">
+                ELIXIR OF VITALITY
+              </span>
+              <span id="drinkTagDisplay" class="font-pixel text-[8px] text-sky-300 bg-[#04081c] px-1.5 py-0.5 border border-[#1e293b] rounded">
+                [RESTORES 50 HP]
+              </span>
+            </div>
+
+            <!-- Message / Lore Description -->
+            <p id="drinkDescDisplay" class="font-pixel text-[9px] text-white leading-relaxed tracking-wide min-h-[38px]">
+              A soothing herbal draught brewed with starflower honey. Leaves a sweet aftertaste.
+            </p>
+
+            <!-- Bottom Row: [ DRINK ] Action Button & Pointer -->
+            <div class="flex items-center justify-between pt-1">
+              <button id="btnDrinkAction" class="rpg-drink-btn" title="Click to taste the drink">
+                <span id="drinkBtnIcon">&#9749;</span>
+                <span id="drinkBtnText">[ DRINK ]</span>
+              </button>
+
+              <span class="font-pixel text-[8px] text-slate-400 flex items-center gap-1.5">
+                <span id="drinkStatusFeedback" class="text-emerald-400 hidden">REFRESHING! +50HP</span>
+                <span class="bounce-indicator text-amber-400">&#9660;</span>
+              </span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SIMPLE CUSTOMIZATION CONTROLS -->
+    <div class="w-full bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <h3 class="text-xs font-pixel text-amber-400">CUSTOMIZE DRINK</h3>
+        <button id="btnCopySnippet" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-xs transition active:scale-95 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+          <span id="copyBtnLabel">Copy HTML & CSS</span>
+        </button>
+      </div>
+
+      <!-- Drink Name & Effect Tag -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label class="block text-[11px] font-semibold text-slate-300">Drink Name</label>
+          <input type="text" id="inputDrinkName" value="ELIXIR OF VITALITY" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-amber-400 font-pixel text-[10px] focus:outline-none focus:border-amber-400 uppercase">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-[11px] font-semibold text-slate-300">Effect / Tag</label>
+          <input type="text" id="inputDrinkTag" value="[RESTORES 50 HP]" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-sky-300 font-pixel text-[10px] focus:outline-none focus:border-amber-400 uppercase">
+        </div>
+      </div>
+
+      <!-- Description Message -->
+      <div class="space-y-1">
+        <label class="block text-[11px] font-semibold text-slate-300">Message / Description</label>
+        <textarea id="inputDrinkDesc" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-pixel text-[10px] leading-relaxed focus:outline-none focus:border-amber-400">A soothing herbal draught brewed with starflower honey. Leaves a sweet aftertaste.</textarea>
+      </div>
+
+      <!-- Custom Asset Image -->
+      <div class="space-y-2 pt-1 border-t border-slate-800">
+        <label class="block text-[11px] font-semibold text-slate-300">Custom Drink Image Asset</label>
+        <div class="flex gap-2">
+          <label class="flex-1 cursor-pointer bg-slate-950 hover:bg-slate-800 border border-dashed border-slate-700 hover:border-amber-400 rounded p-2 text-center transition flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            <span class="text-xs text-slate-300">Upload PNG / JPG / GIF</span>
+            <input type="file" id="fileUpload" accept="image/*" class="hidden">
+          </label>
+          <button id="btnClearImg" class="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/60 text-xs text-rose-300 font-medium rounded border border-slate-700 transition">
+            Reset to Default
+          </button>
+        </div>
+        <input type="text" id="inputImgUrl" placeholder="Or enter local image path / URL (e.g., ./potion.png)..." class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-amber-400">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 border border-amber-400 text-white text-xs px-4 py-2.5 rounded shadow-2xl flex items-center gap-2.5">
+    <span class="text-amber-400 font-bold">&#10003;</span>
+    <span id="toastMsg" class="font-pixel text-[9px] text-amber-300">CODE COPIED!</span>
+  </div>
+
+  <script>
+    // State
+    const state = {
+      name: "ELIXIR OF VITALITY",
+      tag: "[RESTORES 50 HP]",
+      desc: "A soothing herbal draught brewed with starflower honey. Leaves a sweet aftertaste.",
+      customImgSrc: ""
+    };
+
+    // Web Audio Synthesizer: 8-Bit Retro Gulp & Chime
+    let audioCtx = null;
+    function playDrinkAudio() {
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+
+        // 1. "Gulp" pitch-bend drop sound
+        const oscGulp = audioCtx.createOscillator();
+        const gainGulp = audioCtx.createGain();
+        oscGulp.type = 'triangle';
+        oscGulp.frequency.setValueAtTime(320, now);
+        oscGulp.frequency.exponentialRampToValueAtTime(110, now + 0.14);
+        
+        gainGulp.gain.setValueAtTime(0.12, now);
+        gainGulp.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        
+        oscGulp.connect(gainGulp);
+        gainGulp.connect(audioCtx.destination);
+        oscGulp.start(now);
+        oscGulp.stop(now + 0.14);
+
+        // 2. Chime arpeggio for magical refresh
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, idx) => {
+          const oscChime = audioCtx.createOscillator();
+          const gainChime = audioCtx.createGain();
+          const startTime = now + 0.12 + (idx * 0.055);
+          
+          oscChime.type = 'square';
+          oscChime.frequency.setValueAtTime(freq, startTime);
+          
+          gainChime.gain.setValueAtTime(0.05, startTime);
+          gainChime.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.16);
+          
+          oscChime.connect(gainChime);
+          gainChime.connect(audioCtx.destination);
+          oscChime.start(startTime);
+          oscChime.stop(startTime + 0.16);
+        });
+      } catch (e) {
+        // AudioContext fallback
+      }
+    }
+
+    // DOM Elements
+    const drinkNameDisplay = document.getElementById("drinkNameDisplay");
+    const drinkTagDisplay = document.getElementById("drinkTagDisplay");
+    const drinkDescDisplay = document.getElementById("drinkDescDisplay");
+    const customDrinkImg = document.getElementById("customDrinkImg");
+    const defaultDrinkSvg = document.getElementById("defaultDrinkSvg");
+    const btnDrinkAction = document.getElementById("btnDrinkAction");
+    const drinkBtnText = document.getElementById("drinkBtnText");
+    const drinkStatusFeedback = document.getElementById("drinkStatusFeedback");
+
+    const inputDrinkName = document.getElementById("inputDrinkName");
+    const inputDrinkTag = document.getElementById("inputDrinkTag");
+    const inputDrinkDesc = document.getElementById("inputDrinkDesc");
+    const fileUpload = document.getElementById("fileUpload");
+    const inputImgUrl = document.getElementById("inputImgUrl");
+    const btnClearImg = document.getElementById("btnClearImg");
+    const btnCopySnippet = document.getElementById("btnCopySnippet");
+    const copyBtnLabel = document.getElementById("copyBtnLabel");
+
+    // Live update listeners
+    inputDrinkName.addEventListener("input", (e) => {
+      state.name = e.target.value.toUpperCase();
+      drinkNameDisplay.textContent = state.name;
+    });
+
+    inputDrinkTag.addEventListener("input", (e) => {
+      state.tag = e.target.value.toUpperCase();
+      drinkTagDisplay.textContent = state.tag;
+    });
+
+    inputDrinkDesc.addEventListener("input", (e) => {
+      state.desc = e.target.value;
+      drinkDescDisplay.textContent = state.desc;
+    });
+
+    // Image Upload / Custom Path Handlers
+    function updateDrinkImage() {
+      if (state.customImgSrc && state.customImgSrc.trim() !== "") {
+        customDrinkImg.src = state.customImgSrc;
+        customDrinkImg.classList.remove("hidden");
+        defaultDrinkSvg.classList.add("hidden");
+      } else {
+        customDrinkImg.classList.add("hidden");
+        defaultDrinkSvg.classList.remove("hidden");
+      }
+    }
+
+    fileUpload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          state.customImgSrc = evt.target.result;
+          inputImgUrl.value = "";
+          updateDrinkImage();
+          showToast("DRINK IMAGE LOADED");
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    inputImgUrl.addEventListener("input", (e) => {
+      state.customImgSrc = e.target.value.trim();
+      updateDrinkImage();
+    });
+
+    btnClearImg.addEventListener("click", () => {
+      state.customImgSrc = "";
+      fileUpload.value = "";
+      inputImgUrl.value = "";
+      updateDrinkImage();
+      showToast("DEFAULT POTION RESTORED");
+    });
+
+    // Drink Action Button Click
+    let drinkTimer = null;
+    btnDrinkAction.addEventListener("click", () => {
+      playDrinkAudio();
+      drinkBtnText.textContent = "[ GULP! ]";
+      drinkStatusFeedback.classList.remove("hidden");
+
+      if (drinkTimer) clearTimeout(drinkTimer);
+      drinkTimer = setTimeout(() => {
+        drinkBtnText.textContent = "[ DRINK ]";
+        drinkStatusFeedback.classList.add("hidden");
+      }, 1800);
+    });
+
+    // Standalone HTML/CSS code generator
+    function generateStandaloneSnippet() {
+      const imgSrc = state.customImgSrc ? state.customImgSrc : "./potion.png";
+
+      return `<!-- RETRO RPG DRINK BOX (STANDALONE ASSET) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+<style>
+  .rpg-drink-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    margin: 20px auto;
+    user-select: none;
+    font-family: 'Press Start 2P', monospace;
+  }
+  .rpg-drink-box {
+    background-color: #08103b;
+    border: 3px solid #ffffff;
+    outline: 2px solid #000000;
+    box-shadow: 
+      inset 0 0 0 3px #08103b,
+      inset 0 0 0 5px #ffffff,
+      0 12px 28px rgba(0, 0, 0, 0.8);
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .drink-frame {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+    background-color: #040817;
+    border: 3px solid #cbd5e1;
+    border-radius: 2px;
+    box-shadow: inset 2px 2px 0px #ffffff, inset -2px -2px 0px #334155, 0 0 0 2px #000000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .drink-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: pixelated;
+  }
+  .corner-flourish {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    z-index: 20;
+    pointer-events: none;
+  }
+</style>
+
+<div class="rpg-drink-wrap">
+  <!-- Corner Loops -->
+  <svg class="corner-flourish" style="top:-5px; left:-5px;" viewBox="0 0 24 24"><rect x="0" y="0" width="8" height="8" fill="#fff"/><rect x="2" y="2" width="4" height="4" fill="#08103b"/><rect x="8" y="2" width="6" height="4" fill="#fff"/><rect x="2" y="8" width="4" height="6" fill="#fff"/><rect x="7" y="7" width="5" height="5" fill="#fff"/></svg>
+  <svg class="corner-flourish" style="top:-5px; right:-5px;" viewBox="0 0 24 24"><rect x="16" y="0" width="8" height="8" fill="#fff"/><rect x="18" y="2" width="4" height="4" fill="#08103b"/><rect x="10" y="2" width="6" height="4" fill="#fff"/><rect x="18" y="8" width="4" height="6" fill="#fff"/><rect x="12" y="7" width="5" height="5" fill="#fff"/></svg>
+  <svg class="corner-flourish" style="bottom:-5px; left:-5px;" viewBox="0 0 24 24"><rect x="0" y="16" width="8" height="8" fill="#fff"/><rect x="2" y="18" width="4" height="4" fill="#08103b"/><rect x="8" y="18" width="6" height="4" fill="#fff"/><rect x="2" y="10" width="4" height="6" fill="#fff"/><rect x="7" y="12" width="5" height="5" fill="#fff"/></svg>
+  <svg class="corner-flourish" style="bottom:-5px; right:-5px;" viewBox="0 0 24 24"><rect x="16" y="16" width="8" height="8" fill="#fff"/><rect x="18" y="18" width="4" height="4" fill="#08103b"/><rect x="10" y="18" width="6" height="4" fill="#fff"/><rect x="18" y="10" width="4" height="6" fill="#fff"/><rect x="12" y="12" width="5" height="5" fill="#fff"/></svg>
+
+  <div class="rpg-drink-box">
+    <div class="drink-frame">
+      <img src="${imgSrc}" alt="${state.name}">
+    </div>
+
+    <div style="flex:1;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; border-bottom:1px solid #1b2b6e; padding-bottom:6px;">
+        <span style="color:#f7ca18; font-size:11px; text-shadow:2px 2px 0px #000;">${state.name}</span>
+        <span style="color:#7dd3fc; font-size:8px; background:#04081c; padding:2px 4px; border:1px solid #1e293b;">${state.tag}</span>
+      </div>
+      <p style="color:#ffffff; font-size:9px; line-height:1.6; margin:0 0 8px 0;">
+        ${state.desc}
+      </p>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button style="font-family:'Press Start 2P',monospace; font-size:8px; background:#0e1e54; color:#f7ca18; border:2px solid #fff; padding:4px 8px; cursor:pointer;" onclick="this.textContent='[ GULP! ]'; setTimeout(()=>this.textContent='[ DRINK ]', 1500);">
+          [ DRINK ]
+        </button>
+        <span style="color:#f7ca18; font-size:8px;">&#9660;</span>
+      </div>
+    </div>
+  </div>
+</div>`;
+    }
+
+    // Clipboard Copy
+    btnCopySnippet.addEventListener("click", () => {
+      const code = generateStandaloneSnippet();
+      const textarea = document.createElement("textarea");
+      textarea.value = code;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      try {
+        document.execCommand("copy");
+        copyBtnLabel.textContent = "Copied!";
+        showToast("HTML & CSS COPIED!");
+        setTimeout(() => {
+          copyBtnLabel.textContent = "Copy HTML & CSS";
+        }, 2000);
+      } catch (err) {
+        showToast("COPY FAILED");
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    });
+
+    // Toast feedback
+    const toast = document.getElementById("toast");
+    const toastMsg = document.getElementById("toastMsg");
+    let toastTimeout = null;
+
+    function showToast(msg) {
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastMsg.textContent = msg;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
