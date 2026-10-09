@@ -1,0 +1,41 @@
+/*
+ * Success-validate money flyby (FS49 / FS50).
+ * Stage-local (position absolute on POV stage), not full browser.
+ * Operator may retune position and timing via CSS variables.
+ */
+.layer {
+  /* Tunable flyby speed (FS50). Was 1.2s (too fast) → 3s (too slow) → 2s. */
+  --money-flyby-duration: 2s;
+  --money-flyby-top: 42%;
+  --money-flyby-ease: linear;
+
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.track {
+  position: absolute;
+  top: var(--money-flyby-top);
+  /* left % is relative to .layer = stage box */
+  left: -45%;
+  width: max-content;
+  transform: translateY(-50%);
+  animation-name: money-flyby-lr;
+  animation-duration: var(--money-flyby-duration);
+  animation-timing-function: var(--money-flyby-ease);
+  animation-fill-mode: forwards;
+  will-change: left;
+  pointer-events: none;
+}
+
+@keyframes money-flyby-lr {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 100%;
+  }
+}

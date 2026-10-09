@@ -1,0 +1,325 @@
+{
+  "modeName": "CLASSICS",
+  "recipes": [
+    {
+      "name": "Tommy's Margarita",
+      "vessel": "ROCKS",
+      "validRims": ["KOSHER_SALT_SEA_SALT"],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": ["freshlimewheel"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "tequilablancosilver": 2.0,
+            "juicefreshlime": 1.0,
+            "syrupagavenectar": 0.5
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Tommy's Margarita",
+        "vessel": { "source": "Rocks", "id": "ROCKS" },
+        "rims": [{ "source": "Salt", "id": "KOSHER_SALT_SEA_SALT" }],
+        "garnishes": [{ "source": "Lime", "id": "freshlimewheel" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Tequila Blanco", "id": "tequilablancosilver", "oz": 2.0 },
+              { "source": "Lime", "id": "juicefreshlime", "oz": 1.0 },
+              { "source": "Agave", "id": "syrupagavenectar", "oz": 0.5 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Manhattan",
+      "vessel": "COUPE",
+      "validRims": ["NONE"],
+      "agitation": "STIRRED",
+      "garnishes": ["producemaraschinocherry"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "bourbon": 2.0,
+            "winesweetvermouth": 1.0,
+            "bittersangostura": 0.1
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Manhattan",
+        "vessel": { "source": "Coupe", "id": "COUPE" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Cherry", "id": "producemaraschinocherry" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Rye Whiskey", "id": "bourbon", "oz": 2.0, "flagged": true },
+              { "source": "Sweet Vermouth", "id": "winesweetvermouth", "oz": 1.0 },
+              { "source": "Angostura Bitters", "id": "bittersangostura", "oz": 0.1 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Old Fashioned",
+      "vessel": "ROCKS",
+      "validRims": ["NONE"],
+      "agitation": "BUILT",
+      "garnishes": ["herborangezest", "producemaraschinocherry"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "bourbon": 2.0,
+            "syrupsimple": 0.25,
+            "bittersangostura": 0.15
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Old Fashioned",
+        "vessel": { "source": "Rocks", "id": "ROCKS" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [
+          { "source": "Orange Peel", "id": "herborangezest" },
+          { "source": "Cherry", "id": "producemaraschinocherry" }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Bourbon", "id": "bourbon", "oz": 2.0 },
+              { "source": "Simple Syrup", "id": "syrupsimple", "oz": 0.25 },
+              { "source": "Angostura Bitters", "id": "bittersangostura", "oz": 0.15 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Negroni",
+      "vessel": "ROCKS",
+      "validRims": ["NONE"],
+      "agitation": "STIRRED",
+      "garnishes": ["herborangezest"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "gindry": 1.0,
+            "amaroredbitter": 1.0,
+            "winesweetvermouth": 1.0
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Negroni",
+        "vessel": { "source": "Rocks", "id": "ROCKS" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Orange Peel", "id": "herborangezest" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Gin", "id": "gindry", "oz": 1.0 },
+              { "source": "Campari", "id": "amaroredbitter", "oz": 1.0 },
+              { "source": "Sweet Vermouth", "id": "winesweetvermouth", "oz": 1.0 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Daiquiri",
+      "vessel": "COUPE",
+      "validRims": ["NONE"],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": ["freshlimewheel"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "rumblancosilver": 2.0,
+            "juicefreshlime": 1.0,
+            "syrupsimple": 0.75
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Daiquiri",
+        "vessel": { "source": "Coupe", "id": "COUPE" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Lime", "id": "freshlimewheel" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "White Rum", "id": "rumblancosilver", "oz": 2.0 },
+              { "source": "Lime", "id": "juicefreshlime", "oz": 1.0 },
+              { "source": "Simple Syrup", "id": "syrupsimple", "oz": 0.75 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dry Martini (Lemon Twist)",
+      "vessel": "MARTINI",
+      "validRims": ["NONE"],
+      "agitation": "STIRRED",
+      "garnishes": ["herblemonzest"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "gindry": 2.5,
+            "winedryvermouth": 0.5
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Dry Martini (Lemon Twist)",
+        "vessel": { "source": "Martini", "id": "MARTINI" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Lemon Twist", "id": "herblemonzest" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Gin", "id": "gindry", "oz": 2.5 },
+              { "source": "Dry Vermouth", "id": "winedryvermouth", "oz": 0.5 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dry Martini (Olive)",
+      "vessel": "MARTINI",
+      "validRims": ["NONE"],
+      "agitation": "STIRRED",
+      "garnishes": ["producegreenolive"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "gindry": 2.5,
+            "winedryvermouth": 0.5
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Dry Martini (Olive)",
+        "vessel": { "source": "Martini", "id": "MARTINI" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Olive", "id": "producegreenolive" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Gin", "id": "gindry", "oz": 2.5 },
+              { "source": "Dry Vermouth", "id": "winedryvermouth", "oz": 0.5 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Whiskey Sour",
+      "vessel": "ROCKS",
+      "validRims": ["NONE"],
+      "agitation": "Dry Shake/Ice Shake/Double Strain",
+      "garnishes": ["producemaraschinocherry", "freshorangewheel"],
+      "variants": [
+        {
+          "variantName": "With Egg White",
+          "ingredients": {
+            "bourbon": 2.0,
+            "juicefreshlemon": 0.75,
+            "syrupsimple": 0.75,
+            "mixereggwhite": 1.0
+          }
+        },
+        {
+          "variantName": "Without Egg White",
+          "ingredients": {
+            "bourbon": 2.0,
+            "juicefreshlemon": 0.75,
+            "syrupsimple": 0.75
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Whiskey Sour",
+        "vessel": { "source": "Rocks", "id": "ROCKS" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [
+          { "source": "Cherry", "id": "producemaraschinocherry" },
+          { "source": "Orange", "id": "freshorangewheel" }
+        ],
+        "variants": [
+          {
+            "variantName": "With Egg White",
+            "ingredients": [
+              { "source": "Bourbon", "id": "bourbon", "oz": 2.0 },
+              { "source": "Lemon", "id": "juicefreshlemon", "oz": 0.75 },
+              { "source": "Simple Syrup", "id": "syrupsimple", "oz": 0.75 },
+              { "source": "Egg White", "id": "mixereggwhite", "oz": 1.0 }
+            ]
+          },
+          {
+            "variantName": "Without Egg White",
+            "ingredients": [
+              { "source": "Bourbon", "id": "bourbon", "oz": 2.0 },
+              { "source": "Lemon", "id": "juicefreshlemon", "oz": 0.75 },
+              { "source": "Simple Syrup", "id": "syrupsimple", "oz": 0.75 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Gimlet",
+      "vessel": "COUPE",
+      "validRims": ["NONE"],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": ["freshlimewheel"],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "gindry": 2.0,
+            "juicefreshlime": 0.75,
+            "syrupsimple": 0.75
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Gimlet",
+        "vessel": { "source": "Coupe", "id": "COUPE" },
+        "rims": [{ "source": "None", "id": "NONE" }],
+        "garnishes": [{ "source": "Lime", "id": "freshlimewheel" }],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              { "source": "Gin", "id": "gindry", "oz": 2.0 },
+              { "source": "Lime", "id": "juicefreshlime", "oz": 0.75 },
+              { "source": "Simple Syrup", "id": "syrupsimple", "oz": 0.75 }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "mappingAudit": {
+    "recipes": []
+  }
+}

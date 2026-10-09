@@ -1,0 +1,157 @@
+.page {
+  min-height: 100vh;
+  background: #121212;
+  color: #f0f0f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 28px 32px 48px;
+  box-sizing: border-box;
+}
+
+.header {
+  border-bottom: 2px solid #ffb000;
+  padding-bottom: 14px;
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+  color: #ffb000;
+}
+
+.instructions {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #c8c8c8;
+  max-width: 52rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 16px 0 24px;
+}
+
+.button {
+  appearance: none;
+  border: 1px solid #ffb000;
+  background: #1e1e1e;
+  color: #ffb000;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: #2a2a1a;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.copyStatus {
+  font-size: 0.8rem;
+  color: #8f8;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) minmax(220px, 280px);
+  gap: 16px 20px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid #333;
+  background: #181818;
+}
+
+.label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ffb000;
+}
+
+.preview {
+  /* Checkerboard so transparent PNG edges are visible */
+  background-color: #2a2a2a;
+  background-image:
+    linear-gradient(45deg, #222 25%, transparent 25%),
+    linear-gradient(-45deg, #222 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #222 75%),
+    linear-gradient(-45deg, transparent 75%, #222 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  padding: 16px;
+  overflow: auto;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.bill {
+  display: block;
+  height: auto;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slider {
+  width: 100%;
+  accent-color: #ffb000;
+}
+
+.numberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.numberInput {
+  width: 5.5rem;
+  background: #0e0e0e;
+  border: 1px solid #555;
+  color: #fff;
+  font: inherit;
+  padding: 4px 6px;
+}
+
+.readout {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #e8e0c0;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .label {
+    margin-bottom: -8px;
+  }
+}

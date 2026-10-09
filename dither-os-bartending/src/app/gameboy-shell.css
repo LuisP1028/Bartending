@@ -1,0 +1,1412 @@
+/*
+ * FS65–FS68 — Game Boy shell (baumannzone/gameboy-css adapted, de-branded)
+ * Gate: coarse pointer + portrait + max-width 600px.
+ * FS66/68: body sizes to slot — FS68 uses COVER (no black letterbox/pillarbox margins).
+ * FS67: game nest = full battery/screen housing.
+ * FS68: full-bleed host; outer chrome overlaid (no reserved black bands).
+ */
+
+/* ── Default: layout pass-through (desktop, landscape, non-phone) ── */
+
+.gb-shell-slot {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+.gb-shell-scale {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transform: none;
+}
+
+.gb-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+.gb-shell::before,
+.gb-shell::after {
+  display: none;
+  content: none;
+}
+
+.gb-shell__screen-cont {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: 0;
+  background: transparent;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gb-shell__power,
+.gb-shell__header,
+.gb-shell__controls,
+.gb-shell__speakers,
+.gb-shell__on-off,
+.gb-shell__phones {
+  display: none;
+}
+
+.gb-shell__playfield {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gb-shell__playfield > .pov-shell-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Shell presentation: mobile portrait phone-class ── */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 600px) {
+  /*
+   * FS68 — Full-bleed frame: shell owns the entire viewport content.
+   * Outer chrome is overlaid (not a flex sibling that reserves black bands).
+   * Body/slot #eee so any subpixel/safe-area edge is not a black bar.
+   */
+  body:has(.gb-shell-slot) {
+    background-color: #eee;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) {
+    position: relative;
+    background: #eee;
+    overflow: hidden;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .sys-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    margin: 0;
+    padding: 0.2rem 0.35rem;
+    flex-shrink: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.45) 0%,
+      rgba(0, 0, 0, 0.15) 70%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .sys-header button,
+  .terminal-frame:has(.gb-shell-slot) .sys-header .mode-btn {
+    pointer-events: auto;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .mode-btn--obelisco,
+  .terminal-frame:has(.gb-shell-slot) .mode-btn--classics {
+    --mode-logo-box-w: clamp(2.75rem, 12vmin, 4.5rem);
+    --mode-logo-box-h: clamp(1rem, 4.5vmin, 1.75rem);
+    padding: 2px 4px;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    margin: 0;
+    padding: 0.25rem 0.35rem
+      max(0.25rem, env(safe-area-inset-bottom, 0px));
+    flex-shrink: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.5) 0%,
+      rgba(0, 0, 0, 0.2) 65%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar .btn-8bit,
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar button,
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar a {
+    pointer-events: auto;
+  }
+
+  .terminal-frame:has(.gb-shell-slot) .receipt-toolbar .btn-8bit {
+    padding: 0.25em 0.55em;
+    font-size: clamp(0.65rem, 2.2vmin, 0.85rem);
+  }
+
+  /*
+   * FS68 — Shell host fills the whole terminal-frame (under overlays).
+   * overflow:hidden clips cover-scaled body so no black margins show.
+   */
+  .gb-shell-slot {
+    position: absolute;
+    inset: 0;
+    flex: none;
+    min-height: 0;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    container-type: size;
+    container-name: gb-shell-slot;
+    overflow: hidden;
+    background: #eee;
+    z-index: 1;
+  }
+
+  .gb-shell-scale {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    transform: none;
+  }
+
+  /*
+   * FS68/69 — COVER fit: largest 422∶697 that fully covers the slot.
+   * Slight upward bias so housing + control cluster stay in the visible crop
+   * when the body is taller than the viewport.
+   */
+  .gb-shell {
+    position: relative;
+    flex: 0 0 auto;
+    display: block;
+    margin: 0;
+    box-sizing: border-box;
+    aspect-ratio: 422 / 697;
+    width: max(100cqw, calc(100cqh * 422 / 697));
+    height: max(100cqh, calc(100cqw * 697 / 422));
+    max-width: none;
+    max-height: none;
+    background: #eee;
+    border-radius: 2.37% 2.37% 8.61% 2.37%;
+    box-shadow: none;
+    container-type: size;
+    container-name: gb-shell;
+    overflow: hidden;
+    /* Prefer mid-body (housing + buttons) over empty top lip / bottom phones */
+    transform: translateY(-4%);
+  }
+
+  @supports not (width: 1cqw) {
+    .gb-shell {
+      width: auto;
+      height: auto;
+      min-width: 100%;
+      min-height: 100%;
+      aspect-ratio: 422 / 697;
+    }
+  }
+
+  .gb-shell::before {
+    display: block;
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 4.45%;
+    border-bottom: max(1px, 0.5cqw) solid #e0e0e0;
+    pointer-events: none;
+    box-sizing: border-box;
+    z-index: 1;
+  }
+
+  .gb-shell::after {
+    display: block;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 9.48%;
+    width: 79.15%;
+    height: 4.45%;
+    border-left: max(1px, 0.5cqw) solid #e0e0e0;
+    border-right: max(1px, 0.5cqw) solid #e0e0e0;
+    margin: 0;
+    pointer-events: none;
+    box-sizing: border-box;
+    z-index: 1;
+  }
+
+  /*
+   * FS67/69 — Battery / screen housing (playability-first).
+   * FS69: housing-heavy — ~56% of body height, ~90% width so stage/receipts
+   * are legible while lower control strip remains on-screen.
+   */
+  .gb-shell__screen-cont {
+    position: absolute;
+    top: 5.5%;
+    left: 5%;
+    width: 90%;
+    height: 56%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* Reference purple-grey bezel */
+    background: linear-gradient(160deg, #6e6e7a 0%, #5c5c68 45%, #4a4a56 100%);
+    border-radius: 3.2% 3.2% 10% 3.2%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 max(1px, 0.3cqw) rgba(0, 0, 0, 0.25);
+  }
+
+  /* Thin DOT MATRIX band — keep short so playfield wins height */
+  .gb-shell__header {
+    display: block;
+    position: relative;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 8%;
+    min-height: 1em;
+    margin: 0;
+    padding: 0.25em 6% 0 16%;
+    box-sizing: border-box;
+    text-align: right;
+    font-size: max(5px, 1.5cqw);
+    font-family: sans-serif;
+    color: #c4c4c8;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .gb-shell__header::before,
+  .gb-shell__header::after {
+    content: "";
+    position: absolute;
+    top: 45%;
+    height: max(2px, 0.45cqw);
+    background-color: #8b1d90;
+    box-shadow: 0 max(2px, 0.55cqw) 0 #283593;
+  }
+
+  .gb-shell__header::before {
+    left: 12%;
+    width: 22%;
+  }
+
+  .gb-shell__header::after {
+    right: 4%;
+    width: 10%;
+  }
+
+  /* Battery LED — left strip, does not dominate playfield */
+  .gb-shell__power {
+    display: block;
+    position: absolute;
+    width: max(6px, 2.4%);
+    height: max(6px, 3%);
+    top: 42%;
+    left: 4.2%;
+    border-radius: 100%;
+    background-color: #f00;
+    box-shadow: 0 0 0.6cqw 0.2cqw #ef5350;
+    pointer-events: none;
+    z-index: 4;
+  }
+
+  .gb-shell__power::before {
+    content: "BATTERY";
+    position: absolute;
+    top: 140%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: max(4px, 1.4cqw);
+    font-family: sans-serif;
+    color: #b3b3b3;
+    white-space: nowrap;
+  }
+
+  /*
+   * Playfield fills housing (FS67/69 nest). Tighter margins = more stage px.
+   */
+  .gb-shell__playfield {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: auto;
+    height: auto;
+    margin: 0 3% 3.5% 10%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #1a1a14;
+    border-radius: 2%;
+    box-shadow: inset 0.4cqw 0.4cqw rgba(0, 0, 0, 0.35);
+    z-index: 2;
+  }
+
+  /*
+   * FS73 — Stage COVERS playfield (no black bands) with uniform 1184∶880 scale
+   * so bar art, hotspots, carousels, vessel, patrons stay co-registered.
+   * Non-uniform stretch (FS70) desynced SVG meet from object-fit:fill; cover avoids that.
+   */
+  .gb-shell__playfield > .pov-shell-section {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    flex: none;
+    min-height: 0;
+    min-width: 0;
+    container-type: size;
+    container-name: gb-playfield-section;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .gb-shell__playfield .pov-stage {
+    position: relative;
+    flex: 0 0 auto;
+    aspect-ratio: 1184 / 880;
+    /* Cover nest: largest 1184∶880 that fully covers the playfield section */
+    width: max(100cqw, calc(100cqh * 1184 / 880));
+    height: max(100cqh, calc(100cqw * 880 / 1184));
+    max-width: none;
+    max-height: none;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    /* FS74: smooth pan when selected carousel was off-glass */
+    transition: transform 0.22s ease-out;
+    will-change: transform;
+  }
+
+  .gb-shell__playfield .pov-stage > img {
+    width: 100%;
+    height: 100%;
+    object-fit: fill; /* stage box already 1184∶880 — no non-uniform vs viewBox */
+    display: block;
+  }
+
+  .gb-shell__playfield .pov-hotspot-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .gb-shell__playfield .pov-stage--receipt-inspect {
+    overflow: hidden;
+  }
+
+  /* FS76: vessel garnishes/ice may overhang the art-root — do not clip on shell */
+  .gb-shell__playfield .pov-active-vessel,
+  .gb-shell__playfield .pov-active-vessel > div,
+  .gb-shell__playfield .pov-active-vessel .asset-art-root,
+  .gb-shell__playfield .pov-active-vessel .asset-art-root > svg {
+    overflow: visible !important;
+  }
+
+  /*
+   * FS75 — Pin diegetic jigger + receipt printer to visible glass corners.
+   * Vars set on .pov-stage from section vs stage rects (cover + pan aware).
+   * Free receipt papers stay stage-relative (no transform here).
+   */
+  .gb-shell__playfield .jigger-pour-control {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-bot, 0px)
+    );
+    transition: transform 0.22s ease-out;
+    z-index: 28;
+  }
+
+  .gb-shell__playfield .receipt-hardware-cluster {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-top, 0px)
+    );
+    transition: transform 0.22s ease-out;
+  }
+
+  .gb-shell__playfield .receipt-printer-mask {
+    transform: translate(
+      var(--shell-hud-tx, 0px),
+      var(--shell-hud-ty-top, 0px)
+    );
+    transition: transform 0.22s ease-out;
+  }
+
+  /*
+   * FS69/71/80 — Compact control strip; A/B/D-pad + START interactive (SELECT decorative).
+   */
+  .gb-shell__controls {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    pointer-events: none;
+    user-select: none;
+    z-index: 2;
+  }
+
+  .gb-shell__btn-direction {
+    position: absolute;
+    left: 8%;
+    top: 64%;
+    width: 18%;
+    height: 10.5%;
+    pointer-events: none;
+  }
+
+  /* FS71: four D-pad hit targets over the cross */
+  .gb-shell__dpad {
+    position: absolute;
+    z-index: 6;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    appearance: none;
+  }
+
+  .gb-shell__dpad:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .gb-shell__dpad--up {
+    left: 33%;
+    top: 0;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--down {
+    left: 33%;
+    bottom: 0;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--left {
+    left: 0;
+    top: 33%;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__dpad--right {
+    right: 0;
+    top: 33%;
+    width: 34%;
+    height: 34%;
+  }
+
+  .gb-shell__btn-direction::before {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 33.33%;
+    left: 33.33%;
+    width: 33.33%;
+    height: 33.33%;
+    background-color: #353535;
+    border-radius: 100%;
+  }
+
+  .gb-shell__btn-direction-v,
+  .gb-shell__btn-direction-h {
+    position: absolute;
+    left: 33.33%;
+    top: 0;
+    width: 33.33%;
+    height: 100%;
+    background: #444;
+    border-radius: 12%;
+    box-shadow: inset 0 0 0 1px #2a2a2a;
+  }
+
+  .gb-shell__btn-direction-h {
+    transform: rotate(90deg);
+  }
+
+  .gb-shell__btn-ab {
+    position: absolute;
+    top: 63.5%;
+    left: 58%;
+    width: 28%;
+    height: 9%;
+    background: #dfdfdf;
+    border-radius: 40% / 50%;
+    transform: rotate(-25deg);
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 0 6%;
+    box-sizing: border-box;
+    box-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.12);
+    pointer-events: none;
+  }
+
+  .gb-shell__btn-b,
+  .gb-shell__btn-a {
+    position: relative;
+    flex: 0 0 auto;
+    width: 34%;
+    aspect-ratio: 1;
+    height: auto;
+    max-height: 78%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 100%;
+    background: #a93671;
+    box-shadow:
+      inset 0 -0.25cqw 0.3cqw rgba(0, 0, 0, 0.25),
+      0 0.2cqw 0.25cqw rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    appearance: none;
+  }
+
+  .gb-shell__btn-b:active,
+  .gb-shell__btn-a:active {
+    filter: brightness(0.9);
+  }
+
+  .gb-shell__btn-b::after,
+  .gb-shell__btn-a::after {
+    position: absolute;
+    font-family: sans-serif;
+    font-size: max(5px, 2cqw);
+    font-weight: 700;
+    color: #5a1a3a;
+    transform: rotate(25deg);
+  }
+
+  .gb-shell__btn-b::after {
+    content: "B";
+    bottom: -55%;
+    left: 15%;
+  }
+
+  .gb-shell__btn-a::after {
+    content: "A";
+    bottom: -55%;
+    right: 10%;
+  }
+
+  .gb-shell__btn-start-select {
+    position: absolute;
+    top: 76.5%;
+    left: 28%;
+    width: 34%;
+    height: 5.5%;
+    transform: rotate(-25deg);
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12%;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .gb-shell__btn-select,
+  .gb-shell__btn-start {
+    display: block;
+    position: relative;
+    flex: 1 1 40%;
+    height: 28%;
+    min-height: 4px;
+    margin-top: 8%;
+    padding: 0;
+    border: none;
+    background: #999;
+    border-radius: 999px;
+    box-shadow: 0 0 0 0.55cqw #dfdfdf;
+    font-size: 0;
+    color: transparent;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* FS80: START opens main menu */
+  .gb-shell__btn-start {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .gb-shell__btn-start:active {
+    filter: brightness(0.92);
+  }
+
+  .gb-shell__btn-select::after,
+  .gb-shell__btn-start::after {
+    position: absolute;
+    top: 130%;
+    left: 50%;
+    transform: translateX(-50%) rotate(0deg);
+    font-family: sans-serif;
+    font-size: max(5px, 1.7cqw);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #4a4a6a;
+    white-space: nowrap;
+  }
+
+  .gb-shell__btn-select::after {
+    content: "SELECT";
+  }
+
+  .gb-shell__btn-start::after {
+    content: "START";
+  }
+
+  .gb-shell__speakers {
+    display: block;
+    position: absolute;
+    height: 8%;
+    width: 1.7%;
+    top: 76%;
+    left: 74%;
+    margin: 0;
+    background: #ddd;
+    border-radius: 4px;
+    transform: rotate(-25deg);
+    box-shadow:
+      4cqw 0 #ddd,
+      8cqw 0 #ddd,
+      12cqw 0 #ddd,
+      16cqw 0 #ddd,
+      20cqw 0 #ddd;
+    pointer-events: none;
+  }
+
+  .gb-shell__phones {
+    display: block;
+    position: absolute;
+    bottom: 0.6%;
+    left: 50%;
+    padding: 0.4% 1.2%;
+    transform: translateX(-50%);
+    color: #dadada;
+    background-color: #e8e8e8;
+    font-size: max(5px, 1.7cqw);
+    font-family: sans-serif;
+    text-transform: uppercase;
+    border-radius: 30px;
+    pointer-events: none;
+  }
+
+  .gb-shell__phones::before {
+    content: "";
+    position: absolute;
+    width: 40%;
+    height: 40%;
+    bottom: -35%;
+    background-color: #e8e8e8;
+    left: 30%;
+  }
+
+  .gb-shell__phones::after {
+    content: "";
+    position: absolute;
+    width: 8%;
+    height: 40%;
+    bottom: -35%;
+    left: 40%;
+    background-color: #ddd;
+    box-shadow: 0.7cqw 0 #ddd;
+    border-radius: 4px 4px 0 0;
+  }
+
+  .gb-shell__on-off {
+    display: block;
+    position: absolute;
+    top: 0.35%;
+    left: 20%;
+    padding: 0.4% 1.2%;
+    transform: translateX(-50%);
+    color: #dadada;
+    background-color: #e8e8e8;
+    font-size: max(5px, 1.7cqw);
+    font-family: sans-serif;
+    text-transform: uppercase;
+    border-radius: 30px;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .gb-shell__on-off::before {
+    content: "";
+    position: absolute;
+    width: 40%;
+    height: 40%;
+    top: -30%;
+    background-color: #e8e8e8;
+    left: 25%;
+  }
+
+  .gb-shell__on-off::after {
+    content: "";
+    position: absolute;
+    width: 8%;
+    height: 40%;
+    top: -30%;
+    left: 35%;
+    background-color: #ddd;
+    box-shadow: 0.7cqw 0 #ddd;
+    border-radius: 0 0 3px 3px;
+  }
+}
+/* ==========================================================================
+   FS79 / FS81 — Full-viewport Game Boy chrome (boot intro + main menu)
+   Shared shell/playfield geometry so glass size matches intro ↔ menu ↔ play.
+   Boot-only: video + skip hit. Menu-only: background image inside playfield.
+   ========================================================================== */
+
+.boot-intro,
+.main-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  background: #eee;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.boot-intro .boot-intro__slot.gb-shell-slot,
+.boot-intro .gb-shell-slot,
+.main-menu .main-menu__slot.gb-shell-slot,
+.main-menu .gb-shell-slot {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  min-height: 0;
+  min-width: 0;
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+  container-name: gb-shell-slot;
+  overflow: hidden;
+  background: #eee;
+  z-index: 1;
+}
+
+.boot-intro .gb-shell-scale,
+.main-menu .gb-shell-scale {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transform: none;
+}
+
+.boot-intro .gb-shell,
+.main-menu .gb-shell {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  margin: 0;
+  box-sizing: border-box;
+  aspect-ratio: 422 / 697;
+  width: max(100cqw, calc(100cqh * 422 / 697));
+  height: max(100cqh, calc(100cqw * 697 / 422));
+  max-width: none;
+  max-height: none;
+  background: #eee;
+  border-radius: 2.37% 2.37% 8.61% 2.37%;
+  box-shadow: none;
+  container-type: size;
+  container-name: gb-shell;
+  overflow: hidden;
+  transform: translateY(-4%);
+}
+
+.boot-intro .gb-shell::before,
+.main-menu .gb-shell::before {
+  display: block;
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 4.45%;
+  border-bottom: max(1px, 0.5cqw) solid #e0e0e0;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.boot-intro .gb-shell::after,
+.main-menu .gb-shell::after {
+  display: block;
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 9.48%;
+  width: 79.15%;
+  height: 4.45%;
+  border-left: max(1px, 0.5cqw) solid #e0e0e0;
+  border-right: max(1px, 0.5cqw) solid #e0e0e0;
+  margin: 0;
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.boot-intro .gb-shell__screen-cont,
+.main-menu .gb-shell__screen-cont {
+  position: absolute;
+  top: 5.5%;
+  left: 5%;
+  width: 90%;
+  height: 56%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #6e6e7a 0%, #5c5c68 45%, #4a4a56 100%);
+  border-radius: 3.2% 3.2% 10% 3.2%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 max(1px, 0.3cqw) rgba(0, 0, 0, 0.25);
+}
+
+.boot-intro .gb-shell__header,
+.main-menu .gb-shell__header {
+  display: block;
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 8%;
+  min-height: 1em;
+  margin: 0;
+  padding: 0.25em 6% 0 16%;
+  box-sizing: border-box;
+  text-align: right;
+  font-size: max(5px, 1.5cqw);
+  font-family: sans-serif;
+  color: #c4c4c8;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.boot-intro .gb-shell__header::before,
+.boot-intro .gb-shell__header::after,
+.main-menu .gb-shell__header::before,
+.main-menu .gb-shell__header::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  height: max(2px, 0.45cqw);
+  background-color: #8b1d90;
+  box-shadow: 0 max(2px, 0.55cqw) 0 #283593;
+}
+
+.boot-intro .gb-shell__header::before,
+.main-menu .gb-shell__header::before {
+  left: 12%;
+  width: 22%;
+}
+
+.boot-intro .gb-shell__header::after,
+.main-menu .gb-shell__header::after {
+  right: 4%;
+  width: 10%;
+}
+
+.boot-intro .gb-shell__power,
+.main-menu .gb-shell__power {
+  display: block;
+  position: absolute;
+  width: max(6px, 2.4%);
+  height: max(6px, 3%);
+  top: 42%;
+  left: 4.2%;
+  border-radius: 100%;
+  background-color: #f00;
+  box-shadow: 0 0 0.6cqw 0.2cqw #ef5350;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.boot-intro .gb-shell__power::before,
+.main-menu .gb-shell__power::before {
+  content: "BATTERY";
+  position: absolute;
+  top: 140%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: max(4px, 1.4cqw);
+  font-family: sans-serif;
+  color: #b3b3b3;
+  white-space: nowrap;
+}
+
+/* Shared glass hole — boot video, menu bg, and (in play) stage all target this size family */
+.boot-intro .gb-shell__playfield,
+.boot-intro .boot-intro__playfield,
+.main-menu .gb-shell__playfield,
+.main-menu .main-menu__playfield {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  margin: 0 3% 3.5% 10%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+  border-radius: 2%;
+  box-shadow: inset 0.4cqw 0.4cqw rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+/* Full-bleed video inside housing only — no native controls chrome */
+.boot-intro__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: cover;
+  object-position: center;
+  background: #000;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.boot-intro__video::-webkit-media-controls {
+  display: none !important;
+}
+
+.boot-intro__video::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+.boot-intro__video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Transparent hit layer over housing glass — counts skip taps (video stays non-interactive) */
+.boot-intro__skip-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  appearance: none;
+}
+
+/* FS81 — Menu bg full-bleed in shared glass (same region as boot video) */
+.main-menu__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+  z-index: 1;
+  background: #000;
+}
+
+.boot-intro .gb-shell__controls,
+.main-menu .gb-shell__controls {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.boot-intro .gb-shell__btn-direction,
+.main-menu .gb-shell__btn-direction {
+  position: absolute;
+  left: 8%;
+  top: 64%;
+  width: 18%;
+  height: 10.5%;
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__btn-direction::before,
+.main-menu .gb-shell__btn-direction::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: 33.33%;
+  left: 33.33%;
+  width: 33.33%;
+  height: 33.33%;
+  background-color: #353535;
+  border-radius: 100%;
+}
+
+.boot-intro .gb-shell__btn-direction-v,
+.boot-intro .gb-shell__btn-direction-h,
+.main-menu .gb-shell__btn-direction-v,
+.main-menu .gb-shell__btn-direction-h {
+  position: absolute;
+  left: 33.33%;
+  top: 0;
+  width: 33.33%;
+  height: 100%;
+  background: #444;
+  border-radius: 12%;
+  box-shadow: inset 0 0 0 1px #2a2a2a;
+}
+
+.boot-intro .gb-shell__btn-direction-h,
+.main-menu .gb-shell__btn-direction-h {
+  transform: rotate(90deg);
+}
+
+.boot-intro .gb-shell__btn-ab,
+.main-menu .gb-shell__btn-ab {
+  position: absolute;
+  top: 63.5%;
+  left: 58%;
+  width: 28%;
+  height: 9%;
+  background: #dfdfdf;
+  border-radius: 40% / 50%;
+  transform: rotate(-25deg);
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 0 6%;
+  box-sizing: border-box;
+  box-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__btn-b,
+.boot-intro .gb-shell__btn-a,
+.main-menu .gb-shell__btn-b,
+.main-menu .gb-shell__btn-a {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34%;
+  aspect-ratio: 1;
+  height: auto;
+  max-height: 78%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 100%;
+  background: #a93671;
+  box-shadow:
+    inset 0 -0.25cqw 0.3cqw rgba(0, 0, 0, 0.25),
+    0 0.2cqw 0.25cqw rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__btn-b::after,
+.boot-intro .gb-shell__btn-a::after,
+.main-menu .gb-shell__btn-b::after,
+.main-menu .gb-shell__btn-a::after {
+  position: absolute;
+  font-family: sans-serif;
+  font-size: max(5px, 2cqw);
+  font-weight: 700;
+  color: #5a1a3a;
+  transform: rotate(25deg);
+}
+
+.boot-intro .gb-shell__btn-b::after,
+.main-menu .gb-shell__btn-b::after {
+  content: "B";
+  bottom: -55%;
+  left: 15%;
+}
+
+.boot-intro .gb-shell__btn-a::after,
+.main-menu .gb-shell__btn-a::after {
+  content: "A";
+  bottom: -55%;
+  right: 10%;
+}
+
+.boot-intro .gb-shell__btn-start-select,
+.main-menu .gb-shell__btn-start-select {
+  position: absolute;
+  top: 76.5%;
+  left: 28%;
+  width: 34%;
+  height: 5.5%;
+  transform: rotate(-25deg);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12%;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__btn-select,
+.boot-intro .gb-shell__btn-start,
+.main-menu .gb-shell__btn-select,
+.main-menu .gb-shell__btn-start {
+  display: block;
+  position: relative;
+  flex: 1 1 40%;
+  height: 28%;
+  min-height: 4px;
+  margin-top: 8%;
+  padding: 0;
+  border: none;
+  background: #999;
+  border-radius: 999px;
+  box-shadow: 0 0 0 0.55cqw #dfdfdf;
+  font-size: 0;
+  color: transparent;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* FS80/81/82: START hit target (intro → menu; menu → play; play opens menu) */
+.boot-intro .gb-shell__btn-start,
+.main-menu .gb-shell__btn-start {
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 6;
+}
+
+/* FS82 — Menu shell input: D-pad + A/B hittable (boot stays decorative except START) */
+.main-menu .gb-shell__btn-a,
+.main-menu .gb-shell__btn-b {
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 6;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.main-menu .gb-shell__btn-a:active,
+.main-menu .gb-shell__btn-b:active {
+  filter: brightness(0.9);
+}
+
+.main-menu .gb-shell__dpad {
+  position: absolute;
+  z-index: 6;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+}
+
+.main-menu .gb-shell__dpad:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.main-menu .gb-shell__dpad--up {
+  left: 33%;
+  top: 0;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--down {
+  left: 33%;
+  bottom: 0;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--left {
+  left: 0;
+  top: 33%;
+  width: 34%;
+  height: 34%;
+}
+
+.main-menu .gb-shell__dpad--right {
+  right: 0;
+  top: 33%;
+  width: 34%;
+  height: 34%;
+}
+
+.boot-intro .gb-shell__btn-select::after,
+.boot-intro .gb-shell__btn-start::after,
+.main-menu .gb-shell__btn-select::after,
+.main-menu .gb-shell__btn-start::after {
+  position: absolute;
+  top: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: sans-serif;
+  font-size: max(5px, 1.7cqw);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #4a4a6a;
+  white-space: nowrap;
+}
+
+.boot-intro .gb-shell__btn-select::after,
+.main-menu .gb-shell__btn-select::after {
+  content: "SELECT";
+}
+
+.boot-intro .gb-shell__btn-start::after,
+.main-menu .gb-shell__btn-start::after {
+  content: "START";
+}
+
+.boot-intro .gb-shell__speakers,
+.main-menu .gb-shell__speakers {
+  display: block;
+  position: absolute;
+  height: 8%;
+  width: 1.7%;
+  top: 76%;
+  left: 74%;
+  margin: 0;
+  background: #ddd;
+  border-radius: 4px;
+  transform: rotate(-25deg);
+  box-shadow:
+    4cqw 0 #ddd,
+    8cqw 0 #ddd,
+    12cqw 0 #ddd,
+    16cqw 0 #ddd,
+    20cqw 0 #ddd;
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__phones,
+.main-menu .gb-shell__phones {
+  display: block;
+  position: absolute;
+  bottom: 0.6%;
+  left: 50%;
+  padding: 0.4% 1.2%;
+  transform: translateX(-50%);
+  color: #dadada;
+  background-color: #e8e8e8;
+  font-size: max(5px, 1.7cqw);
+  font-family: sans-serif;
+  text-transform: uppercase;
+  border-radius: 30px;
+  pointer-events: none;
+}
+
+.boot-intro .gb-shell__on-off,
+.main-menu .gb-shell__on-off {
+  display: block;
+  position: absolute;
+  top: 0.35%;
+  left: 20%;
+  padding: 0.4% 1.2%;
+  transform: translateX(-50%);
+  color: #dadada;
+  background-color: #e8e8e8;
+  font-size: max(5px, 1.7cqw);
+  font-family: sans-serif;
+  text-transform: uppercase;
+  border-radius: 30px;
+  pointer-events: none;
+  z-index: 2;
+}

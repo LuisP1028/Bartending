@@ -1,0 +1,1734 @@
+{
+  "modeName": "OBELISCO",
+  "recipes": [
+    {
+      "name": "Las Marietas",
+      "vessel": "COLLINS",
+      "validRims": [
+        "NONE"
+      ],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": [
+        "herbfreshmintsprig",
+        "herbcinnamonflakes"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "mixerhorchata": 3,
+            "juiceguava": 2
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Las Marietas",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "NONE",
+            "id": "NONE"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "herbfreshmintsprig",
+            "id": "herbfreshmintsprig"
+          },
+          {
+            "source": "herbcinnamonflakes",
+            "id": "herbcinnamonflakes"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "mixerhorchata",
+                "id": "mixerhorchata",
+                "oz": 3,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceguava",
+                "id": "juiceguava",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Naranjada",
+      "vessel": "COLLINS",
+      "validRims": [
+        "TAJIN_CHILE_LIME"
+      ],
+      "agitation": "BUILT",
+      "garnishes": [
+        "freshorangewheel"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "juicefreshlime": 0.5,
+            "mixersquirtsoda": 1,
+            "juiceorange": 3
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Naranjada",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshorangewheel",
+            "id": "freshorangewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixersquirtsoda",
+                "id": "mixersquirtsoda",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceorange",
+                "id": "juiceorange",
+                "oz": 3,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Margarita",
+      "vessel": "ROCKS",
+      "validRims": [
+        "KOSHER_SALT_SEA_SALT",
+        "DEMERARA_SUGAR",
+        "TAJIN_CHILE_LIME"
+      ],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": [
+        "freshlimewheel"
+      ],
+      "variants": [
+        {
+          "variantName": "CLASSIC - LIME (Tequila)",
+          "ingredients": {
+            "tequilablancosilver": 2,
+            "juicefreshlime": 1,
+            "syrupagavenectar": 1
+          }
+        },
+        {
+          "variantName": "CLASSIC - LIME (Spicy)",
+          "ingredients": {
+            "juicefreshlime": 1,
+            "syrupagavenectar": 1,
+            "tequilaspicy": 2
+          }
+        },
+        {
+          "variantName": "CLASSIC - LIME (Mezcal)",
+          "ingredients": {
+            "mezcaljovenespadn": 2,
+            "juicefreshlime": 1,
+            "syrupagavenectar": 1
+          }
+        },
+        {
+          "variantName": "FLAVORED (Tequila)",
+          "ingredients": {
+            "tequilablancosilver": 2,
+            "juicefreshlime": 1,
+            "syrupagavenectar": 0.25,
+            "juicemango": 1
+          }
+        },
+        {
+          "variantName": "FLAVORED (Spicy)",
+          "ingredients": {
+            "juicefreshlime": 1,
+            "syrupagavenectar": 0.25,
+            "tequilaspicy": 2,
+            "juicemango": 1
+          }
+        },
+        {
+          "variantName": "FLAVORED (Mezcal)",
+          "ingredients": {
+            "mezcaljovenespadn": 2,
+            "juicefreshlime": 1,
+            "syrupagavenectar": 0.25,
+            "juicemango": 1
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Margarita",
+        "vessel": {
+          "source": "ROCKS",
+          "id": "ROCKS"
+        },
+        "rims": [
+          {
+            "source": "KOSHER_SALT_SEA_SALT",
+            "id": "KOSHER_SALT_SEA_SALT"
+          },
+          {
+            "source": "DEMERARA_SUGAR",
+            "id": "DEMERARA_SUGAR"
+          },
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshlimewheel",
+            "id": "freshlimewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "CLASSIC - LIME (Tequila)",
+            "ingredients": [
+              {
+                "source": "tequilablancosilver",
+                "id": "tequilablancosilver",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "CLASSIC - LIME (Spicy)",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "CLASSIC - LIME (Mezcal)",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Tequila)",
+            "ingredients": [
+              {
+                "source": "tequilablancosilver",
+                "id": "tequilablancosilver",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Spicy)",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Mezcal)",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Hemin Guey",
+      "vessel": "MARTINI",
+      "validRims": [
+        "DEMERARA_SUGAR"
+      ],
+      "agitation": "Shake/Double Strain",
+      "garnishes": [
+        "freshlimewheel"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "rumblancosilver": 1.5,
+            "liqueurmaraschino": 0.75,
+            "juicegrapefruit": 1,
+            "juicefreshlime": 0.5,
+            "syrupsimple": 0.25
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Hemin Guey",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [
+          {
+            "source": "DEMERARA_SUGAR",
+            "id": "DEMERARA_SUGAR"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshlimewheel",
+            "id": "freshlimewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "rumblancosilver",
+                "id": "rumblancosilver",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurmaraschino",
+                "id": "liqueurmaraschino",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicegrapefruit",
+                "id": "juicegrapefruit",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tululu",
+      "vessel": "MARTINI",
+      "validRims": [],
+      "agitation": "Shake/Double Strain",
+      "garnishes": [
+        "driedpineappleslice"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "vodkaclearspirit": 1.5,
+            "aperitiflilletblanc": 0.75,
+            "liqueurpassionfruit": 0.75,
+            "syrupsimple": 0.25,
+            "juicefreshlemon": 0.75
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Tululu",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "driedpineappleslice",
+            "id": "driedpineappleslice"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "vodkaclearspirit",
+                "id": "vodkaclearspirit",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "aperitiflilletblanc",
+                "id": "aperitiflilletblanc",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurpassionfruit",
+                "id": "liqueurpassionfruit",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "El Gitano",
+      "vessel": "ROCKS",
+      "validRims": [
+        "KOSHER_SALT_SEA_SALT"
+      ],
+      "agitation": "Shake/Double Strain",
+      "garnishes": [
+        "driedpineapplewedge"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "mezcaljovenespadn": 0.5,
+            "liqueurtamarind": 0.5,
+            "liqueurguava": 0.5,
+            "juicefreshlime": 0.5,
+            "tequilaspicy": 0.5,
+            "juicepineapple": 1.0
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "El Gitano",
+        "vessel": {
+          "source": "ROCKS",
+          "id": "ROCKS"
+        },
+        "rims": [
+          {
+            "source": "KOSHER_SALT_SEA_SALT",
+            "id": "KOSHER_SALT_SEA_SALT"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "driedpineapplewedge",
+            "id": "driedpineapplewedge"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurtamarind",
+                "id": "liqueurtamarind",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurguava",
+                "id": "liqueurguava",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "La Bohemia",
+      "vessel": "COLLINS",
+      "validRims": [],
+      "agitation": "BOSTON_SHAKER_TIN",
+      "garnishes": [
+        "driedpineappleslice",
+        "herbfreshmintsprig",
+        "freshorangewheel"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "rumblancosilver": 0.5,
+            "liqueuramaretto": 0.5,
+            "amaromontenegro": 0.5,
+            "liqueurguava": 0.5,
+            "juicepineapple": 0.75,
+            "juicefreshlime": 0.5,
+            "syrupvanilla": 0.5,
+            "mixerhorchata": 0.5,
+            "juiceorange": 0.5
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "La Bohemia",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "driedpineappleslice",
+            "id": "driedpineappleslice"
+          },
+          {
+            "source": "herbfreshmintsprig",
+            "id": "herbfreshmintsprig"
+          },
+          {
+            "source": "freshorangewheel",
+            "id": "freshorangewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "rumblancosilver",
+                "id": "rumblancosilver",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueuramaretto",
+                "id": "liqueuramaretto",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "amaromontenegro",
+                "id": "amaromontenegro",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurguava",
+                "id": "liqueurguava",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicepineapple",
+                "id": "juicepineapple",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupvanilla",
+                "id": "syrupvanilla",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixerhorchata",
+                "id": "mixerhorchata",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceorange",
+                "id": "juiceorange",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Frida",
+      "vessel": "MARTINI",
+      "validRims": [
+        "NONE"
+      ],
+      "agitation": "Shake/Double Strain",
+      "garnishes": [
+        "accentespressobeans",
+        "accentchocolatestrips"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "tequilareposado": 1.5,
+            "liqueurkahla": 0.75,
+            "syrupdulcedeleche": 1,
+            "mixerliquidespresso": 0.25
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Frida",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [
+          {
+            "source": "NONE",
+            "id": "NONE"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "accentespressobeans",
+            "id": "accentespressobeans"
+          },
+          {
+            "source": "accentchocolatestrips",
+            "id": "accentchocolatestrips"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "tequilareposado",
+                "id": "tequilareposado",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurkahla",
+                "id": "liqueurkahla",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupdulcedeleche",
+                "id": "syrupdulcedeleche",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixerliquidespresso",
+                "id": "mixerliquidespresso",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pachamama Sour",
+      "vessel": "MARTINI",
+      "validRims": [],
+      "agitation": "Dry Shake/Ice Shake/Double Strain",
+      "garnishes": [
+        "accentedibleflower"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "brandypisco": 2,
+            "juicefreshlime": 1,
+            "syrupsimple": 1,
+            "mixereggwhite": 1.25
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Pachamama Sour",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "accentedibleflower",
+            "id": "accentedibleflower"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "brandypisco",
+                "id": "brandypisco",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixereggwhite",
+                "id": "mixereggwhite",
+                "oz": 1.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "Vuela Paloma",
+      "vessel": "COLLINS",
+      "validRims": [
+        "TAJIN_CHILE_LIME"
+      ],
+      "agitation": "BUILT",
+      "garnishes": [
+        "freshgrapefruitwheel"
+      ],
+      "variants": [
+        {
+          "variantName": "Default",
+          "ingredients": {
+            "tequilareposado": 2,
+            "juicegrapefruit": 1.5,
+            "juicefreshlime": 0.5,
+            "syrupagavenectar": 0.25,
+            "mixersquirtsoda": 0.5
+          }
+        }
+      ],
+      "mappingAudit": {
+        "name": "Vuela Paloma",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshgrapefruitwheel",
+            "id": "freshgrapefruitwheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "tequilareposado",
+                "id": "tequilareposado",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicegrapefruit",
+                "id": "juicegrapefruit",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixersquirtsoda",
+                "id": "mixersquirtsoda",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "mappingAudit": {
+    "recipes": [
+      {
+        "name": "Las Marietas",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "NONE",
+            "id": "NONE"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "herbfreshmintsprig",
+            "id": "herbfreshmintsprig"
+          },
+          {
+            "source": "herbcinnamonflakes",
+            "id": "herbcinnamonflakes"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "mixerhorchata",
+                "id": "mixerhorchata",
+                "oz": 3,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceguava",
+                "id": "juiceguava",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Naranjada",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshorangewheel",
+            "id": "freshorangewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixersquirtsoda",
+                "id": "mixersquirtsoda",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceorange",
+                "id": "juiceorange",
+                "oz": 3,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Margarita",
+        "vessel": {
+          "source": "ROCKS",
+          "id": "ROCKS"
+        },
+        "rims": [
+          {
+            "source": "KOSHER_SALT_SEA_SALT",
+            "id": "KOSHER_SALT_SEA_SALT"
+          },
+          {
+            "source": "DEMERARA_SUGAR",
+            "id": "DEMERARA_SUGAR"
+          },
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshlimewheel",
+            "id": "freshlimewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "CLASSIC - LIME (Tequila)",
+            "ingredients": [
+              {
+                "source": "tequilablancosilver",
+                "id": "tequilablancosilver",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "CLASSIC - LIME (Spicy)",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "CLASSIC - LIME (Mezcal)",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Tequila)",
+            "ingredients": [
+              {
+                "source": "tequilablancosilver",
+                "id": "tequilablancosilver",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Spicy)",
+            "ingredients": [
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          },
+          {
+            "variantName": "FLAVORED (Mezcal)",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicemango",
+                "id": "juicemango",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Hemin Guey",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [
+          {
+            "source": "DEMERARA_SUGAR",
+            "id": "DEMERARA_SUGAR"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshlimewheel",
+            "id": "freshlimewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "rumblancosilver",
+                "id": "rumblancosilver",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurmaraschino",
+                "id": "liqueurmaraschino",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicegrapefruit",
+                "id": "juicegrapefruit",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Tululu",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "driedpineappleslice",
+            "id": "driedpineappleslice"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "vodkaclearspirit",
+                "id": "vodkaclearspirit",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "aperitiflilletblanc",
+                "id": "aperitiflilletblanc",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurpassionfruit",
+                "id": "liqueurpassionfruit",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "El Gitano",
+        "vessel": {
+          "source": "ROCKS",
+          "id": "ROCKS"
+        },
+        "rims": [
+          {
+            "source": "KOSHER_SALT_SEA_SALT",
+            "id": "KOSHER_SALT_SEA_SALT"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "driedpineapplewedge",
+            "id": "driedpineapplewedge"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "mezcaljovenespadn",
+                "id": "mezcaljovenespadn",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurtamarind",
+                "id": "liqueurtamarind",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurguava",
+                "id": "liqueurguava",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "tequilaspicy",
+                "id": "tequilaspicy",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "La Bohemia",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "driedpineappleslice",
+            "id": "driedpineappleslice"
+          },
+          {
+            "source": "herbfreshmintsprig",
+            "id": "herbfreshmintsprig"
+          },
+          {
+            "source": "freshorangewheel",
+            "id": "freshorangewheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "rumblancosilver",
+                "id": "rumblancosilver",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueuramaretto",
+                "id": "liqueuramaretto",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "amaromontenegro",
+                "id": "amaromontenegro",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurguava",
+                "id": "liqueurguava",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicepineapple",
+                "id": "juicepineapple",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupvanilla",
+                "id": "syrupvanilla",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixerhorchata",
+                "id": "mixerhorchata",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juiceorange",
+                "id": "juiceorange",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Frida",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [
+          {
+            "source": "NONE",
+            "id": "NONE"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "accentespressobeans",
+            "id": "accentespressobeans"
+          },
+          {
+            "source": "accentchocolatestrips",
+            "id": "accentchocolatestrips"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "tequilareposado",
+                "id": "tequilareposado",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "liqueurkahla",
+                "id": "liqueurkahla",
+                "oz": 0.75,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupdulcedeleche",
+                "id": "syrupdulcedeleche",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixerliquidespresso",
+                "id": "mixerliquidespresso",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Pachamama Sour",
+        "vessel": {
+          "source": "MARTINI",
+          "id": "MARTINI"
+        },
+        "rims": [],
+        "garnishes": [
+          {
+            "source": "accentedibleflower",
+            "id": "accentedibleflower"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "brandypisco",
+                "id": "brandypisco",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupsimple",
+                "id": "syrupsimple",
+                "oz": 1,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixereggwhite",
+                "id": "mixereggwhite",
+                "oz": 1.25,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Vuela Paloma",
+        "vessel": {
+          "source": "COLLINS",
+          "id": "COLLINS"
+        },
+        "rims": [
+          {
+            "source": "TAJIN_CHILE_LIME",
+            "id": "TAJIN_CHILE_LIME"
+          }
+        ],
+        "garnishes": [
+          {
+            "source": "freshgrapefruitwheel",
+            "id": "freshgrapefruitwheel"
+          }
+        ],
+        "variants": [
+          {
+            "variantName": "Default",
+            "ingredients": [
+              {
+                "source": "tequilareposado",
+                "id": "tequilareposado",
+                "oz": 2,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicegrapefruit",
+                "id": "juicegrapefruit",
+                "oz": 1.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "juicefreshlime",
+                "id": "juicefreshlime",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "syrupagavenectar",
+                "id": "syrupagavenectar",
+                "oz": 0.25,
+                "generic": false,
+                "flagged": false
+              },
+              {
+                "source": "mixersquirtsoda",
+                "id": "mixersquirtsoda",
+                "oz": 0.5,
+                "generic": false,
+                "flagged": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
