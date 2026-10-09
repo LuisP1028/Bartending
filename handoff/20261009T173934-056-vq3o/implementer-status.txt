@@ -1,0 +1,6 @@
+src/components/PatronLayer.tsx UNCHANGED ticket-001
+src/components/PatronLayer.tsx UNCHANGED ticket-002
+src/components/PatronLayer.tsx UNCHANGED ticket-003
+src/components/PatronLayer.tsx UNCHANGED ticket-004
+src/app/globals.css UNCHANGED ticket-003
+src/app/page.tsx UNCHANGED ticket-004
