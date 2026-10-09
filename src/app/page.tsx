@@ -376,12 +376,14 @@ export default function Home() {
 
       // 2. Dispatch order dialogue generation request
       try {
-        const flavorNotes =
-          recipe.mappingAudit?.variants?.[0]?.ingredients
-            ? recipe.mappingAudit.variants[0].ingredients.map((i) => i.id).join(', ')
-            : recipe.variants?.[0]?.ingredients
-              ? Object.keys(recipe.variants[0].ingredients).join(', ')
-              : undefined;
+        let flavorNotes: string | undefined;
+        if (recipe.mappingAudit?.variants?.[0]?.ingredients) {
+          flavorNotes = recipe.mappingAudit.variants[0].ingredients
+            .map((i) => i.id)
+            .join(', ');
+        } else if (recipe.variants?.[0]?.ingredients) {
+          flavorNotes = Object.keys(recipe.variants[0].ingredients).join(', ');
+        }
 
         const response = await fetch('/api/dialogue', {
           method: 'POST',

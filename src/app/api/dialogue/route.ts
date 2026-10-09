@@ -4,6 +4,7 @@ import {
   DialogueError,
   type DialoguePayload,
 } from '@/lib/hfDialogueService';
+import { PersonaNotFoundError } from '@/data/characterDialogue';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,17 +31,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const err = error as { message?: string; code?: string; statusCode?: number; details?: string };
-    const statusCode = err?.statusCode || 500;
-    const code = err?.code || 'INTERNAL_ERROR';
+    if (error instanceof PersonaNotFoundError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          timestamp: new Date().toISOString(),
+        },
+        { status: error.statusCode }
+      );
+    }
+
+    const message = error instanceof Error ? error.message : 'Dialogue generation error';
     return NextResponse.json(
       {
-        error: err?.message || 'Dialogue generation error',
-        code,
-        details: err?.details,
+        error: message,
+        code: 'INTERNAL_ERROR',
         timestamp: new Date().toISOString(),
       },
-      { status: statusCode }
+      { status: 500 }
     );
   }
 }
