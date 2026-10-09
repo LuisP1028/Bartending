@@ -1,0 +1,8 @@
+functional_specification_106.md
+wayfinder/20261009T192221-847-fh8d/map.md
+wayfinder/20261009T192221-847-fh8d/tickets/ticket-001.md
+wayfinder/20261009T192221-847-fh8d/tickets/ticket-002.md
+wayfinder/20261009T192221-847-fh8d/tickets/ticket-003.md
+wayfinder/20261009T192221-847-fh8d/tickets/ticket-004.md
+wayfinder/20261009T192221-847-fh8d/tickets/ticket-005.md
+required_edits_106.md
