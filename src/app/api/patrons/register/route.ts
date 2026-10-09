@@ -5,12 +5,15 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { resolvePatronIdentity } from '@/lib/patronIdentity';
 import { ensurePatronFolders } from '@/lib/patronFolders';
-import { isPatronPackReady, resolveAppRoot } from '@/lib/patronPackReady';
+import { resolveAppRoot } from '@/lib/patronPackReady';
+import { hasPiiKey } from '@/lib/patronCrypto';
+import { upsertPatronPiiDb } from '@/lib/patronPiiStore';
+import { uploadPatronPackToGcs, buildGcsPublicUrl, getGcsBucketName } from '@/lib/gcsStorage';
 import {
   hasImagineCredentials,
-  updateGenerationJob,
-  upsertRuntimePatron,
-  writeGenerationJob,
+  writeGenerationJobDb,
+  updateGenerationJobDb,
+  upsertRuntimePatronDb,
   type GenerationJobRecord,
 } from '@/lib/runtimePatronStore';
 
@@ -25,9 +28,8 @@ function repoRoot() {
 /**
  * POST multipart: name, email?, phone?, photo (file), runPipeline? ('1'|'true')
  *
- * FS94/FS95: runPipeline=true starts full generative --run in the background and
- * returns jobId for polling GET /api/patrons/generate-status.
- * Helpers load via static @/lib imports (no dynamic import of pipeline .mjs).
+ * FS94/FS95/FS106: runPipeline=true starts full generative --run in the background,
+ * persists job and contact PII to PostgreSQL, and uploads ready pack to GCS.
  */
 export async function POST(req: Request) {
   try {
@@ -54,13 +56,24 @@ export async function POST(req: Request) {
     const root = repoRoot();
     const folders = ensurePatronFolders(root, identity);
 
-    // PII via pipeline SQLite is optional; do not block generation (RE95).
-    const pii: { inserted: boolean; contactHash: string } | null = null;
-    let piiError: string | null =
-      'PII store not wired on API path — folder + generate still proceed';
-    if (!process.env.PII_ENCRYPTION_KEY) {
-      piiError =
-        'PII_ENCRYPTION_KEY not set — folder created but contact not stored in DB';
+    // Persist Contact PII to PostgreSQL
+    let pii: { inserted: boolean; contactHash: string } | null = null;
+    let piiError: string | null = null;
+    if (hasPiiKey()) {
+      try {
+        pii = await upsertPatronPiiDb({
+          characterId: identity.characterId,
+          contactHash: identity.contactHash,
+          name,
+          email,
+          phone,
+        });
+      } catch (err) {
+        piiError = err instanceof Error ? err.message : String(err);
+        console.warn('[register] PII storage warning:', piiError);
+      }
+    } else {
+      piiError = 'PII_ENCRYPTION_KEY not set — contact record not persisted in DB';
     }
 
     let photoPath: string | null = null;
@@ -97,9 +110,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Dev convenience only — production roster uses data/runtime-patrons.json
-    // (characters.ts patch skipped on API path; runtime upsert on job success).
     const reg: { inserted: boolean; constName?: string } = { inserted: false };
+    const bucket = getGcsBucketName();
 
     if (!runPipeline) {
       return NextResponse.json({
@@ -113,7 +125,7 @@ export async function POST(req: Request) {
         jobId: null,
         status: 'registered',
         generationNote: 'runPipeline not set — folder + meta only',
-        sitSrc: `/assets/patrons/${identity.characterId}/sit.png`,
+        sitSrc: buildGcsPublicUrl(bucket, `patrons/${identity.characterId}/sit.png`),
       });
     }
 
@@ -152,7 +164,7 @@ export async function POST(req: Request) {
       updatedAt: now,
       photoPath,
     };
-    writeGenerationJob(root, job);
+    await writeGenerationJobDb(job);
 
     const script = path.join(
       root,
@@ -212,11 +224,11 @@ export async function POST(req: Request) {
         const errorMsg = timedOut
           ? 'Generation timed out: upstream provider did not respond within the allocated timeframe.'
           : 'Generation stalled: no output received from generation pipeline for 3 minutes.';
-        updateGenerationJob(root, jobId, {
+        updateGenerationJobDb(jobId, {
           status: 'failed',
           error: errorMsg,
           logTail: logBuf,
-        });
+        }).catch((e) => console.error('[register] watchdog update error:', e));
       }
     }, 5000);
     watchdogTimer.unref();
@@ -294,12 +306,12 @@ export async function POST(req: Request) {
         };
       }
 
-      if (patch || nowMs - lastUpdateMs > 2000) {
+      if (patch || nowMs - lastUpdateMs > 1000) {
         lastUpdateMs = nowMs;
-        updateGenerationJob(root, jobId, {
+        updateGenerationJobDb(jobId, {
           ...(patch || {}),
           logTail: logBuf,
-        });
+        }).catch((e) => console.error('[register] job update error:', e));
       }
     };
 
@@ -308,58 +320,68 @@ export async function POST(req: Request) {
 
     child.on('error', (err) => {
       clearInterval(watchdogTimer);
-      updateGenerationJob(root, jobId, {
+      updateGenerationJobDb(jobId, {
         status: 'failed',
         error: err.message || String(err),
         logTail: logBuf,
-      });
+      }).catch((e) => console.error('[register] job error update failed:', e));
     });
 
-    child.on('close', (code) => {
+    child.on('close', async (code) => {
       clearInterval(watchdogTimer);
-      // FS96 — only roster when nested ready pack is on disk (sit/talk/walk_01/walk_02)
-      const packReady = isPatronPackReady(root, identity.characterId);
-
-      if (code === 0 && packReady) {
+      if (code === 0) {
         try {
-          upsertRuntimePatron(root, {
+          const stagingDir = folders.stagingDir;
+          const cloudUrls = await uploadPatronPackToGcs(identity.characterId, {
+            sit: path.join(stagingDir, 'sit.nobg.png'),
+            talk: path.join(stagingDir, 'talk.nobg.png'),
+            walk_01: path.join(stagingDir, 'walk_01.nobg.png'),
+            walk_02: path.join(stagingDir, 'walk_02.nobg.png'),
+            source: photoPath || undefined,
+          });
+
+          await upsertRuntimePatronDb({
             id: identity.characterId,
             displayName: identity.displayName,
             personality: `${identity.characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`,
             walkFrameCount: 2,
             walkFrameMs: 120,
-            createdAt: new Date().toISOString(),
+            sitUrl: cloudUrls.sitUrl,
+            talkUrl: cloudUrls.talkUrl,
+            walk01Url: cloudUrls.walk01Url,
+            walk02Url: cloudUrls.walk02Url,
+            sourceUrl: cloudUrls.sourceUrl,
           });
-          updateGenerationJob(root, jobId, {
+
+          await updateGenerationJobDb(jobId, {
             status: 'done',
             currentStage: 'done',
             stageIndex: 8,
             totalStages: 8,
             progressPct: 100,
-            statusMessage: `Ready pack verified. Patron ${identity.displayName} registered into runtime roster.`,
+            statusMessage: `Assets published to GCS. Patron ${identity.displayName} admitted to database roster.`,
             logTail: logBuf,
             error: undefined,
           });
         } catch (e: unknown) {
-          updateGenerationJob(root, jobId, {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[register] Cloud upload or DB persistence failed:', msg);
+          await updateGenerationJobDb(jobId, {
             status: 'failed',
-            error: e instanceof Error ? e.message : String(e),
+            error: `Cloud upload / database persistence failed: ${msg}`,
             logTail: logBuf,
           });
         }
       } else {
         let errorMsg = `Pipeline exited with code ${code}`;
-        if (code === 0 && !packReady) {
-          errorMsg =
-            'Pipeline exited 0 but ready pack missing (sit/talk/walk_01/walk_02 under public/assets/patrons/{id}/)';
-        } else if (logBuf.includes('IMAGINE_AUTH') || logBuf.includes('401')) {
+        if (logBuf.includes('IMAGINE_AUTH') || logBuf.includes('401')) {
           errorMsg =
             'Authentication failed with image provider. Verify API key in .env.';
         } else if (logBuf.includes('429')) {
           errorMsg =
             'Upstream generation rate limit reached. Please wait a moment and try again.';
         }
-        updateGenerationJob(root, jobId, {
+        await updateGenerationJobDb(jobId, {
           status: 'failed',
           error: errorMsg,
           logTail: logBuf,
@@ -383,10 +405,9 @@ export async function POST(req: Request) {
         mode: 'run-async',
       },
       generationNote:
-        'Full generative --run started (runtime-only storage on host disk, not git). Poll /api/patrons/generate-status?jobId=',
-      // FS98 — served from disk via API after install
-      sitSrc: `/api/patrons/assets/${identity.characterId}/sit.png`,
-      storage: 'runtime-only',
+        'Full generative --run started (cloud GCS + PostgreSQL persistence). Poll /api/patrons/generate-status?jobId=',
+      sitSrc: buildGcsPublicUrl(bucket, `patrons/${identity.characterId}/sit.png`),
+      storage: 'gcs-postgres',
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

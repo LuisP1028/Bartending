@@ -19,9 +19,11 @@
     "menu:from-image": "npx tsx scripts/menu-pipeline/image-to-menu.mjs"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.15.0",
     "@imgly/background-removal-node": "^1.4.5",
     "better-sqlite3": "^12.11.1",
     "next": "16.2.9",
+    "pg": "^8.13.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-liquid-glass-card": "^1.2.0"
@@ -30,6 +32,7 @@
     "@ai-hero/sandcastle": "^0.12.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

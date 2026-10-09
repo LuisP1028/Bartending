@@ -33,6 +33,7 @@ import {
 } from './lib/paths.mjs';
 import { ensurePatronFolders } from './lib/patronFolder.mjs';
 import { hasPiiKey, upsertPatronPii } from './lib/patronDb.mjs';
+import { encryptPiiField, loadPiiKey } from './lib/piiCrypto.mjs';
 import { registerCharacterInSource } from './lib/registerCharacter.mjs';
 import {
   assertSkillsPresent,
@@ -336,6 +337,59 @@ function maybeStorePii(args, identity, characterId) {
   } catch (e) {
     console.warn(`PII DB write failed: ${e.message || e}`);
   }
+
+  maybeStorePiiPostgres(args, identity, characterId).catch((e) =>
+    console.warn(`  PostgreSQL PII store warning: ${e.message || e}`)
+  );
+}
+
+async function maybeStorePiiPostgres(args, identity, characterId) {
+  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const hasPgEnv = connectionString || process.env.PGHOST;
+  if (!hasPgEnv || !hasPiiKey() || !(args.name && (args.email || args.phone))) return;
+
+  try {
+    const { Pool } = await import('pg');
+    const pool = new Pool(
+      connectionString
+        ? {
+            connectionString,
+            ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+          }
+        : {
+            host: process.env.PGHOST || '127.0.0.1',
+            port: Number(process.env.PGPORT || 5432),
+            database: process.env.PGDATABASE || 'bartending',
+            user: process.env.PGUSER || 'postgres',
+            password: process.env.PGPASSWORD || '',
+            ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
+          }
+    );
+
+    try {
+      const key = loadPiiKey();
+      const nameEnc = encryptPiiField(identity.displayName, key);
+      const emailEnc = args.email ? encryptPiiField(args.email, key) : null;
+      const phoneEnc = args.phone ? encryptPiiField(args.phone, key) : null;
+
+      await pool.query(
+        `INSERT INTO patron_pii (character_id, contact_hash, name_enc, email_enc, phone_enc)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (contact_hash) DO UPDATE SET
+           character_id = EXCLUDED.character_id,
+           name_enc = EXCLUDED.name_enc,
+           email_enc = EXCLUDED.email_enc,
+           phone_enc = EXCLUDED.phone_enc,
+           updated_at = NOW()`,
+        [characterId, identity.contactHash, nameEnc, emailEnc, phoneEnc]
+      );
+      console.log(`  PII stored in PostgreSQL (contactHash: ${identity.contactHash})`);
+    } finally {
+      await pool.end();
+    }
+  } catch (e) {
+    console.warn(`  PostgreSQL PII store warning: ${e.message || e}`);
+  }
 }
 
 function runPrepare(args) {
@@ -528,6 +582,10 @@ async function runFull(args) {
   );
   for (const p of written) console.log(`  OK ${p}`);
 
+  if (written.cloudUrls) {
+    await maybeUpsertPostgresPatron(characterId, identity, written.cloudUrls);
+  }
+
   if (!args.noRegister) {
     const reg = registerCharacterInSource(REPO_ROOT, characterId, {
       displayName: identity.displayName,
@@ -544,6 +602,71 @@ async function runFull(args) {
   console.log(`characterId=${characterId}`);
   console.log(`publicDir=${folders.publicDir}`);
   return { characterId, stagingDir, publicDir: folders.publicDir, written };
+}
+
+async function maybeUpsertPostgresPatron(characterId, identity, cloudUrls) {
+  const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const hasPgEnv = connectionString || process.env.PGHOST;
+  if (!hasPgEnv || !cloudUrls || !cloudUrls.sitUrl) return;
+
+  try {
+    const { Pool } = await import('pg');
+    const pool = new Pool(
+      connectionString
+        ? {
+            connectionString,
+            ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },
+          }
+        : {
+            host: process.env.PGHOST || '127.0.0.1',
+            port: Number(process.env.PGPORT || 5432),
+            database: process.env.PGDATABASE || 'bartending',
+            user: process.env.PGUSER || 'postgres',
+            password: process.env.PGPASSWORD || '',
+            ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
+          }
+    );
+
+    try {
+      const personality = `${characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`;
+      await pool.query(
+        `INSERT INTO patrons (
+          id, display_name, personality, walk_frame_count, walk_frame_ms,
+          sit_url, talk_url, walk_01_url, walk_02_url, source_url, is_ready, is_active, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, TRUE, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          display_name = EXCLUDED.display_name,
+          personality = EXCLUDED.personality,
+          walk_frame_count = EXCLUDED.walk_frame_count,
+          walk_frame_ms = EXCLUDED.walk_frame_ms,
+          sit_url = EXCLUDED.sit_url,
+          talk_url = EXCLUDED.talk_url,
+          walk_01_url = EXCLUDED.walk_01_url,
+          walk_02_url = EXCLUDED.walk_02_url,
+          source_url = EXCLUDED.source_url,
+          is_ready = TRUE,
+          is_active = TRUE,
+          updated_at = NOW()`,
+        [
+          characterId,
+          identity.displayName,
+          personality,
+          2,
+          120,
+          cloudUrls.sitUrl,
+          cloudUrls.talkUrl || cloudUrls.sitUrl,
+          cloudUrls.walkUrls?.[0] || cloudUrls.sitUrl,
+          cloudUrls.walkUrls?.[1] || cloudUrls.sitUrl,
+          cloudUrls.sourceUrl || null,
+        ]
+      );
+      console.log(`  PostgreSQL roster upsert OK for "${characterId}"`);
+    } finally {
+      await pool.end();
+    }
+  } catch (err) {
+    console.warn(`  PostgreSQL roster upsert warning for "${characterId}": ${err.message || err}`);
+  }
 }
 
 async function main() {

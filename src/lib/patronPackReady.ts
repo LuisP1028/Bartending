@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { verifyGcsAssetExists } from '@/lib/gcsStorage';
 
 /** Basenames written by installPackFromStagingDir (walkFrameCount = 2). */
 export const JOIN_PACK_BASENAMES = [
@@ -111,4 +112,26 @@ export function isPatronPackReady(
     if (!isNonEmptyFile(p)) return false;
   }
   return true;
+}
+
+export async function isPatronPackCloudReady(characterId: string): Promise<boolean> {
+  if (!characterId || characterId.includes('..') || characterId.includes('/') || characterId.includes('\\')) {
+    return false;
+  }
+
+  const requiredAssets = [
+    `patrons/${characterId}/sit.png`,
+    `patrons/${characterId}/talk.png`,
+    `patrons/${characterId}/walk_01.png`,
+    `patrons/${characterId}/walk_02.png`,
+  ];
+
+  try {
+    const results = await Promise.all(
+      requiredAssets.map((assetPath) => verifyGcsAssetExists(assetPath))
+    );
+    return results.every((exists) => exists === true);
+  } catch {
+    return false;
+  }
 }

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { removeBackgroundToFile } from './backgroundRemove.mjs';
+import { uploadPatronAssetsToGcs } from './gcsStorage.mjs';
 import {
   DEFAULT_NEW_PACK_WALK_FRAME_COUNT,
   padWalkFrameIndex,
@@ -181,5 +182,29 @@ export async function installPackFromStagingDir(
     written.push(job.publicPath);
   }
 
+  // Phase 3: GCS upload if GCS credentials or bucket present
+  if (
+    process.env.GCS_CREDENTIALS_JSON ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    process.env.GCS_BUCKET_NAME
+  ) {
+    try {
+      const sitJob = ready.find((r) => r.job.role === 'sit');
+      const talkJob = ready.find((r) => r.job.role === 'talk');
+      const walkJobs = ready.filter((r) => r.job.role.startsWith('walk_'));
+      const cloudUrls = await uploadPatronAssetsToGcs(characterId, {
+        sit: sitJob?.installSrc,
+        talk: talkJob?.installSrc,
+        walks: walkJobs.map((r) => r.installSrc),
+      });
+      written.cloudUrls = cloudUrls;
+      console.log(`  GCS upload OK for "${characterId}"`);
+    } catch (e) {
+      console.warn(`  GCS upload warning for "${characterId}": ${e.message || e}`);
+    }
+  }
+
   return written;
 }
+
+export { uploadPatronAssetsToGcs };

@@ -86,6 +86,16 @@ export function applyEnvAliases() {
   if (!process.env.HF_VLM_TOKEN && process.env.HUGGINGFACE_TOKEN) {
     process.env.HF_VLM_TOKEN = process.env.HUGGINGFACE_TOKEN;
   }
+
+  // PostgreSQL (FS106)
+  alias('POSTGRES_URL', 'DATABASE_URL');
+  if (!process.env.POSTGRES_URL && process.env.DATABASE_URL) {
+    process.env.POSTGRES_URL = process.env.DATABASE_URL;
+  }
+
+  // Google Cloud Storage (FS106)
+  alias('GCS_BUCKET', 'GCS_BUCKET_NAME');
+  alias('GOOGLE_CLOUD_PROJECT', 'GCS_PROJECT_ID');
 }
 
 /**

@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import { readGenerationJob } from '@/lib/runtimePatronStore';
-import { resolveAppRoot } from '@/lib/patronPackReady';
+import { readGenerationJobDb } from '@/lib/runtimePatronStore';
+import { buildGcsPublicUrl, getGcsBucketName } from '@/lib/gcsStorage';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-function repoRoot() {
-  return resolveAppRoot(process.cwd());
-}
-
-/**
- * FS94 — Poll join generation job.
- * GET ?jobId=
- */
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -19,10 +12,18 @@ export async function GET(req: Request) {
     if (!jobId) {
       return NextResponse.json({ error: 'jobId is required' }, { status: 400 });
     }
-    const job = readGenerationJob(repoRoot(), jobId);
+
+    const job = await readGenerationJobDb(jobId);
     if (!job) {
       return NextResponse.json({ error: 'job not found' }, { status: 404 });
     }
+
+    const bucket = getGcsBucketName();
+    const sitSrc =
+      job.status === 'done'
+        ? buildGcsPublicUrl(bucket, `patrons/${job.characterId}/sit.png`)
+        : null;
+
     return NextResponse.json({
       ok: true,
       jobId: job.jobId,
@@ -36,10 +37,7 @@ export async function GET(req: Request) {
       statusMessage: job.statusMessage ?? null,
       error: job.error ?? null,
       logTail: job.logTail ?? null,
-      sitSrc:
-        job.status === 'done'
-          ? `/api/patrons/assets/${job.characterId}/sit.png`
-          : null,
+      sitSrc,
       updatedAt: job.updatedAt,
     });
   } catch (e: unknown) {
