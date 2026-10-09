@@ -196,6 +196,7 @@ export async function installPackFromStagingDir(
         sit: sitJob?.installSrc,
         talk: talkJob?.installSrc,
         walks: walkJobs.map((r) => r.installSrc),
+        personality: path.join(root, 'personality.txt'),
       });
       written.cloudUrls = cloudUrls;
       console.log(`  GCS upload OK for "${characterId}"`);

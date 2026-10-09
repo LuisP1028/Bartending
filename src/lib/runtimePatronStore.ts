@@ -12,6 +12,8 @@ export interface RuntimePatronRecord {
   id: string;
   displayName: string;
   personality: string;
+  aboutMe?: string;
+  promptReady?: boolean;
   walkFrameCount: number;
   walkFrameMs: number;
   sitUrl?: string;
@@ -57,6 +59,8 @@ export async function readRuntimePatronsDb(): Promise<RuntimePatronRecord[]> {
     id: string;
     display_name: string;
     personality: string;
+    about_me: string | null;
+    prompt_ready: boolean | null;
     walk_frame_count: number;
     walk_frame_ms: number;
     sit_url: string;
@@ -78,6 +82,8 @@ export async function readRuntimePatronsDb(): Promise<RuntimePatronRecord[]> {
     id: row.id,
     displayName: row.display_name,
     personality: row.personality,
+    aboutMe: row.about_me ?? undefined,
+    promptReady: row.prompt_ready ?? false,
     walkFrameCount: row.walk_frame_count,
     walkFrameMs: row.walk_frame_ms,
     sitUrl: row.sit_url,
@@ -96,6 +102,8 @@ export async function upsertRuntimePatronDb(record: {
   id: string;
   displayName: string;
   personality: string;
+  aboutMe?: string;
+  promptReady?: boolean;
   walkFrameCount?: number;
   walkFrameMs?: number;
   sitUrl: string;
@@ -111,12 +119,14 @@ export async function upsertRuntimePatronDb(record: {
 
   await query(
     `INSERT INTO patrons (
-      id, display_name, personality, walk_frame_count, walk_frame_ms,
+      id, display_name, personality, about_me, prompt_ready, walk_frame_count, walk_frame_ms,
       sit_url, talk_url, walk_01_url, walk_02_url, source_url, is_ready, is_active, updated_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, TRUE, NOW())
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE, TRUE, NOW())
     ON CONFLICT (id) DO UPDATE SET
       display_name = EXCLUDED.display_name,
       personality = EXCLUDED.personality,
+      about_me = EXCLUDED.about_me,
+      prompt_ready = EXCLUDED.prompt_ready,
       walk_frame_count = EXCLUDED.walk_frame_count,
       walk_frame_ms = EXCLUDED.walk_frame_ms,
       sit_url = EXCLUDED.sit_url,
@@ -131,6 +141,8 @@ export async function upsertRuntimePatronDb(record: {
       record.id,
       record.displayName,
       record.personality,
+      record.aboutMe || null,
+      record.promptReady ?? false,
       record.walkFrameCount ?? 2,
       record.walkFrameMs ?? 120,
       record.sitUrl,

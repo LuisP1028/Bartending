@@ -61,6 +61,8 @@ export async function ensureSchema(): Promise<void> {
           id VARCHAR(255) PRIMARY KEY,
           display_name VARCHAR(255) NOT NULL,
           personality VARCHAR(255) NOT NULL,
+          about_me TEXT,
+          prompt_ready BOOLEAN NOT NULL DEFAULT FALSE,
           walk_frame_count INT NOT NULL DEFAULT 2,
           walk_frame_ms INT NOT NULL DEFAULT 120,
           sit_url TEXT NOT NULL,
@@ -73,6 +75,9 @@ export async function ensureSchema(): Promise<void> {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        ALTER TABLE patrons ADD COLUMN IF NOT EXISTS about_me TEXT;
+        ALTER TABLE patrons ADD COLUMN IF NOT EXISTS prompt_ready BOOLEAN NOT NULL DEFAULT FALSE;
 
         CREATE INDEX IF NOT EXISTS idx_patrons_active_ready ON patrons(is_active, is_ready);
         CREATE INDEX IF NOT EXISTS idx_patrons_created_at ON patrons(created_at);

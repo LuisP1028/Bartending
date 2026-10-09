@@ -1,0 +1,15 @@
+public/assets/patrons/caesar_9aea2cd1a4bf32d6/personality.txt
+public/assets/patrons/patron_elder/personality.txt
+public/assets/patrons/trump_ca36306f5c662816/personality.txt
+scripts/patron-pipeline/generate-patron-assets.mjs
+scripts/patron-pipeline/lib/gcsStorage.mjs
+scripts/patron-pipeline/lib/patronFolder.mjs
+scripts/patron-pipeline/lib/writeAssets.mjs
+src/app/api/patrons/assets/[characterId]/[file]/route.ts
+src/app/api/patrons/register/route.ts
+src/components/PatronSignupForm.tsx
+src/data/characterDialogue.ts
+src/lib/db.ts
+src/lib/gcsStorage.ts
+src/lib/patronFolders.ts
+src/lib/runtimePatronStore.ts

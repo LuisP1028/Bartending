@@ -123,10 +123,21 @@ export async function uploadPatronAssetsToGcs(characterId, filePaths) {
     );
   }
 
+  let personalityUrl = undefined;
+  const personalityPath = filePaths.personality || (filePaths.sit ? path.join(path.dirname(filePaths.sit), 'personality.txt') : null);
+  if (personalityPath && fs.existsSync(personalityPath)) {
+    personalityUrl = await uploadFileToGcs(
+      personalityPath,
+      `patrons/${characterId}/personality.txt`,
+      'text/plain; charset=utf-8'
+    );
+  }
+
   return {
     sitUrl,
     talkUrl,
     walkUrls,
     sourceUrl,
+    personalityUrl,
   };
 }

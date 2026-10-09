@@ -93,6 +93,7 @@ export interface PatronCloudPackUrls {
   walk01Url: string;
   walk02Url: string;
   sourceUrl?: string;
+  personalityUrl?: string;
 }
 
 export async function uploadPatronPackToGcs(
@@ -103,6 +104,7 @@ export async function uploadPatronPackToGcs(
     walk_01: string;
     walk_02: string;
     source?: string;
+    personality?: string;
   }
 ): Promise<PatronCloudPackUrls> {
   const sitUrl = await uploadFileToGcs(
@@ -137,11 +139,24 @@ export async function uploadPatronPackToGcs(
     );
   }
 
+  const personalityPath =
+    localPaths.personality ||
+    path.join(path.dirname(localPaths.sit), 'personality.txt');
+  let personalityUrl: string | undefined = undefined;
+  if (fs.existsSync(personalityPath)) {
+    personalityUrl = await uploadFileToGcs(
+      personalityPath,
+      `patrons/${characterId}/personality.txt`,
+      'text/plain; charset=utf-8'
+    );
+  }
+
   return {
     sitUrl,
     talkUrl,
     walk01Url,
     walk02Url,
     sourceUrl,
+    personalityUrl,
   };
 }

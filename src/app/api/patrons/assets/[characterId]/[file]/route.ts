@@ -22,6 +22,7 @@ const ALLOWED = new Set([
   'source.jpeg',
   'source.png',
   'source.webp',
+  'personality.txt',
 ]);
 
 type Ctx = { params: Promise<{ characterId: string; file: string }> };
@@ -76,7 +77,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     }
 
     const buf = fs.readFileSync(filePath);
-    if (buf.length < 8) {
+    if (name === 'personality.txt' ? buf.length === 0 : buf.length < 8) {
       return NextResponse.json({ error: 'empty' }, { status: 404 });
     }
     // Reject LFS pointer text
@@ -88,20 +89,26 @@ export async function GET(_req: Request, ctx: Ctx) {
     const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
     const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
     const isWebp = buf.length > 12 && buf.toString('ascii', 0, 4) === 'RIFF';
-    const type = isPng
-      ? 'image/png'
-      : isJpeg
-        ? 'image/jpeg'
-        : isWebp
-          ? 'image/webp'
-          : 'application/octet-stream';
+
+    let type = 'application/octet-stream';
+    let cacheControl = 'no-store';
+    if (name === 'personality.txt') {
+      type = 'text/plain; charset=utf-8';
+      cacheControl = 'public, max-age=3600, must-revalidate';
+    } else if (isPng) {
+      type = 'image/png';
+    } else if (isJpeg) {
+      type = 'image/jpeg';
+    } else if (isWebp) {
+      type = 'image/webp';
+    }
 
     return new NextResponse(buf, {
       status: 200,
       headers: {
         'Content-Type': type,
         'Content-Length': String(buf.length),
-        'Cache-Control': 'no-store',
+        'Cache-Control': cacheControl,
       },
     });
   } catch (e: unknown) {

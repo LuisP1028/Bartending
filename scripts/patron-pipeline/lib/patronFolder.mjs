@@ -16,6 +16,7 @@ import path from 'path';
  *   displayName: string,
  *   contactHash: string,
  *   contactKind?: string,
+ *   aboutMe?: string,
  * }} identity
  * @param {{ createStaging?: boolean, createPublic?: boolean }} [opts]
  */
@@ -42,6 +43,7 @@ export function ensurePatronFolders(repoRoot, identity, opts = {}) {
     displayName: identity.displayName,
     contactHash: identity.contactHash,
     contactKind: identity.contactKind || null,
+    aboutMe: identity.aboutMe || undefined,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -52,6 +54,7 @@ export function ensurePatronFolders(repoRoot, identity, opts = {}) {
       meta.createdAt = prev.createdAt || meta.createdAt;
       // preserve displayName updates
       meta.displayName = identity.displayName || prev.displayName;
+      meta.aboutMe = identity.aboutMe || prev.aboutMe || meta.aboutMe;
     } catch {
       /* replace */
     }
@@ -65,6 +68,23 @@ export function ensurePatronFolders(repoRoot, identity, opts = {}) {
       JSON.stringify(meta, null, 2),
       'utf8'
     );
+  }
+
+  if (identity.aboutMe !== undefined && identity.aboutMe !== null) {
+    if (createPublic) {
+      fs.writeFileSync(
+        path.join(publicDir, 'personality.txt'),
+        identity.aboutMe,
+        'utf8'
+      );
+    }
+    if (createStaging) {
+      fs.writeFileSync(
+        path.join(stagingDir, 'personality.txt'),
+        identity.aboutMe,
+        'utf8'
+      );
+    }
   }
 
   return { publicDir, stagingDir, metaPath, meta };

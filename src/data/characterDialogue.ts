@@ -3,6 +3,8 @@
  * No network calls here — routing data only.
  */
 
+import fs from 'fs';
+import path from 'path';
 import { getCharacterPersonality } from './characters';
 
 /**
@@ -30,10 +32,37 @@ export function resolveSystemPromptForPersonality(
   return prompt && prompt.length > 0 ? prompt : null;
 }
 
+export function loadCharacterPromptFile(
+  characterId: string,
+  repoRoot: string = process.cwd()
+): string | null {
+  const filePath = path.join(
+    repoRoot,
+    'public/assets/patrons',
+    characterId,
+    'personality.txt'
+  );
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf8').trim();
+      if (content.length > 0) return content;
+    }
+  } catch {
+    /* fall through to catalog */
+  }
+  return null;
+}
+
 /** characterId → personality → system prompt (for LLM node wiring). */
 export function resolveSystemPromptForCharacterId(
-  characterId: string
+  characterId: string,
+  repoRoot?: string
 ): string | null {
+  // 1. Authoritative file-backed prompt
+  const filePrompt = loadCharacterPromptFile(characterId, repoRoot);
+  if (filePrompt) return filePrompt;
+
+  // 2. Static catalog fallback
   const personality = getCharacterPersonality(characterId);
   return resolveSystemPromptForPersonality(personality);
 }

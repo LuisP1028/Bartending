@@ -82,6 +82,7 @@ function parseArgs(argv) {
     name: null,
     email: null,
     phone: null,
+    aboutMe: null,
     prepare: false,
     install: false,
     generate: false,
@@ -111,6 +112,9 @@ function parseArgs(argv) {
         break;
       case '--phone':
         out.phone = next();
+        break;
+      case '--about-me':
+        out.aboutMe = next();
         break;
       case '--character-id':
         out.characterId = next();
@@ -399,7 +403,10 @@ function runPrepare(args) {
   requireWalkTemplatePath(REPO_ROOT);
 
   const { characterId, identity } = resolveIdentityForArgs(args, photoPath);
-  const folders = ensurePatronFolders(REPO_ROOT, identity);
+  const folders = ensurePatronFolders(REPO_ROOT, {
+    ...identity,
+    aboutMe: args.aboutMe,
+  });
   const stagingDir = args.fromDir
     ? path.resolve(args.fromDir)
     : folders.stagingDir;
@@ -516,7 +523,10 @@ async function runFull(args) {
   ).toLowerCase();
 
   const { characterId, identity } = resolveIdentityForArgs(args, photoPath);
-  const folders = ensurePatronFolders(REPO_ROOT, identity);
+  const folders = ensurePatronFolders(REPO_ROOT, {
+    ...identity,
+    aboutMe: args.aboutMe,
+  });
   const stagingDir = args.fromDir
     ? path.resolve(args.fromDir)
     : folders.stagingDir;
@@ -583,7 +593,12 @@ async function runFull(args) {
   for (const p of written) console.log(`  OK ${p}`);
 
   if (written.cloudUrls) {
-    await maybeUpsertPostgresPatron(characterId, identity, written.cloudUrls);
+    await maybeUpsertPostgresPatron(
+      characterId,
+      identity,
+      written.cloudUrls,
+      args.aboutMe
+    );
   }
 
   if (!args.noRegister) {
@@ -604,7 +619,12 @@ async function runFull(args) {
   return { characterId, stagingDir, publicDir: folders.publicDir, written };
 }
 
-async function maybeUpsertPostgresPatron(characterId, identity, cloudUrls) {
+async function maybeUpsertPostgresPatron(
+  characterId,
+  identity,
+  cloudUrls,
+  aboutMe
+) {
   const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   const hasPgEnv = connectionString || process.env.PGHOST;
   if (!hasPgEnv || !cloudUrls || !cloudUrls.sitUrl) return;
@@ -631,12 +651,14 @@ async function maybeUpsertPostgresPatron(characterId, identity, cloudUrls) {
       const personality = `${characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`;
       await pool.query(
         `INSERT INTO patrons (
-          id, display_name, personality, walk_frame_count, walk_frame_ms,
+          id, display_name, personality, about_me, prompt_ready, walk_frame_count, walk_frame_ms,
           sit_url, talk_url, walk_01_url, walk_02_url, source_url, is_ready, is_active, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, TRUE, NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, TRUE, TRUE, NOW())
         ON CONFLICT (id) DO UPDATE SET
           display_name = EXCLUDED.display_name,
           personality = EXCLUDED.personality,
+          about_me = EXCLUDED.about_me,
+          prompt_ready = EXCLUDED.prompt_ready,
           walk_frame_count = EXCLUDED.walk_frame_count,
           walk_frame_ms = EXCLUDED.walk_frame_ms,
           sit_url = EXCLUDED.sit_url,
@@ -651,6 +673,8 @@ async function maybeUpsertPostgresPatron(characterId, identity, cloudUrls) {
           characterId,
           identity.displayName,
           personality,
+          aboutMe || null,
+          true,
           2,
           120,
           cloudUrls.sitUrl,

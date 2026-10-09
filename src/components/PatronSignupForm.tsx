@@ -63,6 +63,7 @@ export default function PatronSignupForm({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [aboutMe, setAboutMe] = useState('');
   const [runPipeline, setRunPipeline] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +84,19 @@ export default function PatronSignupForm({
       setError('Email or phone is required');
       return;
     }
+    const trimmedBio = aboutMe.trim();
+    if (!trimmedBio) {
+      setError('About Me personality bio is required');
+      return;
+    }
+    if (trimmedBio.length < 10) {
+      setError('About Me bio must be at least 10 characters long');
+      return;
+    }
+    if (aboutMe.length > 500) {
+      setError('About Me bio cannot exceed 500 characters');
+      return;
+    }
     if (runPipeline && !photo) {
       setError('Photo required when generating art');
       return;
@@ -92,6 +106,7 @@ export default function PatronSignupForm({
     body.set('name', name.trim());
     if (email.trim()) body.set('email', email.trim());
     if (phone.trim()) body.set('phone', phone.trim());
+    body.set('aboutMe', trimmedBio);
     if (runPipeline) body.set('runPipeline', '1');
     if (photo) body.set('photo', photo);
 
@@ -123,6 +138,7 @@ export default function PatronSignupForm({
         displayName: data.displayName,
         sitSrc: data.sitSrc,
       });
+      setAboutMe('');
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -189,6 +205,29 @@ export default function PatronSignupForm({
             onChange={(e) => setPhone(e.target.value)}
             autoComplete="tel"
           />
+        </label>
+        <label style={labelStyle}>
+          About Me (Personality & Tone) *
+          <textarea
+            style={{
+              ...inputStyle,
+              minHeight: 72,
+              maxHeight: 140,
+              resize: 'vertical',
+              fontFamily: 'inherit',
+              fontSize: '0.85rem',
+              lineHeight: 1.35,
+            }}
+            value={aboutMe}
+            onChange={(e) => setAboutMe(e.target.value)}
+            placeholder="e.g. Grumpy retired sailor who loves bitter drinks and speaks in short, dry remarks..."
+            maxLength={500}
+            required
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', opacity: 0.75 }}>
+            <span>Describe persona, tone, quirks, or cocktail preferences</span>
+            <span>{aboutMe.length}/500</span>
+          </div>
         </label>
         <label style={labelStyle}>
           Selfie / photo

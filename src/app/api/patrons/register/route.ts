@@ -37,6 +37,8 @@ export async function POST(req: Request) {
     const name = String(form.get('name') || '').trim();
     const email = String(form.get('email') || '').trim() || null;
     const phone = String(form.get('phone') || '').trim() || null;
+    const rawAboutMe = form.get('aboutMe') ?? form.get('about_me');
+    const aboutMe = typeof rawAboutMe === 'string' ? rawAboutMe.trim() : '';
     const runPipeline =
       String(form.get('runPipeline') || '') === '1' ||
       String(form.get('runPipeline') || '').toLowerCase() === 'true';
@@ -51,10 +53,28 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    if (!aboutMe) {
+      return NextResponse.json(
+        { error: 'aboutMe is required' },
+        { status: 400 }
+      );
+    }
+    if (aboutMe.length < 10) {
+      return NextResponse.json(
+        { error: 'aboutMe must be at least 10 characters long' },
+        { status: 400 }
+      );
+    }
+    if (aboutMe.length > 500) {
+      return NextResponse.json(
+        { error: 'aboutMe cannot exceed 500 characters' },
+        { status: 400 }
+      );
+    }
 
     const identity = resolvePatronIdentity({ name, email, phone });
     const root = repoRoot();
-    const folders = ensurePatronFolders(root, identity);
+    const folders = ensurePatronFolders(root, { ...identity, aboutMe });
 
     // Persist Contact PII to PostgreSQL
     let pii: { inserted: boolean; contactHash: string } | null = null;
@@ -182,6 +202,8 @@ export async function POST(req: Request) {
       '--character-id',
       identity.characterId,
       '--no-register',
+      '--about-me',
+      aboutMe,
       ...(email ? ['--email', email] : []),
       ...(phone ? ['--phone', phone] : []),
     ];
@@ -338,12 +360,15 @@ export async function POST(req: Request) {
             walk_01: path.join(stagingDir, 'walk_01.nobg.png'),
             walk_02: path.join(stagingDir, 'walk_02.nobg.png'),
             source: photoPath || undefined,
+            personality: path.join(stagingDir, 'personality.txt'),
           });
 
           await upsertRuntimePatronDb({
             id: identity.characterId,
             displayName: identity.displayName,
             personality: `${identity.characterId.replace(/^patron_/, '').replace(/[^a-z0-9]+/gi, '_')}_friendly`,
+            aboutMe,
+            promptReady: true,
             walkFrameCount: 2,
             walkFrameMs: 120,
             sitUrl: cloudUrls.sitUrl,
