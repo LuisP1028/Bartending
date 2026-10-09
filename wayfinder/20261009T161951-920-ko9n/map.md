@@ -22,9 +22,10 @@ Establish a complete, deterministic, and verified decision set detailing every a
 - [Patron Seated State Persistence & Asset Switching (ticket-004.md)](./tickets/ticket-004.md) — Enforce immutability of `phase === 'seated'` so seated patrons permanently display their stationary bust asset (`inst.def.sitSrc`) at counter anchor coordinates (`inst.sitPoint`) without spontaneously reverting to walking animations or being re-spawned upon.
 - [In-Place Drawer & Carousel Presentation (Zero Stage Translation) (ticket-005.md)](./tickets/ticket-005.md) — Lock `stagePan` to `{ x: 0, y: 0 }`, remove `shellStagePan` displacement logic on carousel activation, and neutralize CSS transforms on `.gb-shell__playfield .pov-stage` to guarantee strictly `0px` displacement of the underlying bar stage when opening, browsing, or closing equipment drawers.
 - [Fixed HUD, Status Element & Receipt Alignment (ticket-006.md)](./tickets/ticket-006.md) — Decouple `shellHudNudge` from drawer toggle events so HUD status banners, jigger controls, and receipt printer hardware remain anchored to fixed glass and stage coordinates with zero jitter or coordinate drift.
+- [FS100 Integration Test Decision Mapping, Payload Admissibility Governance & Master Verification Protocol (ticket-007.md)](./tickets/ticket-007.md) — Map integration test decisions, authentic codebase schemas, and admissible observed payloads across `src/app/gameboy-shell.css`, `src/components/PatronLayer.tsx`, and `src/app/page.tsx`, locking test matrices to specification oracles AC1–AC6 under zero-mock invariants.
 
 ## Not yet specified
-*(None. All architectural, styling, and state machine decisions required for FS100 are fully specified and locked across decision tickets ticket-001.md through ticket-006.md and required_edits_100.md).*
+*(None. All architectural, styling, state machine, and integration test decisions required for FS100 are fully specified and locked across decision tickets ticket-001.md through ticket-007.md, required_edits_100.md, and test_matrix_100.md).*
 
 ## Out of scope
 - Implementation of new cocktail recipes, drink methods, or inventory items beyond current mode definitions.
