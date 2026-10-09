@@ -10,7 +10,7 @@ Establish a complete, deterministic, and verified decision set detailing every a
 - **Primary Skills Consulted:** `/wayfinder`, `/functionality-understanding-check`, `/documentation-sufficient?`
 - **Core Invariants:**
   - `INV-BOUNDARY-01`: No implementation code written during planning; output files omit coding prohibitions and downstream execution holds.
-  - `INV-MAP-01`: Monotonic ticketing in run directory (`ticket-001.md` to `ticket-006.md`); human-readable titles used throughout.
+  - `INV-MAP-01`: Monotonic ticketing in run directory (`ticket-001.md` to `ticket-007.md`); human-readable titles used throughout.
   - `INV-ATOMIC-01`: Discrete, atomic decision tickets resolving one architectural question each.
   - `INV-FAILFAST-01`: Fail fast without silent fallbacks, hack patches, or arbitrary timeouts.
   - `INV-HANDOFF-01`: Deterministic manifest overwrite at `handoff/20261009T150513-263-v0ev/wayfinder-read-and-plan.txt`.
@@ -22,9 +22,10 @@ Establish a complete, deterministic, and verified decision set detailing every a
 - [Local Static & Dynamic Asset Serving and Zero-Ghost Integrity (ticket-004.md)](./tickets/ticket-004.md) — Serve all built-in game media (boot video, synthwave backgrounds, audio, glassware) and dynamic patron sprite packs through local endpoints (`/assets/*` and `/api/patrons/assets/*`), strictly enforcing 4-file ready-pack verification (`sit.png`, `talk.png`, `walk_01.png`, `walk_02.png`) to prevent ghost patrons from entering the bar stage.
 - [Local Camera Uplink & Missing Key Graceful Degradation (ticket-005.md)](./tickets/ticket-005.md) — Rely on native browser secure origin permissions for `getUserMedia` on `localhost`, and enforce graceful degradation where absence of external AI credentials (`XAI_API_KEY`, `PII_ENCRYPTION_KEY`) produces clear UI status alerts while keeping core bartending gameplay, stock patrons, and local drink mixing fully operational.
 - [Local Runtime Verification Protocol & Subsystem Smoke Test (ticket-006.md)](./tickets/ticket-006.md) — Define an end-to-end local runtime verification protocol covering all five functional subsystems (Boot Intro -> Main Menu -> Bar Playfield -> Bartending Mechanics -> Comm-Link) to certify operational readiness before gameplay or aesthetic changes are introduced.
+- [Presentation Shell Integration Testing, Target Resolution Matrix & Local Permissive Delegation (ticket-007.md)](./tickets/ticket-007.md) — Define the comprehensive integration test decision set for the decoupled presentation shell (`docs/index.html`), specifying admissible URL and DOM input schemas, deterministic target resolution rules, iframe permission delegation contracts, remote endpoint zero-leakage assertions, and zero-mock verification boundaries without writing test code.
 
 ## Not yet specified
-*(None. All architectural decisions required for FS99 are fully specified and locked across decision tickets ticket-001.md through ticket-006.md).*
+*(None. All architectural, implementation, and integration test decisions required for FS99 are fully specified and locked across decision tickets ticket-001.md through ticket-007.md and test_matrix_99.md).*
 
 ## Out of scope
 - Implementation of new bartending drink recipes or cocktail mechanics beyond existing mode definitions (`OBELISCO`, `CLASSICS`).
