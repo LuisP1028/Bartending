@@ -1,6 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import {
   characterToPatronDef,
@@ -13,6 +21,7 @@ import {
   type RuntimePatronPublic,
 } from '@/data/runtimePatrons';
 import {
+  AUTHORITATIVE_GROUND_Y,
   AUTHORITATIVE_SPAWN_ORIGIN,
   STANDARDIZED_PATRON_SCALE,
   buildWalkPath,
@@ -37,7 +46,8 @@ export type PatronSeatInput = {
   d: string;
 };
 
-type Phase = 'walking' | 'seated';
+export type Phase = 'walking' | 'seated' | 'leaving';
+export type PatronPhase = Phase;
 
 type PatronInstance = {
   instanceKey: string;
@@ -59,11 +69,16 @@ type MotionClock = {
   frameMs: number;
 };
 
+export interface PatronLayerHandle {
+  departSeat: (seatId: string) => boolean;
+}
+
 type PatronLayerProps = {
   seats: PatronSeatInput[];
   layoutOverrides?: Record<string, PatronLayout>;
   barCutoffD?: string;
   editMode?: boolean;
+  highlightedSeatId?: string | null;
   onSitComplete?: (info: {
     instanceKey: string;
     characterId: string;
@@ -77,7 +92,10 @@ function freeSeats(
   instances: PatronInstance[]
 ): PatronSeatInput[] {
   const taken = new Set(
-    instances.map((i) => i.seatId).filter((id) => Boolean(id))
+    instances
+      .filter((i) => i.phase === 'seated' || i.phase === 'walking')
+      .map((i) => i.seatId)
+      .filter((id) => Boolean(id))
   );
   return seats.filter(
     (s) =>
@@ -132,6 +150,20 @@ function buildEntryForSeat(
   return { walkPath, sitPoint, seatId: seat.zoneId };
 }
 
+function buildDeparturePath(
+  sitPoint: StagePoint,
+  layout: PatronLayout
+): StagePoint[] {
+  const groundY = AUTHORITATIVE_GROUND_Y; // 659
+  const startPoint: StagePoint = { x: sitPoint.x, y: groundY };
+  const endPoint: StagePoint = { ...AUTHORITATIVE_SPAWN_ORIGIN }; // 143, 659
+  const reversedWps = (layout.waypoints ?? [])
+    .slice()
+    .reverse()
+    .map((p) => ({ x: p.x, y: groundY }));
+  return [startPoint, ...reversedWps, endPoint];
+}
+
 let keySeq = 0;
 function nextInstanceKey(): string {
   keySeq += 1;
@@ -139,19 +171,24 @@ function nextInstanceKey(): string {
 }
 
 /**
- * FS83/85 multi-patron layer.
+ * FS83/85/110 multi-patron layer.
  * Exclusivity: living ≤ seats; one per seat; unique character ids.
  * Motion: single rAF driver advances all walkers each frame (future-proof; no last-write-wins).
- * Leave can join the same driver later as phase `leaving`.
+ * Leave joins the same driver as phase `leaving`.
  */
-export default function PatronLayer({
-  seats,
-  layoutOverrides = {},
-  barCutoffD = '',
-  editMode = false,
-  onSitComplete,
-  onServeDrinkToSeat,
-}: PatronLayerProps) {
+const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
+  function PatronLayer(
+    {
+      seats,
+      layoutOverrides = {},
+      barCutoffD = '',
+      editMode = false,
+      highlightedSeatId = null,
+      onSitComplete,
+      onServeDrinkToSeat,
+    },
+    ref
+  ) {
   const layerRef = useRef<HTMLDivElement>(null);
   const [layerSize, setLayerSize] = useState({ w: 0, h: 0 });
   const [instances, setInstances] = useState<PatronInstance[]>([]);
@@ -299,7 +336,46 @@ export default function PatronLayer({
           let changed = false;
 
           const next = prev.map((p) => {
-            if (p.phase !== 'walking') return p;
+            if (p.phase === 'seated') return p;
+
+            if (p.phase === 'leaving') {
+              let clock = motionClockRef.current.get(p.instanceKey);
+              if (!clock) {
+                const walkDuration = Math.max(400, p.layout.walkMs || 2400);
+                const frameDuration = Math.max(60, p.def.walkFrameMs || 120);
+                clock = {
+                  startMs: now,
+                  walkMs: walkDuration,
+                  frameMs: frameDuration,
+                };
+                motionClockRef.current.set(p.instanceKey, clock);
+              }
+
+              const elapsed = Math.max(0, now - clock.startMs);
+              const walkMs = clock.walkMs > 0 ? clock.walkMs : 2400;
+              const t = Math.min(1, elapsed / walkMs);
+              const nFrames = Math.max(p.def.walkFrames.length, 1);
+              const frameMs = clock.frameMs > 0 ? clock.frameMs : 120;
+              const forwardIdx = Math.floor(elapsed / frameMs) % nFrames;
+              const reversedIdx = (nFrames - 1) - forwardIdx;
+
+              if (t < 1 && elapsed < walkMs) {
+                stillWalking = true;
+                if (
+                  Math.abs(p.t - t) < 0.0001 &&
+                  p.walkFrameIndex === reversedIdx
+                ) {
+                  return p;
+                }
+                changed = true;
+                return { ...p, t, walkFrameIndex: reversedIdx };
+              }
+
+              // Finished departure walk -> Clean Despawn
+              changed = true;
+              motionClockRef.current.delete(p.instanceKey);
+              return null;
+            }
 
             let clock = motionClockRef.current.get(p.instanceKey);
             if (!clock) {
@@ -343,9 +419,11 @@ export default function PatronLayer({
             };
           });
 
+          const filteredNext = next.filter(Boolean) as PatronInstance[];
+
           // Drop orphan clocks (no matching living instance)
           for (const key of [...motionClockRef.current.keys()]) {
-            if (!next.some((p) => p.instanceKey === key)) {
+            if (!filteredNext.some((p) => p.instanceKey === key)) {
               motionClockRef.current.delete(key);
             }
           }
@@ -354,8 +432,8 @@ export default function PatronLayer({
             instancesRef.current = prev;
             return prev;
           }
-          instancesRef.current = next;
-          return next;
+          instancesRef.current = filteredNext;
+          return filteredNext;
         });
       });
 
@@ -399,7 +477,10 @@ export default function PatronLayer({
     if (!seatList.length) return;
 
     const snapshot = instancesRef.current;
-    if (snapshot.length >= seatList.length) return;
+    const activePatrons = snapshot.filter(
+      (p) => p.phase === 'walking' || p.phase === 'seated'
+    );
+    if (activePatrons.length >= seatList.length) return;
 
     const free = freeSeats(seatList, snapshot);
     if (!free.length) return;
@@ -445,8 +526,11 @@ export default function PatronLayer({
     // flushSync: functional claim runs now so state updates synchronously
     flushSync(() => {
       setInstances((prev) => {
+        const activeCount = prev.filter(
+          (p) => p.phase === 'walking' || p.phase === 'seated'
+        ).length;
         if (
-          prev.length >= seatList.length ||
+          activeCount >= seatList.length ||
           prev.some((p) => p.seatId === built.seatId) ||
           prev.some((p) => p.characterId === characterId) ||
           prev.some((p) => p.instanceKey === instanceKey)
@@ -469,6 +553,59 @@ export default function PatronLayer({
 
     ensureMotionDriver();
   }, [editMode, ensureMotionDriver]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      departSeat: (seatId: string) => {
+        let found = false;
+        flushSync(() => {
+          setInstances((prev) => {
+            const next = prev.map((inst) => {
+              if (inst.seatId === seatId && inst.phase === 'seated') {
+                found = true;
+                const departurePath = buildDeparturePath(
+                  inst.sitPoint,
+                  inst.layout
+                );
+                const walkMs = Math.max(400, inst.layout.walkMs || 2400);
+                const frameMs = Math.max(60, inst.def.walkFrameMs || 120);
+
+                motionClockRef.current.set(inst.instanceKey, {
+                  startMs: performance.now(),
+                  walkMs,
+                  frameMs,
+                });
+
+                return {
+                  ...inst,
+                  phase: 'leaving' as const,
+                  seatId: '', // Stool is immediately vacated
+                  walkPath: departurePath,
+                  t: 0,
+                  flipX: true,
+                  walkFrameIndex: (inst.def.walkFrames.length || 1) - 1,
+                };
+              }
+              return inst;
+            });
+            instancesRef.current = next;
+            return next;
+          });
+        });
+
+        if (found) {
+          ensureMotionDriver();
+          // Trigger immediate turnover spawn
+          window.setTimeout(() => {
+            trySpawn();
+          }, 50);
+        }
+        return found;
+      },
+    }),
+    [ensureMotionDriver, trySpawn]
+  );
 
   const trySpawnRef = useRef(trySpawn);
   trySpawnRef.current = trySpawn;
@@ -529,6 +666,9 @@ export default function PatronLayer({
     >
       {instances.map((inst) => {
         const isSeated = inst.phase === 'seated';
+        const isLeaving = inst.phase === 'leaving';
+        const isHighlighted = isSeated && highlightedSeatId === inst.seatId;
+
         const pos = isSeated
           ? inst.sitPoint
           : pointAlongPath(inst.walkPath, inst.t);
@@ -554,7 +694,9 @@ export default function PatronLayer({
           <img
             key={inst.instanceKey}
             className={`pov-patron-sprite${
-              isSeated ? ' pov-patron-sprite--sit' : ' pov-patron-sprite--walk'
+              isSeated
+                ? ` pov-patron-sprite--sit${isHighlighted ? ' pov-patron-sprite--candidate-target' : ''}`
+                : ' pov-patron-sprite--walk'
             }`}
             src={src}
             alt=""
@@ -569,6 +711,7 @@ export default function PatronLayer({
               transform: `translate(-50%, -100%)${
                 inst.flipX ? ' scaleX(-1)' : ''
               }`,
+              ...(isLeaving ? { pointerEvents: 'none' as const } : {}),
             }}
             onDragOver={
               isSeated
@@ -598,4 +741,6 @@ export default function PatronLayer({
       })}
     </div>
   );
-}
+});
+
+export default PatronLayer;

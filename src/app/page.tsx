@@ -40,7 +40,7 @@ import DrinkBuildCard from '@/components/DrinkBuildCard';
 import {
   pathWithStoredOffset,
 } from '@/components/HotspotPlacementEditor';
-import PatronLayer from '@/components/PatronLayer';
+import PatronLayer, { type PatronLayerHandle } from '@/components/PatronLayer';
 import RetroRpgDialogueBox from '@/components/RetroRpgDialogueBox';
 import { requireCharacter } from '@/data/characters';
 import { talkSrcForCharacter, sitSrcForCharacter } from '@/data/patronAssetPaths';
@@ -72,6 +72,7 @@ import {
   ReceiptStageOverlay,
   ReceiptToolbar,
   useReceiptStageFlags,
+  type PatronReceiptMeta,
 } from '@/components/receipt/ReceiptSystem';
 import MoneyFanoutFlyby from '@/components/receipt/MoneyFanoutFlyby';
 
@@ -134,14 +135,49 @@ function PovStageShell({
   );
 }
 
+export type PatronOrderStatus =
+  | 'waiting'
+  | 'ordered'
+  | 'served'
+  | 'rejected'
+  | 'departing';
+
 export interface PatronSeatOrder {
   seatId: string;
   characterId: string;
   instanceKey: string;
-  recipe: CocktailRecipe;
-  orderDialogue: string | null;
-  status: 'ordered' | 'served' | 'rejected';
+  assignedRecipe: CocktailRecipe;
+  recipe: CocktailRecipe; // alias for assignedRecipe
+  orderStatus: PatronOrderStatus;
+  status: PatronOrderStatus; // alias for orderStatus
+  activeDialogue: string | null;
+  orderDialogue: string | null; // alias for activeDialogue
+  rejectionDialogue: string | null;
+  receiptInstanceId: string | null;
   timestamp: number;
+}
+
+export function createSeatOrder(
+  seatId: string,
+  characterId: string,
+  instanceKey: string,
+  assignedRecipe: CocktailRecipe,
+  receiptInstanceId: string | null = null
+): PatronSeatOrder {
+  return {
+    seatId,
+    characterId,
+    instanceKey,
+    assignedRecipe,
+    recipe: assignedRecipe,
+    orderStatus: 'waiting',
+    status: 'waiting',
+    activeDialogue: null,
+    orderDialogue: null,
+    rejectionDialogue: null,
+    receiptInstanceId,
+    timestamp: Date.now(),
+  };
 }
 
 export default function Home() {
@@ -178,7 +214,7 @@ export default function Home() {
     Record<string, SimulationState>
   >({});
   const [errors, setErrors] = useState<string[]>([]);
-  /** Per-seat patron order and dialogue state (FS109) */
+  /** Per-seat patron order and dialogue state (FS109/FS110) */
   const [seatOrders, setSeatOrders] = useState<Record<string, PatronSeatOrder>>({});
   const [rejectionDialogues, setRejectionDialogues] = useState<Record<string, string>>({});
   const [activeDialogueSeat, setActiveDialogueSeat] = useState<string | null>(null);
@@ -192,6 +228,51 @@ export default function Home() {
   const getReceiptTotalRef = useRef<
     ((instanceId: string) => number | null) | null
   >(null);
+  /** FS110: Imperative handle to PatronLayer for departures */
+  const patronLayerRef = useRef<PatronLayerHandle | null>(null);
+  /** FS110: Attach ticket on sit-complete */
+  const printAttachedTicketRef = useRef<
+    | ((
+        ticket: CocktailRecipe,
+        meta: PatronReceiptMeta
+      ) => string | null)
+    | null
+  >(null);
+  /** FS110: Lookup patron attached to a receipt */
+  const getReceiptAttachmentRef = useRef<
+    ((instanceId: string) => PatronReceiptMeta | null) | null
+  >(null);
+
+  /** FS110: Unified pointer drag and snap-back state for active cocktail vessel */
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    targetSeatId: string | null;
+    isSnappingBack: boolean;
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+    targetSeatId: null,
+    isSnappingBack: false,
+  });
+  const dragStateRef = useRef(dragState);
+  dragStateRef.current = dragState;
+
+  /** Pointer tracking ref for movement threshold and initial positions */
+  const pointerDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    initStageX: number;
+    initStageY: number;
+    moved: boolean;
+  } | null>(null);
   /** Success-validate money fanout play (FS49). */
   const [moneyFlyby, setMoneyFlyby] = useState<{
     playId: string;
@@ -273,6 +354,24 @@ export default function Home() {
       handoffExitRef.current(doneReceiptId);
     }
 
+    if (doneReceiptId && getReceiptAttachmentRef.current) {
+      const meta = getReceiptAttachmentRef.current(doneReceiptId);
+      if (meta?.seatId) {
+        setSeatOrders((prev) => {
+          if (!prev[meta.seatId]) return prev;
+          return {
+            ...prev,
+            [meta.seatId]: {
+              ...prev[meta.seatId],
+              orderStatus: 'departing',
+              status: 'departing',
+            },
+          };
+        });
+        patronLayerRef.current?.departSeat(meta.seatId);
+      }
+    }
+
     if (handoffCleanupTimerRef.current != null) {
       window.clearTimeout(handoffCleanupTimerRef.current);
     }
@@ -313,6 +412,15 @@ export default function Home() {
       }
       handoffInProgressRef.current = false;
       setVesselHandoff(false);
+      setDragState({
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        targetSeatId: null,
+        isSnappingBack: false,
+      });
       trashDrink();
       clearAllParkedBuilds();
       setActiveTicket(null);
@@ -353,6 +461,240 @@ export default function Home() {
     return new ConfiguredRestaurantMode(payloadInstance);
   }, [modePayload]);
 
+  const findCandidateSeat = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      if (!povStageRef.current) return null;
+      const sprites = povStageRef.current.querySelectorAll<HTMLElement>(
+        '.pov-patron-sprite--sit'
+      );
+      let closestSeatId: string | null = null;
+      let minDistance = Infinity;
+      const MAX_RADIUS_PX = 95;
+
+      sprites.forEach((el) => {
+        const seatId = el.getAttribute('data-seat-id');
+        if (!seatId || !seatOrders[seatId]) return;
+        if (
+          seatOrders[seatId].orderStatus !== 'waiting' &&
+          seatOrders[seatId].orderStatus !== 'ordered'
+        ) {
+          return;
+        }
+
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dist = Math.hypot(clientX - cx, clientY - cy);
+
+        if (dist < minDistance && dist <= MAX_RADIUS_PX) {
+          minDistance = dist;
+          closestSeatId = seatId;
+        }
+      });
+
+      return closestSeatId;
+    },
+    [seatOrders]
+  );
+
+  const triggerSnapBack = useCallback(() => {
+    setDragState((prev) => ({
+      ...prev,
+      isSnappingBack: true,
+      currentX: prev.startX,
+      currentY: prev.startY,
+      targetSeatId: null,
+    }));
+    window.setTimeout(() => {
+      setDragState({
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        targetSeatId: null,
+        isSnappingBack: false,
+      });
+    }, 260);
+  }, []);
+
+  const handleSuccessfulDelivery = useCallback(
+    (seatId: string, order: PatronSeatOrder) => {
+      // 1. Consume drink and reset mat (FS110 AC5)
+      trashDrink();
+      setDrinkBuildCardOpen(false);
+      setErrors([]);
+
+      // 2. Finalize attached receipt if open
+      if (order.receiptInstanceId && handoffExitRef.current) {
+        handoffExitRef.current(order.receiptInstanceId);
+      }
+
+      // Money flyby if attached receipt has a total (FS49)
+      if (order.receiptInstanceId && getReceiptTotalRef.current) {
+        const total = getReceiptTotalRef.current(order.receiptInstanceId);
+        if (
+          typeof total === 'number' &&
+          Number.isFinite(total) &&
+          Math.floor(total) > 0
+        ) {
+          setMoneyFlyby({
+            playId: `${order.receiptInstanceId}-${Date.now()}`,
+            total,
+          });
+        }
+      }
+
+      // 3. Mark order as departing
+      setSeatOrders((prev) => ({
+        ...prev,
+        [seatId]: {
+          ...prev[seatId],
+          orderStatus: 'departing',
+          status: 'departing',
+        },
+      }));
+
+      // 4. Dismiss dialogue if open
+      if (activeDialogueSeat === seatId) {
+        setActiveDialogueSeat(null);
+      }
+
+      // 5. Signal patron departure and immediate turnover spawn (FS110 AC6, AC7)
+      patronLayerRef.current?.departSeat(seatId);
+    },
+    [trashDrink, activeDialogueSeat]
+  );
+
+  const handleRejectionDelivery = useCallback(
+    (seatId: string, order: PatronSeatOrder, discrepancies: string[]) => {
+      setErrors(discrepancies);
+      setSeatOrders((prev) => ({
+        ...prev,
+        [seatId]: {
+          ...prev[seatId],
+          orderStatus: 'waiting',
+          status: 'waiting',
+        },
+      }));
+
+      // Dispatch error-aware rejection completion request to backend
+      void (async () => {
+        try {
+          const response = await fetch('/api/dialogue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'rejection',
+              characterId: order.characterId,
+              recipe: {
+                name: (order.assignedRecipe || order.recipe).name,
+                vessel: (order.assignedRecipe || order.recipe).vessel,
+                garnishes: (order.assignedRecipe || order.recipe).garnishes,
+                agitation: (order.assignedRecipe || order.recipe).agitation,
+              },
+              deliveredDrink: {
+                vessel: state.vessel,
+                ingredients: state.ingredients,
+                rim: state.rim,
+                agitation: state.agitation,
+                garnishes: state.garnishes.map((g) => g.id),
+              },
+              discrepancies,
+            }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            console.error('[DIALOGUE_ERROR] Rejection dialogue generation failed:', errData);
+            return;
+          }
+
+          const data = await response.json();
+          const rejectionText = data.dialogue;
+
+          setSeatOrders((prev) => {
+            if (!prev[seatId] || prev[seatId].instanceKey !== order.instanceKey) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [seatId]: {
+                ...prev[seatId],
+                rejectionDialogue: rejectionText,
+              },
+            };
+          });
+
+          setRejectionDialogues((prev) => ({
+            ...prev,
+            [seatId]: rejectionText,
+          }));
+          setActiveDialogueSeat(seatId);
+        } catch (err) {
+          console.error('[DIALOGUE_ERROR] Network failure fetching rejection dialogue:', err);
+        }
+      })();
+    },
+    [state]
+  );
+
+  const handleServeDrinkToSeat = useCallback(
+    async (seatId: string) => {
+      if (handoffInProgressRef.current) {
+        triggerSnapBack();
+        return;
+      }
+      if (!state.vessel) {
+        triggerSnapBack();
+        return;
+      }
+
+      const order = seatOrders[seatId];
+      if (
+        !order ||
+        (order.orderStatus !== 'waiting' && order.orderStatus !== 'ordered')
+      ) {
+        triggerSnapBack();
+        return;
+      }
+
+      // 1. Run recipe validation against this patron's assigned ticket
+      const discrepancies = mode
+        ? mode
+            .getRecipeManager()
+            .validateDrink(state, order.assignedRecipe || order.recipe)
+        : ['[ERR] No active restaurant mode'];
+
+      if (discrepancies.length === 0) {
+        // SUCCESS: Perfect drink served
+        setDragState({
+          isDragging: false,
+          startX: 0,
+          startY: 0,
+          currentX: 0,
+          currentY: 0,
+          targetSeatId: null,
+          isSnappingBack: false,
+        });
+        handleSuccessfulDelivery(seatId, order);
+        return;
+      }
+
+      // REJECTION: Invalid drink served -> Fail-fast snap-back (FS110 AC4)
+      triggerSnapBack();
+      handleRejectionDelivery(seatId, order, discrepancies);
+    },
+    [
+      state,
+      seatOrders,
+      mode,
+      triggerSnapBack,
+      handleSuccessfulDelivery,
+      handleRejectionDelivery,
+    ]
+  );
+
   const handlePatronSitComplete = useCallback(
     async (info: { instanceKey: string; characterId: string; seatId: string }) => {
       const { instanceKey, characterId, seatId } = info;
@@ -360,21 +702,37 @@ export default function Home() {
       const recipe = mode.getRecipeManager().getRandomTicket();
       if (!recipe) return;
 
-      // 1. Register order immediately in seat state
+      // Clean reset any old rejection dialogue for this seat
+      setRejectionDialogues((prev) => {
+        if (!prev[seatId]) return prev;
+        const next = { ...prev };
+        delete next[seatId];
+        return next;
+      });
+
+      // 1. Attach receipt on the ticket rack
+      let receiptInstanceId: string | null = null;
+      if (printAttachedTicketRef.current) {
+        receiptInstanceId = printAttachedTicketRef.current(recipe, {
+          characterId,
+          seatId,
+        });
+      }
+
+      // 2. Register order immediately in seat state (FS110 AC1)
+      const initialOrder = createSeatOrder(
+        seatId,
+        characterId,
+        instanceKey,
+        recipe,
+        receiptInstanceId
+      );
       setSeatOrders((prev) => ({
         ...prev,
-        [seatId]: {
-          seatId,
-          characterId,
-          instanceKey,
-          recipe,
-          orderDialogue: null,
-          status: 'ordered',
-          timestamp: Date.now(),
-        },
+        [seatId]: initialOrder,
       }));
 
-      // 2. Dispatch order dialogue generation request
+      // 3. Dispatch order dialogue generation request
       try {
         let flavorNotes: string | undefined;
         if (recipe.mappingAudit?.variants?.[0]?.ingredients) {
@@ -410,7 +768,7 @@ export default function Home() {
         const data = await response.json();
         const dialogueText = data.dialogue;
 
-        // 3. Update seat order with received dialogue and activate dialogue display
+        // 4. Update seat order with received dialogue and activate dialogue display
         setSeatOrders((prev) => {
           if (!prev[seatId] || prev[seatId].instanceKey !== instanceKey) {
             // Patron left or changed before response arrived — discard safely
@@ -420,6 +778,7 @@ export default function Home() {
             ...prev,
             [seatId]: {
               ...prev[seatId],
+              activeDialogue: dialogueText,
               orderDialogue: dialogueText,
             },
           };
@@ -434,92 +793,118 @@ export default function Home() {
     [mode]
   );
 
-  const handleServeDrinkToSeat = useCallback(
-    async (seatId: string) => {
-      if (handoffInProgressRef.current) return;
-      if (!state.vessel) return;
+  const handleVesselPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if (
+        !state.vessel ||
+        vesselHandoff ||
+        dragStateRef.current.isSnappingBack ||
+        handoffInProgressRef.current
+      ) {
+        return;
+      }
+      const stageRect = povStageRef.current?.getBoundingClientRect();
+      const vesselRect = e.currentTarget.getBoundingClientRect();
+      if (!stageRect) return;
 
-      const order = seatOrders[seatId];
-      if (!order || order.status !== 'ordered') return;
+      const initStageX =
+        vesselRect.left + vesselRect.width / 2 - stageRect.left;
+      const initStageY =
+        vesselRect.top + vesselRect.height / 2 - stageRect.top;
 
-      // 1. Run recipe validation against this patron's assigned ticket
-      const discrepancies = mode
-        ? mode.getRecipeManager().validateDrink(state, order.recipe)
-        : [];
+      pointerDragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        initStageX,
+        initStageY,
+        moved: false,
+      };
+    },
+    [state.vessel, vesselHandoff]
+  );
 
-      if (discrepancies.length === 0) {
-        // SUCCESS: Perfect drink served
-        setSeatOrders((prev) => ({
-          ...prev,
-          [seatId]: {
-            ...prev[seatId],
-            status: 'served',
-          },
-        }));
-        // Dismiss order dialogue if open
-        if (activeDialogueSeat === seatId) {
-          setActiveDialogueSeat(null);
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const p = pointerDragRef.current;
+      if (!p || p.pointerId !== e.pointerId) return;
+
+      const dx = e.clientX - p.startX;
+      const dy = e.clientY - p.startY;
+      const dist = Math.hypot(dx, dy);
+
+      if (!p.moved) {
+        if (dist > 6) {
+          p.moved = true;
+        } else {
+          return;
         }
-        runSuccessHandoff();
+      }
+
+      const stageRect = povStageRef.current?.getBoundingClientRect();
+      if (!stageRect) return;
+
+      const currentX = e.clientX - stageRect.left;
+      const currentY = e.clientY - stageRect.top;
+      const candidateSeatId = findCandidateSeat(e.clientX, e.clientY);
+
+      setDragState({
+        isDragging: true,
+        startX: p.initStageX,
+        startY: p.initStageY,
+        currentX,
+        currentY,
+        targetSeatId: candidateSeatId,
+        isSnappingBack: false,
+      });
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      const p = pointerDragRef.current;
+      if (!p || p.pointerId !== e.pointerId) return;
+      pointerDragRef.current = null;
+
+      if (!p.moved) {
+        // Tap/click: open drink build card
+        if (!vesselHandoff) {
+          setDrinkBuildCardOpen(true);
+        }
         return;
       }
 
-      // REJECTION: Invalid drink served
-      setErrors(discrepancies);
-      setSeatOrders((prev) => ({
-        ...prev,
-        [seatId]: {
-          ...prev[seatId],
-          status: 'rejected',
-        },
-      }));
-
-      // 2. Dispatch error-aware rejection completion request to backend
-      try {
-        const response = await fetch('/api/dialogue', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'rejection',
-            characterId: order.characterId,
-            recipe: {
-              name: order.recipe.name,
-              vessel: order.recipe.vessel,
-              garnishes: order.recipe.garnishes,
-              agitation: order.recipe.agitation,
-            },
-            deliveredDrink: {
-              vessel: state.vessel,
-              ingredients: state.ingredients,
-              rim: state.rim,
-              agitation: state.agitation,
-              garnishes: state.garnishes.map((g) => g.id),
-            },
-            discrepancies,
-          }),
-        });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          console.error('[DIALOGUE_ERROR] Rejection dialogue generation failed:', errData);
-          return;
-        }
-
-        const data = await response.json();
-        const rejectionText = data.dialogue;
-
-        // 3. Set rejection dialogue for this seat and activate dialogue box
-        setRejectionDialogues((prev) => ({
-          ...prev,
-          [seatId]: rejectionText,
-        }));
-        setActiveDialogueSeat(seatId);
-      } catch (err) {
-        console.error('[DIALOGUE_ERROR] Network failure fetching rejection dialogue:', err);
+      const targetSeatId = dragStateRef.current.targetSeatId;
+      if (targetSeatId) {
+        void handleServeDrinkToSeat(targetSeatId);
+      } else {
+        triggerSnapBack();
       }
-    },
-    [state, seatOrders, activeDialogueSeat, mode, runSuccessHandoff]
-  );
+    };
+
+    const onPointerCancel = (e: PointerEvent) => {
+      const p = pointerDragRef.current;
+      if (!p || p.pointerId !== e.pointerId) return;
+      pointerDragRef.current = null;
+      if (dragStateRef.current.isDragging) {
+        triggerSnapBack();
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+    };
+  }, [
+    findCandidateSeat,
+    handleServeDrinkToSeat,
+    triggerSnapBack,
+    vesselHandoff,
+  ]);
 
 
   const manifest = mode?.getManifest() ?? null;
@@ -1543,6 +1928,8 @@ export default function Home() {
           activeReceiptId={activeReceiptId}
           handoffExitRef={handoffExitRef}
           getReceiptTotalRef={getReceiptTotalRef}
+          printAttachedTicketRef={printAttachedTicketRef}
+          getReceiptAttachmentRef={getReceiptAttachmentRef}
           onActiveTicketChange={(ticket) => {
             if (handoffInProgressRef.current) return;
             setActiveTicket(ticket);
@@ -1599,9 +1986,15 @@ export default function Home() {
                             barCutoffD clips sprite to room-only so lower body sits behind the bar photo.
                           */}
                           <PatronLayer
+                            ref={patronLayerRef}
                             seats={barSeatInputs}
                             layoutOverrides={patronLayouts}
                             editMode={patronEditOpen}
+                            highlightedSeatId={
+                              dragState.isDragging
+                                ? dragState.targetSeatId
+                                : null
+                            }
                             barCutoffD={pathWithStoredOffset(
                               POV_BAR_CUTOFF.zoneId,
                               POV_BAR_CUTOFF.d,
@@ -1775,24 +2168,42 @@ export default function Home() {
                           {state.vessel && vesselSlotStyle ? (
                             <div
                               ref={vesselSlotRef}
-                              className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}`}
+                              className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}${
+                                dragState.isDragging ? ' pov-active-vessel--dragging' : ''
+                              }${dragState.isSnappingBack ? ' pov-active-vessel--snapping' : ''}`}
                               role="button"
                               tabIndex={vesselHandoff ? -1 : 0}
                               aria-label="Active vessel — view drink build"
-                              draggable={!vesselHandoff && !!state.vessel}
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData('text/plain', 'cocktail-vessel');
-                                e.dataTransfer.effectAllowed = 'copy';
-                              }}
-                              style={{
-                                left: vesselSlotStyle.left,
-                                top: vesselSlotStyle.top,
-                                width: vesselSlotStyle.width,
-                                height: vesselSlotStyle.height,
-                                transform: vesselSlotStyle.transform,
-                              }}
+                              draggable={false}
+                              onPointerDown={handleVesselPointerDown}
+                              style={
+                                dragState.isDragging || dragState.isSnappingBack
+                                  ? {
+                                      position: 'absolute',
+                                      left: `${dragState.currentX}px`,
+                                      top: `${dragState.currentY}px`,
+                                      width: vesselSlotStyle.width,
+                                      height: vesselSlotStyle.height,
+                                      transform: 'translate(-50%, -50%)',
+                                      zIndex: 60,
+                                      touchAction: 'none',
+                                    }
+                                  : {
+                                      left: vesselSlotStyle.left,
+                                      top: vesselSlotStyle.top,
+                                      width: vesselSlotStyle.width,
+                                      height: vesselSlotStyle.height,
+                                      transform: vesselSlotStyle.transform,
+                                      touchAction: 'none',
+                                    }
+                              }
                               onClick={() => {
-                                if (vesselHandoff) return;
+                                if (
+                                  vesselHandoff ||
+                                  dragState.isDragging ||
+                                  dragState.isSnappingBack
+                                )
+                                  return;
                                 setDrinkBuildCardOpen(true);
                               }}
                               onKeyDown={(e) => {
@@ -1843,7 +2254,7 @@ export default function Home() {
                             />
                           ) : null}
 
-                          {/* FS109: Retro RPG Dialogue Box */}
+                          {/* FS109/FS110: Retro RPG Dialogue Box */}
                           {activeDialogueSeat && seatOrders[activeDialogueSeat] && (
                             <RetroRpgDialogueBox
                               isOpen={true}
@@ -1853,9 +2264,11 @@ export default function Home() {
                                 sitSrcForCharacter(seatOrders[activeDialogueSeat].characterId)
                               }
                               message={
-                                seatOrders[activeDialogueSeat].status === 'rejected'
-                                  ? (rejectionDialogues[activeDialogueSeat] || 'IMPROPERLY PREPARED!')
-                                  : (seatOrders[activeDialogueSeat].orderDialogue || 'AWAITING ORDER...')
+                                rejectionDialogues[activeDialogueSeat] ||
+                                seatOrders[activeDialogueSeat].rejectionDialogue ||
+                                seatOrders[activeDialogueSeat].activeDialogue ||
+                                seatOrders[activeDialogueSeat].orderDialogue ||
+                                'AWAITING ORDER...'
                               }
                               onDismiss={() => setActiveDialogueSeat(null)}
                             />

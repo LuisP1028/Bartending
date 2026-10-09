@@ -1,0 +1,12 @@
+src/app/globals.css CHANGED ticket-002
+src/app/page.tsx CHANGED ticket-001
+src/components/PatronLayer.tsx CHANGED ticket-004
+src/data/RecipeManager.ts UNCHANGED ticket-003
+src/components/receipt/ReceiptSystem.tsx UNCHANGED ticket-001
+src/data/patronLayout.ts UNCHANGED ticket-004
+src/lib/patronSeats.ts UNCHANGED ticket-002
+src/hooks/useSimulation.ts UNCHANGED ticket-003
+src/data/characters.ts UNCHANGED ticket-004
+src/data/patronServiceConstants.ts UNCHANGED ticket-005
+src/data/patrons.ts UNCHANGED ticket-005
+src/app/layout.tsx UNCHANGED ticket-002
