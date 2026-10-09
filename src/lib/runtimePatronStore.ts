@@ -29,6 +29,11 @@ export type GenerationJobRecord = {
   characterId: string;
   displayName: string;
   status: GenerationJobStatus;
+  currentStage?: string;
+  stageIndex?: number;
+  totalStages?: number;
+  progressPct?: number;
+  statusMessage?: string;
   error?: string;
   logTail?: string;
   createdAt: string;
@@ -153,6 +158,16 @@ export function updateGenerationJob(
 }
 
 export function hasImagineCredentials(): boolean {
+  if (!process.env.XAI_API_KEY && !process.env.XAIKEY && !process.env.HF_TOKEN) {
+    try {
+      // Attempt loading from repo root or parent worktrees if in node runtime
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { loadRepoEnv } = require('../../scripts/patron-pipeline/lib/loadEnv.mjs');
+      loadRepoEnv();
+    } catch {
+      /* ignore */
+    }
+  }
   return !!(
     process.env.XAI_API_KEY ||
     process.env.XAIKEY ||

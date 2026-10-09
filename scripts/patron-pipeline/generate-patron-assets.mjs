@@ -44,7 +44,7 @@ import { installPackFromStagingDir } from './lib/writeAssets.mjs';
 loadRepoEnv();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, '../..');
+let REPO_ROOT = path.resolve(__dirname, '../..');
 const LAST_PLAN = path.join(__dirname, '.last-plan.json');
 
 function printHelp() {
@@ -87,12 +87,16 @@ function parseArgs(argv) {
     overwrite: false,
     noRegister: false,
     provider: null,
+    repoRoot: null,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
     switch (a) {
+      case '--repo-root':
+        out.repoRoot = next();
+        break;
       case '--photo':
         out.photo = next();
         break;
@@ -353,8 +357,13 @@ function runPrepare(args) {
     contactHash: identity.contactHash,
     folderSlug: identity.folderSlug || characterId,
   };
-  plan.publicDir = folders.publicDir;
-  fs.writeFileSync(LAST_PLAN, JSON.stringify(plan, null, 2), 'utf8');
+  const planPath = path.join(stagingDir, 'plan.json');
+  fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(LAST_PLAN, JSON.stringify(plan, null, 2), 'utf8');
+  } catch {
+    /* non-blocking if shared plan path is locked */
+  }
 
   console.log('=== W3 skill plan (prepare) — no Imagine ===');
   console.log(`characterId: ${characterId}`);
@@ -466,8 +475,13 @@ async function runFull(args) {
   };
   plan.publicDir = folders.publicDir;
   plan.provider = provider;
-  plan.automated = true;
-  fs.writeFileSync(LAST_PLAN, JSON.stringify(plan, null, 2), 'utf8');
+  const planPath = path.join(stagingDir, 'plan.json');
+  fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf8');
+  try {
+    fs.writeFileSync(LAST_PLAN, JSON.stringify(plan, null, 2), 'utf8');
+  } catch {
+    /* non-blocking if shared plan path is locked */
+  }
 
   console.log('=== FULL RUN (skills → Imagine → install) ===');
   console.log(`characterId: ${characterId}`);
@@ -550,6 +564,10 @@ async function main() {
   if (modes !== 1) {
     console.error('Specify exactly one of: --run | --prepare | --install');
     process.exit(1);
+  }
+
+  if (args.repoRoot) {
+    REPO_ROOT = path.resolve(args.repoRoot);
   }
 
   try {

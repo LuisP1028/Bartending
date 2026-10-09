@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { readGenerationJob } from '@/lib/runtimePatronStore';
+import { resolveAppRoot } from '@/lib/patronPackReady';
 
 export const runtime = 'nodejs';
 
 function repoRoot() {
-  return process.cwd();
+  return resolveAppRoot(process.cwd());
 }
 
 /**
@@ -28,11 +29,16 @@ export async function GET(req: Request) {
       characterId: job.characterId,
       displayName: job.displayName,
       status: job.status,
+      currentStage: job.currentStage ?? null,
+      stageIndex: job.stageIndex ?? null,
+      totalStages: job.totalStages ?? null,
+      progressPct: job.progressPct ?? null,
+      statusMessage: job.statusMessage ?? null,
       error: job.error ?? null,
       logTail: job.logTail ?? null,
       sitSrc:
         job.status === 'done'
-          ? `/assets/patrons/${job.characterId}/sit.png`
+          ? `/api/patrons/assets/${job.characterId}/sit.png`
           : null,
       updatedAt: job.updatedAt,
     });

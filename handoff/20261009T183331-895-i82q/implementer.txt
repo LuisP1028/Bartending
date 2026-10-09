@@ -1,0 +1,8 @@
+scripts/patron-pipeline/generate-patron-assets.mjs
+scripts/patron-pipeline/lib/loadEnv.mjs
+src/app/api/patrons/generate-status/route.ts
+src/app/api/patrons/register/route.ts
+src/app/page.tsx
+src/components/JoinBarCamera.tsx
+src/components/PatronLayer.tsx
+src/lib/runtimePatronStore.ts

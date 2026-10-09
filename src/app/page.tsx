@@ -1046,28 +1046,23 @@ export default function Home() {
 
   /** Close join entirely → main menu list (not play). */
   const onCloseJoin = useCallback(() => {
-    if (joinBusy) return;
     setJoinStage(null);
     setJoinIdentity(null);
     setJoinStatus(null);
     setJoinStatusError(false);
     setJoinBusy(false);
-  }, [joinBusy]);
+  }, []);
 
-  /** Camera Abort/Escape = back to Comm-Link (same as shell B). */
+  /** Camera Abort/Escape = return to menu while letting background task continue. */
   const onCameraBack = useCallback(() => {
-    if (joinBusy) return;
-    setJoinStatus(null);
-    setJoinStatusError(false);
-    setJoinStage('comm');
-  }, [joinBusy]);
+    setJoinStage(null);
+  }, []);
 
   /**
-   * FS92 — Game Boy B / nested back for join stack:
-   * camera → comm → menu. Returns true if handled (do not enter play).
+   * FS92/FS105 — Game Boy B / nested back for join stack:
+   * camera → menu, comm → menu. Non-blocking during background generation.
    */
   const onShellBack = useCallback((): boolean => {
-    if (joinBusy) return true;
     if (joinStage === 'camera') {
       onCameraBack();
       return true;
@@ -1077,7 +1072,7 @@ export default function Home() {
       return true;
     }
     return false;
-  }, [joinBusy, joinStage, onCameraBack, onCloseJoin]);
+  }, [joinStage, onCameraBack, onCloseJoin]);
 
   /** FS93 — D-pad while Comm-Link open */
   const onShellDpad = useCallback(
@@ -1145,10 +1140,10 @@ export default function Home() {
           `GENERATING ${data.displayName || joinIdentity.name}… (THIS MAY TAKE A FEW MINUTES)`
         );
 
-        // FS94 — poll until full --run completes
+        // FS94/FS105 — poll until full --run completes
         const started = Date.now();
         const maxMs = 15 * 60 * 1000;
-        const pollMs = 4000;
+        const pollMs = 3000;
 
         await new Promise<void>((resolve, reject) => {
           const tick = async () => {
@@ -1164,16 +1159,27 @@ export default function Home() {
                 status?: string;
                 error?: string;
                 characterId?: string;
+                displayName?: string;
+                statusMessage?: string;
+                progressPct?: number;
               };
               if (!sr.ok) {
                 reject(new Error(sj.error || sr.statusText));
                 return;
               }
               if (sj.status === 'done') {
+                const charId = sj.characterId || data.characterId;
                 setJoinStatus(
-                  `READY: ${data.displayName || joinIdentity.name} (${sj.characterId || data.characterId})`
+                  `READY: ${data.displayName || joinIdentity.name} (${charId})`
                 );
                 setJoinStatusError(false);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(
+                    new CustomEvent('patron-roster-updated', {
+                      detail: { characterId: charId },
+                    })
+                  );
+                }
                 resolve();
                 return;
               }
@@ -1181,12 +1187,18 @@ export default function Home() {
                 reject(new Error(sj.error || 'Generation failed'));
                 return;
               }
-              setJoinStatus(
-                `GENERATING ${data.displayName || joinIdentity.name}…`
-              );
+              const stageMsg =
+                sj.statusMessage ||
+                `GENERATING ${data.displayName || joinIdentity.name}…`;
+              const pctMsg = sj.progressPct != null ? ` [${sj.progressPct}%]` : '';
+              setJoinStatus(`${stageMsg}${pctMsg}`);
               window.setTimeout(tick, pollMs);
             } catch (e) {
-              reject(e instanceof Error ? e : new Error(String(e)));
+              if (Date.now() - started < maxMs) {
+                window.setTimeout(tick, pollMs);
+              } else {
+                reject(e instanceof Error ? e : new Error(String(e)));
+              }
             }
           };
           void tick();
@@ -1197,7 +1209,7 @@ export default function Home() {
           setJoinStage(null);
           setJoinIdentity(null);
           setJoinStatus(null);
-        }, 2800);
+        }, 3000);
       } catch (err) {
         setJoinStatus(
           err instanceof Error ? err.message : 'UPLINK FAILED'

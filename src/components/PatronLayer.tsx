@@ -170,83 +170,81 @@ export default function PatronLayer({
     return () => ro.disconnect();
   }, []);
 
-  /** FS94/FS97 — joiners only if sit art actually loads (client ghost filter). */
-  useEffect(() => {
-    let cancelled = false;
-    const loadRoster = async () => {
-      try {
-        const res = await fetch('/api/patrons/roster');
-        if (!res.ok) return;
-        const data = (await res.json()) as {
-          characters?: {
-            id: string;
-            displayName: string;
-            personality: string;
-            walkFrameCount?: number;
-            walkFrameMs?: number;
-            sitSrc?: string;
-            walkFrames?: string[];
-            talkSrc?: string | null;
-          }[];
-        };
-        if (cancelled || !data.characters) return;
-        const BUILTIN = new Set([
-          'patron_elder',
-          'caesar_9aea2cd1a4bf32d6',
-          'trump_ca36306f5c662816',
-        ]);
-        const candidates = data.characters.filter((c) => !BUILTIN.has(c.id));
-        const ready: {
+  /** FS94/FS97/FS105 — joiners only if sit art actually loads (client ghost filter). */
+  const loadRoster = useCallback(async () => {
+    try {
+      const res = await fetch('/api/patrons/roster');
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        characters?: {
           id: string;
           displayName: string;
           personality: string;
-          walkFrameCount: number;
-          walkFrameMs: number;
+          walkFrameCount?: number;
+          walkFrameMs?: number;
           sitSrc?: string;
           walkFrames?: string[];
-          talkSrc?: string;
-        }[] = [];
-        await Promise.all(
-          candidates.map(async (c) => {
-            // FS98 — prefer runtime API asset path (disk-served)
-            const sit =
-              c.sitSrc ||
-              `/api/patrons/assets/${c.id}/sit.png`;
-            try {
-              const hr = await fetch(sit, { method: 'HEAD', cache: 'no-store' });
-              if (!hr.ok) return;
-              const ct = hr.headers.get('content-type') || '';
-              if (ct && !ct.includes('image') && !ct.includes('octet-stream')) {
-                return;
-              }
-              ready.push({
-                id: c.id,
-                displayName: c.displayName,
-                personality: c.personality,
-                walkFrameCount: c.walkFrameCount ?? 2,
-                walkFrameMs: c.walkFrameMs ?? 120,
-                sitSrc: sit,
-                walkFrames: c.walkFrames,
-                talkSrc: c.talkSrc || undefined,
-              });
-            } catch {
-              /* ghost — skip */
+          talkSrc?: string | null;
+        }[];
+      };
+      if (!data.characters) return;
+      const BUILTIN = new Set([
+        'patron_elder',
+        'caesar_9aea2cd1a4bf32d6',
+        'trump_ca36306f5c662816',
+      ]);
+      const candidates = data.characters.filter((c) => !BUILTIN.has(c.id));
+      const ready: {
+        id: string;
+        displayName: string;
+        personality: string;
+        walkFrameCount: number;
+        walkFrameMs: number;
+        sitSrc?: string;
+        walkFrames?: string[];
+        talkSrc?: string;
+      }[] = [];
+      await Promise.all(
+        candidates.map(async (c) => {
+          // FS98 — prefer runtime API asset path (disk-served)
+          const sit =
+            c.sitSrc ||
+            `/api/patrons/assets/${c.id}/sit.png`;
+          try {
+            const hr = await fetch(sit, { method: 'HEAD', cache: 'no-store' });
+            if (!hr.ok) return;
+            const ct = hr.headers.get('content-type') || '';
+            if (ct && !ct.includes('image') && !ct.includes('octet-stream')) {
+              return;
             }
-          })
-        );
-        if (cancelled) return;
-        setClientRuntimePatronCache(ready);
-      } catch {
-        /* roster optional offline */
-      }
-    };
+            ready.push({
+              id: c.id,
+              displayName: c.displayName,
+              personality: c.personality,
+              walkFrameCount: c.walkFrameCount ?? 2,
+              walkFrameMs: c.walkFrameMs ?? 120,
+              sitSrc: sit,
+              walkFrames: c.walkFrames,
+              talkSrc: c.talkSrc || undefined,
+            });
+          } catch {
+            /* ghost — skip */
+          }
+        })
+      );
+      setClientRuntimePatronCache(ready);
+    } catch {
+      /* roster optional offline */
+    }
+  }, []);
+
+  useEffect(() => {
     void loadRoster();
     const t = window.setInterval(loadRoster, 20000);
     return () => {
-      cancelled = true;
       window.clearInterval(t);
     };
-  }, []);
+  }, [loadRoster]);
 
   const barClipCss = useMemo(
     () =>
@@ -465,6 +463,16 @@ export default function PatronLayer({
 
   const trySpawnRef = useRef(trySpawn);
   trySpawnRef.current = trySpawn;
+
+  useEffect(() => {
+    const handleRosterUpdate = () => {
+      void loadRoster().then(() => {
+        trySpawn();
+      });
+    };
+    window.addEventListener('patron-roster-updated', handleRosterUpdate);
+    return () => window.removeEventListener('patron-roster-updated', handleRosterUpdate);
+  }, [loadRoster, trySpawn]);
 
   useEffect(() => {
     if (editMode) {

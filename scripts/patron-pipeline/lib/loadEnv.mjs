@@ -12,28 +12,46 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 /**
  * @param {string} [envPath]
  */
-export function loadRepoEnv(envPath = path.join(REPO_ROOT, '.env')) {
-  if (!fs.existsSync(envPath)) return { loaded: false, path: envPath };
-  const text = fs.readFileSync(envPath, 'utf8');
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq <= 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let val = trimmed.slice(eq + 1).trim();
-    if (
-      (val.startsWith('"') && val.endsWith('"')) ||
-      (val.startsWith("'") && val.endsWith("'"))
-    ) {
-      val = val.slice(1, -1);
-    }
-    if (process.env[key] === undefined) {
-      process.env[key] = val;
+export function loadRepoEnv(envPath) {
+  const candidates = [
+    envPath,
+    process.env.REPO_ROOT ? path.join(process.env.REPO_ROOT, '.env') : null,
+    path.join(REPO_ROOT, '.env'),
+    path.resolve(REPO_ROOT, '../.env'),
+    path.resolve(REPO_ROOT, '../../.env'),
+    path.resolve(REPO_ROOT, '../../../.env'),
+    path.join(REPO_ROOT, '.env.local'),
+    path.resolve(REPO_ROOT, '../../../.env.local'),
+  ].filter((p) => Boolean(p) && fs.existsSync(p));
+
+  let loaded = false;
+  for (const candidate of candidates) {
+    try {
+      const text = fs.readFileSync(candidate, 'utf8');
+      for (const line of text.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let val = trimmed.slice(eq + 1).trim();
+        if (
+          (val.startsWith('"') && val.endsWith('"')) ||
+          (val.startsWith("'") && val.endsWith("'"))
+        ) {
+          val = val.slice(1, -1);
+        }
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
+      }
+      loaded = true;
+    } catch {
+      /* try next candidate */
     }
   }
   applyEnvAliases();
-  return { loaded: true, path: envPath };
+  return { loaded, paths: candidates, path: candidates[0] || envPath };
 }
 
 /**

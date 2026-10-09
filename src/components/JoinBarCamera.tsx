@@ -83,7 +83,7 @@ export default function JoinBarCamera({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !busy) {
+      if (e.key === 'Escape') {
         e.preventDefault();
         stopStream();
         onClose();
@@ -91,7 +91,7 @@ export default function JoinBarCamera({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onClose, stopStream]);
+  }, [onClose, stopStream]);
 
   const captureStill = useCallback(() => {
     const video = videoRef.current;
@@ -127,6 +127,10 @@ export default function JoinBarCamera({
 
   const usePhoto = useCallback(() => {
     if (!stillBlob) return;
+    if (stillBlob.size < 1024) {
+      setError('ERR: CAPTURE FAILED — RETAKE SELFIE');
+      return;
+    }
     const file = new File([stillBlob], 'join-selfie.jpg', {
       type: stillBlob.type || 'image/jpeg',
     });
@@ -134,10 +138,9 @@ export default function JoinBarCamera({
   }, [onCapture, stillBlob]);
 
   const handleClose = useCallback(() => {
-    if (busy) return;
     stopStream();
     onClose();
-  }, [busy, onClose, stopStream]);
+  }, [onClose, stopStream]);
 
   const showingStill = !!stillUrl;
 
@@ -155,10 +158,9 @@ export default function JoinBarCamera({
             type="button"
             className={styles.closeBtn}
             onClick={handleClose}
-            disabled={busy}
             aria-label="Close camera"
           >
-            Abort
+            {busy ? 'Run in Background' : 'Abort'}
           </button>
         </div>
 

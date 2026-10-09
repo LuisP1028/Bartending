@@ -1,0 +1,12 @@
+scripts/patron-pipeline/generate-patron-assets.mjs CHANGED ticket-001
+scripts/patron-pipeline/lib/loadEnv.mjs CHANGED ticket-001
+src/lib/runtimePatronStore.ts CHANGED ticket-001
+src/lib/runtimePatronStore.ts CHANGED ticket-002
+src/app/api/patrons/register/route.ts CHANGED ticket-001
+src/app/api/patrons/register/route.ts CHANGED ticket-002
+src/app/api/patrons/register/route.ts CHANGED ticket-004
+src/app/api/patrons/generate-status/route.ts CHANGED ticket-002
+src/app/page.tsx CHANGED ticket-003
+src/app/page.tsx CHANGED ticket-004
+src/components/JoinBarCamera.tsx CHANGED ticket-003
+src/components/PatronLayer.tsx CHANGED ticket-004
