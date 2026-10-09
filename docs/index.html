@@ -75,7 +75,7 @@
       <div class="frame-wrap">
         <p class="hint">
           Loading game…<br />
-          If this stays blank, ensure the local game server is running on localhost (default: http://localhost:3000).
+          If this stays blank, ensure the local game server is running on localhost (default: http://localhost:3001).
         </p>
         <!--
           FS91: camera must be delegated to the HF Space iframe or getUserMedia
@@ -95,7 +95,7 @@
       (function() {
         const params = new URLSearchParams(window.location.search);
         const explicitTarget = params.get('target');
-        let targetUrl = 'http://localhost:3000';
+        let targetUrl = 'http://localhost:3001';
         if (explicitTarget) {
           targetUrl = explicitTarget;
         } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {

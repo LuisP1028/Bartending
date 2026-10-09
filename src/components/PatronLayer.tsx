@@ -327,12 +327,6 @@ export default function PatronLayer({
 
             // Definitive seating transition
             changed = true;
-            motionClockRef.current.delete(p.instanceKey);
-            pendingSitRef.current.push({
-              instanceKey: p.instanceKey,
-              characterId: p.characterId,
-              seatId: p.seatId,
-            });
             return {
               ...p,
               phase: 'seated' as const,
@@ -349,10 +343,6 @@ export default function PatronLayer({
             }
           }
 
-          if (motionClockRef.current.size > 0) {
-            stillWalking = true;
-          }
-
           if (!changed) {
             instancesRef.current = prev;
             return prev;
@@ -361,6 +351,23 @@ export default function PatronLayer({
           return next;
         });
       });
+
+      // Post-commit side effects: clean up clocks and trigger sit notifications for seated patrons
+      const currentInstances = instancesRef.current;
+      for (const inst of currentInstances) {
+        if (inst.phase === 'seated' && motionClockRef.current.has(inst.instanceKey)) {
+          motionClockRef.current.delete(inst.instanceKey);
+          pendingSitRef.current.push({
+            instanceKey: inst.instanceKey,
+            characterId: inst.characterId,
+            seatId: inst.seatId,
+          });
+        }
+      }
+
+      if (motionClockRef.current.size > 0) {
+        stillWalking = true;
+      }
 
       const sits = pendingSitRef.current;
       pendingSitRef.current = [];
