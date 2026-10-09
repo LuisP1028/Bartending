@@ -807,6 +807,16 @@ body {
 .pov-patron-sprite--sit {
     height: auto;
     max-height: none;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.pov-active-vessel[draggable="true"] {
+    cursor: grab;
+}
+
+.pov-active-vessel[draggable="true"]:active {
+    cursor: grabbing;
 }
 
 

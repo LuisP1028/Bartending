@@ -1,0 +1,123 @@
+.pixelArt {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Outer Dialogue Box Container */
+.wrapper {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  max-width: 680px;
+  margin: 0 auto;
+  user-select: none;
+  cursor: pointer;
+  z-index: 50;
+  font-family: var(--font-press-start), 'Press Start 2P', monospace;
+}
+
+/* Dual white border and deep navy interior */
+.window {
+  position: relative;
+  background-color: #09133b;
+  border: 3px solid #ffffff;
+  outline: 2px solid #000000;
+  box-shadow: 
+    inset 0 0 0 3px #09133b,
+    inset 0 0 0 5px #ffffff,
+    0 8px 24px rgba(0, 0, 0, 0.7);
+  padding: 18px 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  min-height: 140px;
+}
+
+/* Metallic silver beveled portrait frame */
+.portraitFrame {
+  flex-shrink: 0;
+  width: 92px;
+  height: 92px;
+  background-color: #060b1c;
+  border: 3px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 
+    inset 2px 2px 0px #ffffff,
+    inset -2px -2px 0px #475569,
+    0 0 0 2px #000000,
+    0 4px 10px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.portraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+/* Corner loops matching 16-bit scrollwork corners */
+.cornerLoop {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Message Content Area */
+.content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.speakerName {
+  font-size: 13px;
+  font-weight: bold;
+  color: #f7ca18;
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0px #000000;
+}
+
+.body {
+  position: relative;
+  min-height: 48px;
+  padding-right: 24px;
+}
+
+.text {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #ffffff;
+  text-transform: uppercase;
+  word-break: break-word;
+  letter-spacing: 0.04em;
+  text-shadow: 2px 2px 0px #030612;
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* Downward animated prompt arrow */
+@keyframes retroBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+.promptArrow {
+  position: absolute;
+  bottom: -6px;
+  right: 0;
+  animation: retroBounce 0.75s steps(2, jump-none) infinite;
+}

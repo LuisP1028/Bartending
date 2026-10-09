@@ -41,6 +41,9 @@ import {
   pathWithStoredOffset,
 } from '@/components/HotspotPlacementEditor';
 import PatronLayer from '@/components/PatronLayer';
+import RetroRpgDialogueBox from '@/components/RetroRpgDialogueBox';
+import { requireCharacter } from '@/data/characters';
+import { talkSrcForCharacter, sitSrcForCharacter } from '@/data/patronAssetPaths';
 // FS72: authoring editors commented out of UI — restore imports to re-enable
 // import HotspotPlacementEditor from '@/components/HotspotPlacementEditor';
 // import PatronPlacementEditor from '@/components/PatronPlacementEditor';
@@ -131,6 +134,16 @@ function PovStageShell({
   );
 }
 
+export interface PatronSeatOrder {
+  seatId: string;
+  characterId: string;
+  instanceKey: string;
+  recipe: CocktailRecipe;
+  orderDialogue: string | null;
+  status: 'ordered' | 'served' | 'rejected';
+  timestamp: number;
+}
+
 export default function Home() {
   const [modeName, setModeName] = useState('OBELISCO');
   const [modePayload, setModePayload] = useState<NormalizedRestaurantPayload | null>(
@@ -165,6 +178,10 @@ export default function Home() {
     Record<string, SimulationState>
   >({});
   const [errors, setErrors] = useState<string[]>([]);
+  /** Per-seat patron order and dialogue state (FS109) */
+  const [seatOrders, setSeatOrders] = useState<Record<string, PatronSeatOrder>>({});
+  const [rejectionDialogues, setRejectionDialogues] = useState<Record<string, string>>({});
+  const [activeDialogueSeat, setActiveDialogueSeat] = useState<string | null>(null);
   /** Drink-placement vessel → liquid-glass drink-build card */
   const [drinkBuildCardOpen, setDrinkBuildCardOpen] = useState(false);
   /** Mat vessel playing success handoff slide (FS37). */
@@ -300,6 +317,9 @@ export default function Home() {
       clearAllParkedBuilds();
       setActiveTicket(null);
       setErrors([]);
+      setSeatOrders({});
+      setRejectionDialogues({});
+      setActiveDialogueSeat(null);
       setModeName(next);
       void setMode(next);
     },
@@ -332,6 +352,173 @@ export default function Home() {
     const payloadInstance = new ModePayload(modePayload);
     return new ConfiguredRestaurantMode(payloadInstance);
   }, [modePayload]);
+
+  const handlePatronSitComplete = useCallback(
+    async (info: { instanceKey: string; characterId: string; seatId: string }) => {
+      const { instanceKey, characterId, seatId } = info;
+      if (!mode) return;
+      const recipe = mode.getRecipeManager().getRandomTicket();
+      if (!recipe) return;
+
+      // 1. Register order immediately in seat state
+      setSeatOrders((prev) => ({
+        ...prev,
+        [seatId]: {
+          seatId,
+          characterId,
+          instanceKey,
+          recipe,
+          orderDialogue: null,
+          status: 'ordered',
+          timestamp: Date.now(),
+        },
+      }));
+
+      // 2. Dispatch order dialogue generation request
+      try {
+        const flavorNotes =
+          recipe.mappingAudit?.variants?.[0]?.ingredients
+            ? recipe.mappingAudit.variants[0].ingredients.map((i) => i.id).join(', ')
+            : recipe.variants?.[0]?.ingredients
+              ? Object.keys(recipe.variants[0].ingredients).join(', ')
+              : undefined;
+
+        const response = await fetch('/api/dialogue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'order',
+            characterId,
+            cocktail: {
+              name: recipe.name,
+              vessel: recipe.vessel,
+              garnishes: recipe.garnishes,
+              agitation: recipe.agitation,
+              flavorNotes,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          console.error('[DIALOGUE_ERROR] Order dialogue generation failed:', errData);
+          return;
+        }
+
+        const data = await response.json();
+        const dialogueText = data.dialogue;
+
+        // 3. Update seat order with received dialogue and activate dialogue display
+        setSeatOrders((prev) => {
+          if (!prev[seatId] || prev[seatId].instanceKey !== instanceKey) {
+            // Patron left or changed before response arrived — discard safely
+            return prev;
+          }
+          return {
+            ...prev,
+            [seatId]: {
+              ...prev[seatId],
+              orderDialogue: dialogueText,
+            },
+          };
+        });
+
+        // Activate dialogue view for this seat
+        setActiveDialogueSeat(seatId);
+      } catch (err) {
+        console.error('[DIALOGUE_ERROR] Network failure fetching order dialogue:', err);
+      }
+    },
+    [mode]
+  );
+
+  const handleServeDrinkToSeat = useCallback(
+    async (seatId: string) => {
+      if (handoffInProgressRef.current) return;
+      if (!state.vessel) return;
+
+      const order = seatOrders[seatId];
+      if (!order || order.status !== 'ordered') return;
+
+      // 1. Run recipe validation against this patron's assigned ticket
+      const discrepancies = mode
+        ? mode.getRecipeManager().validateDrink(state, order.recipe)
+        : [];
+
+      if (discrepancies.length === 0) {
+        // SUCCESS: Perfect drink served
+        setSeatOrders((prev) => ({
+          ...prev,
+          [seatId]: {
+            ...prev[seatId],
+            status: 'served',
+          },
+        }));
+        // Dismiss order dialogue if open
+        if (activeDialogueSeat === seatId) {
+          setActiveDialogueSeat(null);
+        }
+        runSuccessHandoff();
+        return;
+      }
+
+      // REJECTION: Invalid drink served
+      setErrors(discrepancies);
+      setSeatOrders((prev) => ({
+        ...prev,
+        [seatId]: {
+          ...prev[seatId],
+          status: 'rejected',
+        },
+      }));
+
+      // 2. Dispatch error-aware rejection completion request to backend
+      try {
+        const response = await fetch('/api/dialogue', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'rejection',
+            characterId: order.characterId,
+            recipe: {
+              name: order.recipe.name,
+              vessel: order.recipe.vessel,
+              garnishes: order.recipe.garnishes,
+              agitation: order.recipe.agitation,
+            },
+            deliveredDrink: {
+              vessel: state.vessel,
+              ingredients: state.ingredients,
+              rim: state.rim,
+              agitation: state.agitation,
+              garnishes: state.garnishes.map((g) => g.id),
+            },
+            discrepancies,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          console.error('[DIALOGUE_ERROR] Rejection dialogue generation failed:', errData);
+          return;
+        }
+
+        const data = await response.json();
+        const rejectionText = data.dialogue;
+
+        // 3. Set rejection dialogue for this seat and activate dialogue box
+        setRejectionDialogues((prev) => ({
+          ...prev,
+          [seatId]: rejectionText,
+        }));
+        setActiveDialogueSeat(seatId);
+      } catch (err) {
+        console.error('[DIALOGUE_ERROR] Network failure fetching rejection dialogue:', err);
+      }
+    },
+    [state, seatOrders, activeDialogueSeat, mode, runSuccessHandoff]
+  );
+
 
   const manifest = mode?.getManifest() ?? null;
   const liquors = manifest?.getLiquors() ?? [];
@@ -1418,6 +1605,8 @@ export default function Home() {
                               POV_BAR_CUTOFF.d,
                               hotspotOffsets
                             )}
+                            onSitComplete={handlePatronSitComplete}
+                            onServeDrinkToSeat={handleServeDrinkToSeat}
                           />
                           <svg
                             className="pov-hotspot-svg"
@@ -1588,6 +1777,11 @@ export default function Home() {
                               role="button"
                               tabIndex={vesselHandoff ? -1 : 0}
                               aria-label="Active vessel — view drink build"
+                              draggable={!vesselHandoff && !!state.vessel}
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', 'cocktail-vessel');
+                                e.dataTransfer.effectAllowed = 'copy';
+                              }}
                               style={{
                                 left: vesselSlotStyle.left,
                                 top: vesselSlotStyle.top,
@@ -1646,6 +1840,24 @@ export default function Home() {
                               onComplete={() => setMoneyFlyby(null)}
                             />
                           ) : null}
+
+                          {/* FS109: Retro RPG Dialogue Box */}
+                          {activeDialogueSeat && seatOrders[activeDialogueSeat] && (
+                            <RetroRpgDialogueBox
+                              isOpen={true}
+                              speakerName={requireCharacter(seatOrders[activeDialogueSeat].characterId).displayName}
+                              portraitSrc={
+                                talkSrcForCharacter(seatOrders[activeDialogueSeat].characterId) ||
+                                sitSrcForCharacter(seatOrders[activeDialogueSeat].characterId)
+                              }
+                              message={
+                                seatOrders[activeDialogueSeat].status === 'rejected'
+                                  ? (rejectionDialogues[activeDialogueSeat] || 'IMPROPERLY PREPARED!')
+                                  : (seatOrders[activeDialogueSeat].orderDialogue || 'AWAITING ORDER...')
+                              }
+                              onDismiss={() => setActiveDialogueSeat(null)}
+                            />
+                          )}
                         </PovStageShell>
                       </section>
                   </div>

@@ -1,0 +1,8 @@
+src/lib/hfDialogueService.ts CHANGED ticket-001
+src/app/api/dialogue/route.ts CHANGED ticket-001
+src/data/characterDialogue.ts CHANGED ticket-002
+src/app/page.tsx CHANGED ticket-003
+src/components/PatronLayer.tsx CHANGED ticket-004
+src/app/globals.css CHANGED ticket-004
+src/components/RetroRpgDialogueBox.module.css CHANGED ticket-005
+src/components/RetroRpgDialogueBox.tsx CHANGED ticket-005

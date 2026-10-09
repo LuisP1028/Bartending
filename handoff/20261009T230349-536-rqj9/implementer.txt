@@ -1,0 +1,8 @@
+src/app/api/dialogue/route.ts
+src/app/globals.css
+src/app/page.tsx
+src/components/PatronLayer.tsx
+src/components/RetroRpgDialogueBox.module.css
+src/components/RetroRpgDialogueBox.tsx
+src/data/characterDialogue.ts
+src/lib/hfDialogueService.ts

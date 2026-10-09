@@ -3,9 +3,7 @@
  * No network calls here — routing data only.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { getCharacterPersonality } from './characters';
+import { getCharacter, getCharacterPersonality } from './characters';
 
 /**
  * Catalog keyed by CharacterDef.personality.
@@ -36,13 +34,18 @@ export function loadCharacterPromptFile(
   characterId: string,
   repoRoot: string = process.cwd()
 ): string | null {
-  const filePath = path.join(
-    repoRoot,
-    'public/assets/patrons',
-    characterId,
-    'personality.txt'
-  );
+  if (typeof window !== 'undefined') return null;
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path');
+    const filePath = path.join(
+      repoRoot,
+      'public/assets/patrons',
+      characterId,
+      'personality.txt'
+    );
     if (fs.existsSync(filePath)) {
       const content = fs.readFileSync(filePath, 'utf8').trim();
       if (content.length > 0) return content;
@@ -66,3 +69,57 @@ export function resolveSystemPromptForCharacterId(
   const personality = getCharacterPersonality(characterId);
   return resolveSystemPromptForPersonality(personality);
 }
+
+export class PersonaNotFoundError extends Error {
+  code = 'PERSONA_NOT_FOUND';
+  statusCode = 404;
+
+  constructor(characterId: string) {
+    super(`Authoritative persona not found on disk or database for patron "${characterId}"`);
+    this.name = 'PersonaNotFoundError';
+  }
+}
+
+export async function resolveAuthoritativePersona(
+  characterId: string,
+  repoRoot: string = process.cwd()
+): Promise<string> {
+  // 1. Check authoritative disk file
+  const filePrompt = loadCharacterPromptFile(characterId, repoRoot);
+  if (filePrompt && filePrompt.length > 0) {
+    return filePrompt;
+  }
+
+  // 2. Query relational PostgreSQL database fallback
+  if (typeof window === 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { query } = require('@/lib/db') as {
+        query: <T>(text: string, params?: unknown[]) => Promise<{ rows: T[] }>;
+      };
+      const res = await query<{ about_me: string | null }>(
+        'SELECT about_me FROM patrons WHERE id = $1 LIMIT 1',
+        [characterId]
+      );
+      const dbBio = res.rows[0]?.about_me?.trim();
+      if (dbBio && dbBio.length > 0) {
+        return dbBio;
+      }
+    } catch {
+      // Database query error or table empty
+    }
+  }
+
+  // 3. Fallback to static catalog if defined for stock characters
+  const char = getCharacter(characterId);
+  if (char) {
+    const catalogPrompt = resolveSystemPromptForPersonality(char.personality);
+    if (catalogPrompt && catalogPrompt.length > 0) {
+      return catalogPrompt;
+    }
+  }
+
+  // 4. Fatal fail-fast
+  throw new PersonaNotFoundError(characterId);
+}
+

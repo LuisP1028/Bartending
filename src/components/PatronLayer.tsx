@@ -69,6 +69,7 @@ type PatronLayerProps = {
     characterId: string;
     seatId: string;
   }) => void;
+  onServeDrinkToSeat?: (seatId: string) => void;
 };
 
 function freeSeats(
@@ -149,6 +150,7 @@ export default function PatronLayer({
   barCutoffD = '',
   editMode = false,
   onSitComplete,
+  onServeDrinkToSeat,
 }: PatronLayerProps) {
   const layerRef = useRef<HTMLDivElement>(null);
   const [layerSize, setLayerSize] = useState({ w: 0, h: 0 });
@@ -568,6 +570,29 @@ export default function PatronLayer({
                 inst.flipX ? ' scaleX(-1)' : ''
               }`,
             }}
+            onDragOver={
+              isSeated
+                ? (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                  }
+                : undefined
+            }
+            onDrop={
+              isSeated
+                ? (e) => {
+                    e.preventDefault();
+                    onServeDrinkToSeat?.(inst.seatId);
+                  }
+                : undefined
+            }
+            onClick={
+              isSeated
+                ? () => {
+                    onServeDrinkToSeat?.(inst.seatId);
+                  }
+                : undefined
+            }
           />
         );
       })}
