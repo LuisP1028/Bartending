@@ -8,7 +8,7 @@
     <title>DITHER-OS Bartending</title>
     <meta
       name="description"
-      content="DITHER-OS lounge bartender simulator — hosted on Hugging Face Spaces"
+      content="DITHER-OS lounge bartender simulator — local standalone runtime"
     />
     <style>
       :root {
@@ -75,7 +75,7 @@
       <div class="frame-wrap">
         <p class="hint">
           Loading game…<br />
-          If this stays blank, wait for the Space to wake.
+          If this stays blank, ensure the local game server is running on localhost (default: http://localhost:3000).
         </p>
         <!--
           FS91: camera must be delegated to the HF Space iframe or getUserMedia
@@ -92,9 +92,17 @@
       </div>
     </div>
     <script>
-      const SPACE_URL =
-        "https://choppedcheese-dither-os-bartending.hf.space";
-      document.getElementById("game").src = SPACE_URL;
+      (function() {
+        const params = new URLSearchParams(window.location.search);
+        const explicitTarget = params.get('target');
+        let targetUrl = 'http://localhost:3000';
+        if (explicitTarget) {
+          targetUrl = explicitTarget;
+        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          targetUrl = window.location.origin;
+        }
+        document.getElementById("game").src = targetUrl;
+      })();
     </script>
   </body>
 </html>
