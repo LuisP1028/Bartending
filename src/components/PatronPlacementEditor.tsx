@@ -3,8 +3,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { POV_VIEWBOX } from '@/data/hotspotGeometry';
 import {
+  STANDARDIZED_PATRON_SCALE,
   clampStagePoint,
   clonePatronLayout,
+  computeNormalizedWidthPct,
   getDefaultPatronLayout,
   stagePointToPct,
   type PatronLayout,
@@ -116,6 +118,12 @@ export default function PatronPlacementEditor({
     if (!seat) return { x: layout.spawn.x + 200, y: layout.spawn.y };
     const a = resolveBarSeatAnchor(seat.zoneId, seat.d);
     if (!a) return { x: layout.spawn.x + 200, y: layout.spawn.y };
+    if (a.sitPoint) {
+      return {
+        x: a.sitPoint.x + layout.sitOffset.x,
+        y: a.sitPoint.y + layout.sitOffset.y,
+      };
+    }
     return {
       x: (a.leftPct / 100) * POV_VIEWBOX.width + layout.sitOffset.x,
       y: (a.topPct / 100) * POV_VIEWBOX.height + layout.sitOffset.y,
@@ -334,37 +342,53 @@ export default function PatronPlacementEditor({
 
       {open && (
         <>
-          {/* Live previews: selected character assets at authored sizes */}
-          <div className="patron-edit-previews" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="pov-patron-sprite pov-patron-sprite--walk pov-patron-sprite--edit-ghost"
-              src={character.assets.walkFrames[0]}
-              alt=""
-              draggable={false}
-              style={{
-                left: `${spawnPct.leftPct}%`,
-                top: `${spawnPct.topPct}%`,
-                width: `${layout.walkDisplayWidthPct}%`,
-                transform: 'translate(-50%, -100%)',
-                opacity: selectedHandle === 'spawn' ? 0.65 : 0.35,
-              }}
-            />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="pov-patron-sprite pov-patron-sprite--sit pov-patron-sprite--edit-sit"
-              src={character.assets.sitSrc}
-              alt=""
-              draggable={false}
-              style={{
-                left: `${sitPct.leftPct}%`,
-                top: `${sitPct.topPct}%`,
-                width: `${layout.sitDisplayWidthPct}%`,
-                transform: 'translate(-50%, -100%)',
-                opacity: selectedHandle === 'sit' ? 1 : 0.85,
-              }}
-            />
-          </div>
+          {/* Live previews: selected character assets at standardized normalized sizes */}
+          {(() => {
+            const ar =
+              character.aspectRatio ??
+              STANDARDIZED_PATRON_SCALE.stockAspectRatios[character.id] ??
+              1.0;
+            const previewWalkWidthPct = computeNormalizedWidthPct(
+              STANDARDIZED_PATRON_SCALE.walkTargetHeightPct,
+              ar
+            );
+            const previewSitWidthPct = computeNormalizedWidthPct(
+              STANDARDIZED_PATRON_SCALE.sitTargetHeightPct,
+              ar
+            );
+            return (
+              <div className="patron-edit-previews" aria-hidden="true">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="pov-patron-sprite pov-patron-sprite--walk pov-patron-sprite--edit-ghost"
+                  src={character.assets.walkFrames[0]}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    left: `${spawnPct.leftPct}%`,
+                    top: `${spawnPct.topPct}%`,
+                    width: `${previewWalkWidthPct}%`,
+                    transform: 'translate(-50%, -100%)',
+                    opacity: selectedHandle === 'spawn' ? 0.65 : 0.35,
+                  }}
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className="pov-patron-sprite pov-patron-sprite--sit pov-patron-sprite--edit-sit"
+                  src={character.assets.sitSrc}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    left: `${sitPct.leftPct}%`,
+                    top: `${sitPct.topPct}%`,
+                    width: `${previewSitWidthPct}%`,
+                    transform: 'translate(-50%, -100%)',
+                    opacity: selectedHandle === 'sit' ? 1 : 0.85,
+                  }}
+                />
+              </div>
+            );
+          })()}
 
           <svg
             ref={svgRef}

@@ -17,6 +17,8 @@ export type RuntimePatronPublic = {
   personality: string;
   walkFrameCount: number;
   walkFrameMs: number;
+  /** Natural image aspect ratio (FS107) */
+  aspectRatio?: number;
   /** FS98 — optional explicit URLs (runtime-served API paths) */
   sitSrc?: string;
   walkFrames?: string[];
@@ -49,6 +51,7 @@ export function characterDefFromRuntime(
     id: r.id,
     displayName: r.displayName,
     personality: r.personality,
+    aspectRatio: r.aspectRatio ?? (r.sitSrc?.includes('caesar') ? 1.0 : 1280 / 720),
     walkFrameCount: walkN,
     walkFrameMs: r.walkFrameMs ?? 120,
     assetsOverride: {

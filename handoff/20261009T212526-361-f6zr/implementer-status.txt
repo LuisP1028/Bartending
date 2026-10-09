@@ -1,0 +1,14 @@
+scripts/patron-pipeline/generate-patron-assets.mjs CHANGED ticket-005
+scripts/patron-pipeline/lib/imagineClient.mjs UNCHANGED ticket-005
+src/app/api/patrons/roster/route.ts CHANGED ticket-005
+src/app/globals.css CHANGED ticket-001
+src/components/JoinBarCamera.tsx CHANGED ticket-005
+src/components/PatronLayer.tsx CHANGED ticket-001
+src/components/PatronPlacementEditor.tsx CHANGED ticket-001
+src/data/characters.ts CHANGED ticket-001
+src/data/patronLayout.ts CHANGED ticket-001
+src/data/povHotspots.ts UNCHANGED ticket-002
+src/data/runtimePatrons.ts CHANGED ticket-001
+src/lib/patronLayoutStorage.ts UNCHANGED ticket-003
+src/lib/patronSeats.ts CHANGED ticket-002
+src/lib/runtimePatronStore.ts UNCHANGED ticket-005

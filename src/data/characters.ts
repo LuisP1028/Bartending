@@ -35,6 +35,8 @@ export type CharacterDef = {
   /** Routes LLM node → PERSONALITY_SYSTEM_PROMPTS catalog entry */
   personality: string;
   assets: PatronAssets;
+  /** Width / height natural image aspect ratio (FS107) */
+  aspectRatio?: number;
 };
 
 /** Authoring input — assets built from path convention. */
@@ -42,6 +44,8 @@ export type CharacterDefInput = {
   id: string;
   displayName: string;
   personality: string;
+  /** Width / height natural image aspect ratio (FS107) */
+  aspectRatio?: number;
   /** Walk frame count (legacy default 4; new skill packs use 2) */
   walkFrameCount?: number;
   walkFrameMs?: number;
@@ -60,6 +64,8 @@ export type PatronDef = {
   sitSrc: string;
   displayWidthPct: number;
   walkFrameMs: number;
+  /** Width / height natural image aspect ratio (FS107) */
+  aspectRatio?: number;
 };
 
 /** Build a CharacterDef with convention-resolved walkFrames + sitSrc. */
@@ -68,6 +74,7 @@ export function buildCharacterDef(input: CharacterDefInput): CharacterDef {
     id: input.id,
     displayName: input.displayName,
     personality: input.personality,
+    aspectRatio: input.aspectRatio,
     assets: resolvePatronAssets({
       characterId: input.id,
       walkFrameCount: input.walkFrameCount,
@@ -94,6 +101,7 @@ export const CHARACTER_ELDER: CharacterDef = buildCharacterDef({
   id: 'patron_elder',
   displayName: 'Elder',
   personality: 'elder_wry',
+  aspectRatio: 832 / 1248,
   walkFrameCount: 4,
   walkFrameMs: 120,
 });
@@ -102,6 +110,7 @@ export const CHARACTER_CAESAR_9AEA2CD1A4BF32D6 = buildCharacterDef({
   id: 'caesar_9aea2cd1a4bf32d6',
   displayName: 'Caesar',
   personality: 'caesar_9aea2cd1a4bf32d6_friendly',
+  aspectRatio: 1.0,
   walkFrameCount: 2,
   walkFrameMs: 120,
 });
@@ -110,6 +119,7 @@ export const CHARACTER_TRUMP_CA36306F5C662816 = buildCharacterDef({
   id: 'trump_ca36306f5c662816',
   displayName: 'Trump',
   personality: 'trump_ca36306f5c662816_friendly',
+  aspectRatio: 1056 / 976,
   walkFrameCount: 2,
   walkFrameMs: 120,
 });
@@ -189,6 +199,7 @@ export function characterToPatronDef(character: CharacterDef): PatronDef {
     displayWidthPct:
       assets.defaultWalkDisplayWidthPct ??
       DEFAULT_PATRON_STAGE.walkDisplayWidthPct,
+    aspectRatio: character.aspectRatio,
   };
 }
 

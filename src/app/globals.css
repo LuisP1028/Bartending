@@ -795,15 +795,18 @@ body {
     background: transparent;
     pointer-events: none;
     filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+    transform-origin: 50% 100%;
 }
 
 /* Full-body walk: allow taller; sit bust uses own width (no shared stretch) */
 .pov-patron-sprite--walk {
-    max-height: 85%;
+    height: auto;
+    max-height: none;
 }
 
 .pov-patron-sprite--sit {
-    max-height: 55%;
+    height: auto;
+    max-height: none;
 }
 
 

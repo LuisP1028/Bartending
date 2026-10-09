@@ -10,7 +10,10 @@ import {
 } from '@/data/characters';
 import { setClientRuntimePatronCache } from '@/data/runtimePatrons';
 import {
+  AUTHORITATIVE_SPAWN_ORIGIN,
+  STANDARDIZED_PATRON_SCALE,
   buildWalkPath,
+  computeNormalizedWidthPct,
   pointAlongPath,
   stagePointToPct,
   type PatronLayout,
@@ -112,8 +115,16 @@ function buildEntryForSeat(
     x: (a.leftPct / 100) * POV_VIEWBOX.width,
     y: (a.topPct / 100) * POV_VIEWBOX.height,
   };
-  const { walkPath, sitPoint } = buildWalkPath(layout, seatEnd);
+  const lockedLayout: PatronLayout = {
+    ...layout,
+    spawn: { ...AUTHORITATIVE_SPAWN_ORIGIN },
+    lockHorizontalWalk: true,
+  };
+  const { walkPath, sitPoint: defaultSitPoint } = buildWalkPath(lockedLayout, seatEnd);
   if (walkPath.length < 2) return null;
+  const sitPoint = a.sitPoint ?? defaultSitPoint;
+  // Enforce INV-TRANS-01: walkPath[last].x === sitPoint.x
+  walkPath[walkPath.length - 1].x = sitPoint.x;
   return { walkPath, sitPoint, seatId: seat.zoneId };
 }
 
@@ -529,9 +540,16 @@ export default function PatronLayer({
           ? inst.def.sitSrc
           : frames[inst.walkFrameIndex % Math.max(frames.length, 1)] ??
             frames[0];
-        const widthPct = isSeated
-          ? inst.layout.sitDisplayWidthPct
-          : inst.layout.walkDisplayWidthPct;
+        const targetHeightPct = isSeated
+          ? STANDARDIZED_PATRON_SCALE.sitTargetHeightPct
+          : STANDARDIZED_PATRON_SCALE.walkTargetHeightPct;
+
+        const ar =
+          inst.def.aspectRatio ??
+          STANDARDIZED_PATRON_SCALE.stockAspectRatios[inst.characterId] ??
+          (isSeated ? 1.0 : 0.667);
+
+        const widthPct = computeNormalizedWidthPct(targetHeightPct, ar);
 
         return (
           // eslint-disable-next-line @next/next/no-img-element

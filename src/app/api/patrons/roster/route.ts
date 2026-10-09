@@ -17,6 +17,7 @@ export async function GET() {
           id: r.id,
           displayName: r.displayName,
           personality: r.personality,
+          aspectRatio: r.sitUrl?.includes('caesar') ? 1.0 : 1280 / 720,
           walkFrameCount: r.walkFrameCount || 2,
           walkFrameMs: r.walkFrameMs || 120,
           assetsOverride: {
@@ -36,6 +37,7 @@ export async function GET() {
         id: c.id,
         displayName: c.displayName,
         personality: c.personality,
+        aspectRatio: c.aspectRatio ?? 1.0,
         walkFrameCount: c.assets.walkFrames.length,
         walkFrameMs: c.assets.walkFrameMs,
         sitSrc: c.assets.sitSrc,
@@ -54,6 +56,7 @@ export async function GET() {
         id: c.id,
         displayName: c.displayName,
         personality: c.personality,
+        aspectRatio: c.aspectRatio ?? 1.0,
         walkFrameCount: c.assets.walkFrames.length,
         walkFrameMs: c.assets.walkFrameMs,
         sitSrc: c.assets.sitSrc,

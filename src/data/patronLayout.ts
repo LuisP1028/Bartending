@@ -46,19 +46,53 @@ export type PatronLayout = {
   walkMs: number;
 };
 
+export const AUTHORITATIVE_SPAWN_ORIGIN: Readonly<StagePoint> = Object.freeze({
+  x: 143,
+  y: 659,
+});
+
+export const AUTHORITATIVE_GROUND_Y = 659;
+
+export const STANDARDIZED_PATRON_SCALE = {
+  /** Target full-body walking height as % of stage height (880px) -> 545.6px */
+  walkTargetHeightPct: 62,
+  /** Target seated bust height as % of stage height (880px) -> 422.4px */
+  sitTargetHeightPct: 48,
+  /** Canonical aspect ratios for stock cast */
+  stockAspectRatios: {
+    patron_elder: 832 / 1248,
+    caesar_9aea2cd1a4bf32d6: 1.0,
+    trump_ca36306f5c662816: 1056 / 976,
+    default_runtime: 1280 / 720,
+  } as Record<string, number>,
+};
+
+/** Compute stage width percentage for a patron sprite given target height % and aspect ratio (W/H) */
+export function computeNormalizedWidthPct(
+  targetHeightPct: number,
+  aspectRatio: number,
+  viewW = POV_VIEWBOX.width,
+  viewH = POV_VIEWBOX.height
+): number {
+  const heightPx = (targetHeightPct / 100) * viewH;
+  const clampedAr = Math.max(0.2, Math.min(3.0, aspectRatio));
+  const widthPx = heightPx * clampedAr;
+  return (widthPx / viewW) * 100;
+}
+
 /**
  * Character-agnostic stage presentation defaults.
  * All patrons use these unless a stored PATRON EDIT override exists.
- * Locked shared stage (map-040 / operator lock): walk 57%, sit 35%,
- * spawn (143, 659), sitOffset (25, 85). Sit absolute = seat anchor + offset.
+ * Locked shared stage: walk 57%, sit 35%,
+ * spawn (143, 659), sitOffset (0, 73). Sit absolute = seat anchor + offset.
  */
 export const DEFAULT_PATRON_STAGE = {
   walkDisplayWidthPct: 57,
   sitDisplayWidthPct: 35,
-  spawn: { x: 143, y: 659 } as StagePoint,
+  spawn: { ...AUTHORITATIVE_SPAWN_ORIGIN } as StagePoint,
   waypoints: [] as StagePoint[],
   preferredSeatId: null as string | null,
-  sitOffset: { x: 25, y: 85 } as StagePoint,
+  sitOffset: { x: 0, y: 73 } as StagePoint,
   lockHorizontalWalk: true,
   walkMs: 2400,
 };
@@ -199,41 +233,37 @@ export function pointAlongPath(points: StagePoint[], t: number): StagePoint {
 }
 
 /**
- * Build walk polyline. If lockHorizontalWalk, all points share spawn.y
- * so motion is horizontal; sit uses separate end for seating phase.
+ * Build walk polyline. All walking patrons originate at AUTHORITATIVE_SPAWN_ORIGIN
+ * and travel along AUTHORITATIVE_GROUND_Y (level floor baseline).
+ * Walk terminus and sit point enforce strict horizontal continuity (walkEnd.x === sitPoint.x).
  */
 export function buildWalkPath(
   layout: PatronLayout,
   seatEnd: StagePoint
 ): { walkPath: StagePoint[]; sitPoint: StagePoint } {
-  const groundY = layout.spawn.y;
+  const groundY = AUTHORITATIVE_GROUND_Y;
+  const spawn: StagePoint = { ...AUTHORITATIVE_SPAWN_ORIGIN };
+
+  // Guaranteed strict horizontal match between walk terminus and sit point
+  const targetX = seatEnd.x + (layout.sitOffset?.x ?? 0);
+  const sitY = seatEnd.y + (layout.sitOffset?.y ?? 0);
+
+  const wps = (layout.waypoints ?? []).map((p) =>
+    clampStagePoint({ x: p.x, y: groundY })
+  );
+
+  const walkEnd: StagePoint = clampStagePoint({
+    x: targetX,
+    y: groundY,
+  });
+
   const sitPoint: StagePoint = {
-    x: seatEnd.x,
-    y: seatEnd.y,
+    x: targetX,
+    y: sitY,
   };
 
-  if (layout.lockHorizontalWalk) {
-    const wps = layout.waypoints.map((p) =>
-      clampStagePoint({ x: p.x, y: groundY })
-    );
-    const walkEnd = clampStagePoint({
-      x: seatEnd.x + layout.sitOffset.x,
-      y: groundY,
-    });
-    sitPoint.x = seatEnd.x + layout.sitOffset.x;
-    sitPoint.y = seatEnd.y + layout.sitOffset.y;
-    return {
-      walkPath: [layout.spawn, ...wps, walkEnd],
-      sitPoint,
-    };
-  }
-
-  const end: StagePoint = {
-    x: seatEnd.x + layout.sitOffset.x,
-    y: seatEnd.y + layout.sitOffset.y,
-  };
   return {
-    walkPath: [layout.spawn, ...layout.waypoints, end],
-    sitPoint: end,
+    walkPath: [spawn, ...wps, walkEnd],
+    sitPoint,
   };
 }

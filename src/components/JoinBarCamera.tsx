@@ -96,14 +96,20 @@ export default function JoinBarCamera({
   const captureStill = useCallback(() => {
     const video = videoRef.current;
     if (!video || !live || video.readyState < 2) return;
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 640;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 640;
+
+    // Center-crop to 1:1 square to eliminate wide margins
+    const side = Math.min(vw, vh);
+    const sx = Math.floor((vw - side) / 2);
+    const sy = Math.floor((vh - side) / 2);
+
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = side;
+    canvas.height = side;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, w, h);
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, side, side);
     canvas.toBlob(
       (blob) => {
         if (!blob) return;
