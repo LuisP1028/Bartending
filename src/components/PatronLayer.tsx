@@ -294,16 +294,24 @@ export default function PatronLayer({
           const next = prev.map((p) => {
             if (p.phase !== 'walking') return p;
 
-            const clock = motionClockRef.current.get(p.instanceKey);
+            let clock = motionClockRef.current.get(p.instanceKey);
             if (!clock) {
-              stillWalking = true;
-              return p;
+              const walkDuration = Math.max(400, p.layout.walkMs || 2400);
+              const frameDuration = Math.max(60, p.def.walkFrameMs || 120);
+              clock = {
+                startMs: now,
+                walkMs: walkDuration,
+                frameMs: frameDuration,
+              };
+              motionClockRef.current.set(p.instanceKey, clock);
             }
 
-            const t = Math.min(1, (now - clock.startMs) / clock.walkMs);
+            const elapsed = Math.max(0, now - clock.startMs);
+            const walkMs = clock.walkMs > 0 ? clock.walkMs : 2400;
+            const t = Math.min(1, elapsed / walkMs);
             const nFrames = Math.max(p.def.walkFrames.length, 1);
-            const frameIndex =
-              Math.floor((now - clock.startMs) / clock.frameMs) % nFrames;
+            const frameMs = clock.frameMs > 0 ? clock.frameMs : 120;
+            const frameIndex = Math.floor(elapsed / frameMs) % nFrames;
 
             if (t < 1) {
               stillWalking = true;
@@ -317,6 +325,7 @@ export default function PatronLayer({
               return { ...p, t, walkFrameIndex: frameIndex };
             }
 
+            // Definitive seating transition
             changed = true;
             motionClockRef.current.delete(p.instanceKey);
             pendingSitRef.current.push({
@@ -413,22 +422,21 @@ export default function PatronLayer({
 
     let accepted = false;
 
-    // flushSync: functional claim runs now so clock attaches only after success
+    motionClockRef.current.set(instanceKey, {
+      startMs: performance.now(),
+      walkMs,
+      frameMs,
+    });
+
+    // flushSync: functional claim runs now so state updates synchronously
     flushSync(() => {
       setInstances((prev) => {
-        if (prev.length >= seatList.length) {
-          instancesRef.current = prev;
-          return prev;
-        }
-        if (prev.some((p) => p.seatId === built.seatId)) {
-          instancesRef.current = prev;
-          return prev;
-        }
-        if (prev.some((p) => p.characterId === characterId)) {
-          instancesRef.current = prev;
-          return prev;
-        }
-        if (prev.some((p) => p.instanceKey === instanceKey)) {
+        if (
+          prev.length >= seatList.length ||
+          prev.some((p) => p.seatId === built.seatId) ||
+          prev.some((p) => p.characterId === characterId) ||
+          prev.some((p) => p.instanceKey === instanceKey)
+        ) {
           instancesRef.current = prev;
           return prev;
         }
@@ -440,13 +448,11 @@ export default function PatronLayer({
       });
     });
 
-    if (!accepted) return;
+    if (!accepted) {
+      motionClockRef.current.delete(instanceKey);
+      return;
+    }
 
-    motionClockRef.current.set(instanceKey, {
-      startMs: performance.now(),
-      walkMs,
-      frameMs,
-    });
     ensureMotionDriver();
   }, [editMode, ensureMotionDriver]);
 
@@ -524,6 +530,7 @@ export default function PatronLayer({
             draggable={false}
             data-character-id={inst.characterId}
             data-seat-id={inst.seatId}
+            data-phase={inst.phase}
             style={{
               left: `${pct.leftPct}%`,
               top: `${pct.topPct}%`,

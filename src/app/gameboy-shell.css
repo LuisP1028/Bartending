@@ -423,9 +423,8 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    /* FS74: smooth pan when selected carousel was off-glass */
-    transition: transform 0.22s ease-out;
-    will-change: transform;
+    transform: none !important;
+    transition: none;
   }
 
   .gb-shell__playfield .pov-stage > img {
@@ -839,7 +838,24 @@
 }
 
 .boot-intro .boot-intro__slot.gb-shell-slot,
-.boot-intro .gb-shell-slot,
+.boot-intro .gb-shell-slot {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+  container-name: gb-shell-slot;
+  overflow: hidden;
+  background: #111;
+  z-index: 1;
+}
+
 .main-menu .main-menu__slot.gb-shell-slot,
 .main-menu .gb-shell-slot {
   position: absolute;
@@ -871,7 +887,36 @@
   transform: none;
 }
 
-.boot-intro .gb-shell,
+.boot-intro .gb-shell {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  margin: 0;
+  box-sizing: border-box;
+  aspect-ratio: 422 / 697;
+  width: min(100cqw, calc(100cqh * 422 / 697));
+  height: min(100cqh, calc(100cqw * 697 / 422));
+  max-width: 100%;
+  max-height: 100%;
+  background: #eee;
+  border-radius: 2.37% 2.37% 8.61% 2.37%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  container-type: size;
+  container-name: gb-shell;
+  overflow: hidden;
+  transform: none;
+}
+
+@supports not (width: 1cqw) {
+  .boot-intro .gb-shell {
+    width: min(100vw, calc(100dvh * 422 / 697));
+    height: min(100dvh, calc(100vw * 697 / 422));
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 422 / 697;
+  }
+}
+
 .main-menu .gb-shell {
   position: relative;
   flex: 0 0 auto;
@@ -1046,7 +1091,7 @@
   margin: 0;
   padding: 0;
   border: 0;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   background: #000;
   pointer-events: none;

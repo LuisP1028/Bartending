@@ -103,16 +103,10 @@ function PovStageShell({
         ? 'visible'
         : 'hidden';
 
-  const pan = stagePan ?? { x: 0, y: 0 };
-  const transform =
-    pan.x !== 0 || pan.y !== 0
-      ? `translate(${pan.x}px, ${pan.y}px)`
-      : undefined;
-
   const hud = shellHudNudge ?? { tx: 0, tyTop: 0, tyBot: 0 };
   const style = {
     overflow,
-    transform,
+    transform: 'none',
     // FS75: glass-relative HUD offsets for jigger / printer chrome
     ['--shell-hud-tx' as string]: `${hud.tx}px`,
     ['--shell-hud-ty-top' as string]: `${hud.tyTop}px`,
@@ -772,8 +766,8 @@ export default function Home() {
   }, [drinkPlacementD]);
 
   /**
-   * FS75: Keep jigger + receipt printer chrome in the visible glass viewport
-   * under cover crop and FS74 pan (stage-corner anchors would leave the glass).
+   * FS75 / FS100: Keep jigger + receipt printer chrome anchored to the visible glass viewport.
+   * Static geometry calculation: does NOT fluctuate when drawers are opened or closed.
    */
   useEffect(() => {
     let cancelled = false;
@@ -822,95 +816,14 @@ export default function Home() {
       window.clearTimeout(t);
       window.removeEventListener('resize', updateHudNudge);
     };
-  }, [shellStagePan, openCategory, activeZoneId, frameStyle]);
+  }, []);
 
   /**
-   * FS74: When a carousel is open, pan the shell-covered stage so the carousel
-   * frame sits fully inside the housing glass. Does not run on D-pad focus alone
-   * (only when openCategory + frame are active). Resets pan when closed.
+   * FS100: Zero Stage Translation — bar stage remains strictly stationary on interaction.
    */
   useEffect(() => {
-    if (openCategory === null || !frameStyle || !activeZoneId) {
-      setShellStagePan({ x: 0, y: 0 });
-      return;
-    }
-
-    let cancelled = false;
-    const MARGIN = 10;
-    let timeoutId = 0;
-
-    const computePanFromNeutral = (): { x: number; y: number } => {
-      const stage = povStageRef.current;
-      const frame = frameRef.current;
-      if (!stage || !frame) return { x: 0, y: 0 };
-
-      const section = stage.parentElement;
-      if (!section || !section.classList.contains('pov-shell-section')) {
-        return { x: 0, y: 0 };
-      }
-      if (!section.closest('.gb-shell__playfield')) {
-        return { x: 0, y: 0 };
-      }
-
-      // Measure against neutral transform so pan is absolute, not incremental.
-      const prevTransform = stage.style.transform;
-      stage.style.transition = 'none';
-      stage.style.transform = 'none';
-      // Force layout
-      void stage.offsetWidth;
-
-      const S = section.getBoundingClientRect();
-      const F = frame.getBoundingClientRect();
-      const T = stage.getBoundingClientRect();
-
-      let dx = 0;
-      let dy = 0;
-      if (F.left < S.left + MARGIN) dx = S.left + MARGIN - F.left;
-      else if (F.right > S.right - MARGIN) dx = S.right - MARGIN - F.right;
-      if (F.top < S.top + MARGIN) dy = S.top + MARGIN - F.top;
-      else if (F.bottom > S.bottom - MARGIN) dy = S.bottom - MARGIN - F.bottom;
-
-      // Keep stage covering the glass (no black bands)
-      const maxDx = S.left - T.left;
-      const minDx = S.right - T.right;
-      const maxDy = S.top - T.top;
-      const minDy = S.bottom - T.bottom;
-      dx = Math.min(Math.max(dx, minDx), maxDx);
-      dy = Math.min(Math.max(dy, minDy), maxDy);
-
-      stage.style.transform = prevTransform;
-      stage.style.transition = '';
-
-      return { x: dx, y: dy };
-    };
-
-    const applyPan = () => {
-      if (cancelled) return;
-      const next = computePanFromNeutral();
-      setShellStagePan((prev) =>
-        prev.x === next.x && prev.y === next.y ? prev : next
-      );
-    };
-
-    const t0 = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        applyPan();
-        timeoutId = window.setTimeout(applyPan, 50);
-      });
-    });
-
-    const onResize = () => {
-      applyPan();
-    };
-    window.addEventListener('resize', onResize);
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(t0);
-      if (timeoutId) window.clearTimeout(timeoutId);
-      window.removeEventListener('resize', onResize);
-    };
-  }, [openCategory, activeZoneId, frameStyle]);
+    setShellStagePan({ x: 0, y: 0 });
+  }, [openCategory]);
 
   // Compute frame geometry from active zone (tracks resize + editor offsets)
   useEffect(() => {
