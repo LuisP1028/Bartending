@@ -1,14 +1,14 @@
 # RE100 — Master Component-to-Edit Matrix: Core UX and Stage Stability
 
 **Spec:** [functional_specification_100.md](./functional_specification_100.md)  
-**Map:** [wayfinder/20261009T155146-282-wzgk/map.md](./wayfinder/20261009T155146-282-wzgk/map.md)  
+**Map:** [wayfinder/20261009T161951-920-ko9n/map.md](./wayfinder/20261009T161951-920-ko9n/map.md)  
 **Tickets:**
-- [Ticket 001: Boot Console Viewport Containment & Proportional Sizing](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-001.md)
-- [Ticket 002: Boot Video Legibility & Playfield Media Containment](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-002.md)
-- [Ticket 003: Patron Motion Lifecycle & Deterministic Walk Termination](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-003.md)
-- [Ticket 004: Patron Seated State Persistence & Asset Switching](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-004.md)
-- [Ticket 005: In-Place Drawer & Carousel Presentation (Zero Stage Translation)](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-005.md)
-- [Ticket 006: Fixed HUD, Status Element & Receipt Alignment](./wayfinder/20261009T155146-282-wzgk/tickets/ticket-006.md)
+- [Ticket 001: Boot Console Viewport Containment & Proportional Sizing](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-001.md)
+- [Ticket 002: Boot Video Legibility & Playfield Media Containment](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-002.md)
+- [Ticket 003: Patron Motion Lifecycle & Deterministic Walk Termination](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-003.md)
+- [Ticket 004: Patron Seated State Persistence & Asset Switching](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-004.md)
+- [Ticket 005: In-Place Drawer & Carousel Presentation (Zero Stage Translation)](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-005.md)
+- [Ticket 006: Fixed HUD, Status Element & Receipt Alignment](./wayfinder/20261009T161951-920-ko9n/tickets/ticket-006.md)
 
 ---
 
