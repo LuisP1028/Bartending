@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+new-queries-*.json
+cors.json
 
 # patron pipeline local plan (may include absolute photo paths)
 scripts/patron-pipeline/.last-plan.json
