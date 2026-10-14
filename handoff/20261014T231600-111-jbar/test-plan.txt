@@ -1,0 +1,3 @@
+wayfinder/20261014T231600-111-jbar/map.md
+wayfinder/20261014T231600-111-jbar/tickets/ticket-004.md
+wayfinder/20261014T231600-111-jbar/test_matrix_111.md

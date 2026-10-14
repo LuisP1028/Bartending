@@ -1,0 +1,9 @@
+src/app/api/patrons/register/route.ts
+src/app/gameboy-shell.css
+src/app/page.tsx
+src/components/JoinBarCamera.tsx
+src/components/JoinBarCommLink.module.css
+src/components/JoinBarCommLink.tsx
+src/components/MainMenu.tsx
+src/lib/patronFolders.ts
+src/lib/runtimePatronStore.ts

@@ -1,0 +1,13 @@
+src/app/api/patrons/register/route.ts
+src/app/gameboy-shell.css
+src/app/page.tsx
+src/components/JoinBarCamera.module.css
+src/components/JoinBarCamera.tsx
+src/components/JoinBarCommLink.module.css
+src/components/JoinBarCommLink.tsx
+src/components/MainMenu.module.css
+src/components/MainMenu.tsx
+src/components/PatronSignupForm.tsx
+src/lib/patronFolders.ts
+src/lib/patronIdentity.ts
+src/lib/runtimePatronStore.ts

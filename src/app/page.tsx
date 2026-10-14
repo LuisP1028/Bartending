@@ -1674,7 +1674,7 @@ export default function Home() {
 
   const onJoinCapture = useCallback(
     async (file: File) => {
-      if (!joinIdentity) {
+      if (!joinIdentity || !joinIdentity.aboutMe) {
         setJoinStatus('ERR: IDENTITY LOST — RESTART COMM-LINK');
         setJoinStatusError(true);
         return;
@@ -1687,6 +1687,7 @@ export default function Home() {
         body.set('name', joinIdentity.name);
         if (joinIdentity.email) body.set('email', joinIdentity.email);
         if (joinIdentity.phone) body.set('phone', joinIdentity.phone);
+        body.set('aboutMe', joinIdentity.aboutMe);
         body.set('photo', file);
         body.set('runPipeline', '1');
 

@@ -14,6 +14,7 @@ export type JoinBarIdentity = {
   name: string;
   email: string | null;
   phone: string | null;
+  aboutMe: string;
 };
 
 /** FS93 — shell D-pad / A bridge while Comm-Link is active. */
@@ -29,19 +30,21 @@ type Props = {
   onClose: () => void;
 };
 
-const FOCUS_COUNT = 3; // alias, comm, transmit
+const FOCUS_COUNT = 4; // alias, comm, personality, transmit
 
 /**
- * FS89/93 — Comm-Link: alias + email/phone; no Safari zoom; D-pad field nav.
+ * FS89/93/111 — Comm-Link: alias + email/phone + personality bio; no Safari zoom; D-pad field nav.
  */
 const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
   function JoinBarCommLink({ onTransmit, onClose }, ref) {
     const [alias, setAlias] = useState('');
     const [comm, setComm] = useState('');
+    const [aboutMe, setAboutMe] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [focusIndex, setFocusIndex] = useState(0);
     const aliasRef = useRef<HTMLInputElement>(null);
     const commRef = useRef<HTMLInputElement>(null);
+    const aboutMeRef = useRef<HTMLTextAreaElement>(null);
     const submitRef = useRef<HTMLButtonElement>(null);
     const formRef = useRef<HTMLFormElement>(null);
 
@@ -49,9 +52,16 @@ const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
       const i = ((index % FOCUS_COUNT) + FOCUS_COUNT) % FOCUS_COUNT;
       setFocusIndex(i);
       requestAnimationFrame(() => {
-        if (i === 0) aliasRef.current?.focus();
-        else if (i === 1) commRef.current?.focus();
-        else submitRef.current?.focus();
+        const target =
+          i === 0
+            ? aliasRef.current
+            : i === 1
+              ? commRef.current
+              : i === 2
+                ? aboutMeRef.current
+                : submitRef.current;
+        target?.focus();
+        target?.scrollIntoView?.({ block: 'nearest' });
       });
     }, []);
 
@@ -70,6 +80,7 @@ const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
       setError(null);
       const name = alias.trim();
       const contact = comm.trim();
+      const bio = aboutMe.trim();
       if (!name) {
         setError('ALIAS REQUIRED');
         applyFocus(0);
@@ -80,17 +91,33 @@ const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
         applyFocus(1);
         return;
       }
+      if (!bio) {
+        setError('PERSONALITY BIO REQUIRED');
+        applyFocus(2);
+        return;
+      }
+      if (bio.length < 10) {
+        setError('PERSONALITY BIO MUST BE AT LEAST 10 CHARACTERS');
+        applyFocus(2);
+        return;
+      }
+      if (aboutMe.length > 500 || bio.length > 500) {
+        setError('PERSONALITY BIO CANNOT EXCEED 500 CHARACTERS');
+        applyFocus(2);
+        return;
+      }
       // Map single comm field: email if it looks like one, else phone
       const isEmail = contact.includes('@');
       onTransmit({
         name,
         email: isEmail ? contact : null,
         phone: isEmail ? null : contact,
+        aboutMe: bio,
       });
-    }, [alias, comm, onTransmit, applyFocus]);
+    }, [alias, comm, aboutMe, onTransmit, applyFocus]);
 
     const activate = useCallback(() => {
-      if (focusIndex === 2) {
+      if (focusIndex === 3) {
         tryTransmit();
         return;
       }
@@ -197,6 +224,29 @@ const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
               />
             </div>
 
+            <div className={styles.inputGroup}>
+              <div className={styles.labelRow}>
+                <label htmlFor="join-personality" className={styles.inputLabel}>
+                  Enter Personality / About Me:
+                </label>
+                <span className={styles.charCount}>{aboutMe.length}/500</span>
+              </div>
+              <textarea
+                ref={aboutMeRef}
+                id="join-personality"
+                className={`${styles.synthInput} ${styles.synthTextarea}${
+                  focusIndex === 2 ? ` ${styles.controlFocused}` : ''
+                }`}
+                value={aboutMe}
+                onChange={(e) => setAboutMe(e.target.value)}
+                onFocus={() => setFocusIndex(2)}
+                placeholder="Describe persona, tone, quirks, or drink preferences (10-500 chars)..."
+                maxLength={500}
+                rows={2}
+                required
+              />
+            </div>
+
             <div className={styles.promoNotice}>
               <span>[ Security Override ]</span>
               Transmitted data will strictly be utilized for neon bar promotions
@@ -209,9 +259,9 @@ const JoinBarCommLink = forwardRef<JoinBarCommLinkHandle, Props>(
               ref={submitRef}
               type="submit"
               className={`${styles.submitBtn}${
-                focusIndex === 2 ? ` ${styles.controlFocused}` : ''
+                focusIndex === 3 ? ` ${styles.controlFocused}` : ''
               }`}
-              onFocus={() => setFocusIndex(2)}
+              onFocus={() => setFocusIndex(3)}
             >
               Transmit Data
             </button>
