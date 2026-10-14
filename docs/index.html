@@ -75,11 +75,11 @@
       <div class="frame-wrap">
         <p class="hint">
           Loading game…<br />
-          If this stays blank, ensure the local game server is running on localhost (default: http://localhost:3001).
+          Connecting to DITHER-OS Bartending Mac Server Runtime (<code>https://rolled-blackberry-dairy-browsing.trycloudflare.com</code>).
         </p>
         <!--
-          FS91: camera must be delegated to the HF Space iframe or getUserMedia
-          fails with no permission prompt (GH Pages shell only; Space direct works).
+          FS91 / FS021: camera must be delegated to the Mac server HTTPS iframe or getUserMedia
+          fails with no permission prompt on the GitHub Pages shell.
         -->
         <iframe
           id="game"
@@ -93,13 +93,14 @@
     </div>
     <script>
       (function() {
+        const DEFAULT_MAC_SERVER_URL = 'https://rolled-blackberry-dairy-browsing.trycloudflare.com';
         const params = new URLSearchParams(window.location.search);
         const explicitTarget = params.get('target');
-        let targetUrl = 'http://localhost:3001';
+        let targetUrl = DEFAULT_MAC_SERVER_URL;
         if (explicitTarget) {
           targetUrl = explicitTarget;
         } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          targetUrl = window.location.origin;
+          targetUrl = window.location.port === '3001' ? window.location.origin : 'http://localhost:3001';
         }
         document.getElementById("game").src = targetUrl;
       })();
