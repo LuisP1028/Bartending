@@ -3,8 +3,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './MainMenu.module.css';
 
-const MENU_BG_SRC = '/assets/boot/menu_background.jpg';
-
 /** Gold cutouts — same family as in-game sys-header mode controls (FS87). */
 const OBELISCO_MODE_LOGO_SRC = '/assets/logos/obelisco/obelisco-logo-gold.png';
 const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
@@ -19,8 +17,6 @@ const MODE_SELECTION_INDEX = 0;
 const MENU_ITEMS = [
   { id: 'mode-selection', label: 'Mode Selection', isModeSelection: true, opensJoinBar: false },
   { id: 'join-bar', label: 'Join the bar!', isModeSelection: false, opensJoinBar: true },
-  { id: 'diagnostics', label: 'Warp Diagnostics', isModeSelection: false, opensJoinBar: false },
-  { id: 'terminate', label: 'Terminate Uplink', isModeSelection: false, opensJoinBar: false },
 ] as const;
 
 export type MenuPlayMode = 'OBELISCO' | 'CLASSICS';
@@ -321,13 +317,6 @@ export default function MainMenu({
                 DOT MATRIX WITH STEREO SOUND
               </div>
               <div className="gb-shell__playfield main-menu__playfield">
-                <img
-                  className="main-menu__bg"
-                  src={MENU_BG_SRC}
-                  alt=""
-                  draggable={false}
-                  aria-hidden
-                />
                 <div className={styles.menuRoot}>
                   <nav
                     ref={navWrapperRef}
@@ -426,6 +415,7 @@ export default function MainMenu({
                                           alt=""
                                           draggable={false}
                                           className={styles.modeLogoImg}
+                                          onLoad={() => snapToCurrent(true)}
                                         />
                                       </button>
                                     );

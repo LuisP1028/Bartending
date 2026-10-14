@@ -1,0 +1,6 @@
+src/components/MainMenu.tsx CHANGED ticket-001
+src/components/MainMenu.module.css CHANGED ticket-003
+src/app/gameboy-shell.css CHANGED ticket-001
+src/app/page.tsx UNCHANGED ticket-002
+src/components/JoinBarCommLink.tsx UNCHANGED ticket-002
+src/components/JoinBarCamera.tsx UNCHANGED ticket-002

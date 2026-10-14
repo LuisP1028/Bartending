@@ -1092,24 +1092,6 @@
   appearance: none;
 }
 
-/* FS81 — Menu bg full-bleed in shared glass (same region as boot video) */
-.main-menu__bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  object-fit: cover;
-  object-position: center;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  pointer-events: none;
-  z-index: 1;
-  background: #000;
-}
-
 .boot-intro .gb-shell__controls,
 .main-menu .gb-shell__controls {
   display: block;
