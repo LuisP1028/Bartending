@@ -8,7 +8,12 @@ import { ensurePatronFolders } from '@/lib/patronFolders';
 import { resolveAppRoot } from '@/lib/patronPackReady';
 import { hasPiiKey } from '@/lib/patronCrypto';
 import { upsertPatronPiiDb } from '@/lib/patronPiiStore';
-import { uploadPatronPackToGcs, buildGcsPublicUrl, getGcsBucketName } from '@/lib/gcsStorage';
+import {
+  uploadPatronPackToGcs,
+  buildGcsPublicUrl,
+  getGcsBucketName,
+  validateGcsConfiguration,
+} from '@/lib/gcsStorage';
 import {
   hasImagineCredentials,
   writeGenerationJobDb,
@@ -72,6 +77,62 @@ export async function POST(req: Request) {
       );
     }
 
+    let validatedPhoto: { buf: Buffer; ext: string } | null = null;
+    if (photo && typeof photo === 'object' && 'arrayBuffer' in photo) {
+      const file = photo as File;
+      const buf = Buffer.from(await file.arrayBuffer());
+      if (buf.length >= 256) {
+        const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
+        const isPng =
+          buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+        const isWebp =
+          buf.length > 12 &&
+          buf.toString('ascii', 0, 4) === 'RIFF' &&
+          buf.toString('ascii', 8, 12) === 'WEBP';
+
+        if (!isJpeg && !isPng && !isWebp) {
+          return NextResponse.json(
+            {
+              error:
+                'Invalid image format. Please submit a valid JPEG, PNG, or WebP photo.',
+            },
+            { status: 400 }
+          );
+        }
+        const ext = isPng ? '.png' : isWebp ? '.webp' : '.jpg';
+        validatedPhoto = { buf, ext };
+      } else {
+        return NextResponse.json(
+          { error: 'Photo file is empty or corrupted (under 256 bytes).' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (runPipeline) {
+      if (!validatedPhoto) {
+        return NextResponse.json(
+          {
+            error: 'photo is required when generating a character',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!hasImagineCredentials()) {
+        return NextResponse.json(
+          {
+            error:
+              'Image generation credentials missing on server. Please configure XAI_API_KEY (or XAIKEY / HF_TOKEN) in .env',
+          },
+          { status: 503 }
+        );
+      }
+
+      // FS119 — Pre-flight validation of cloud storage credentials before creating folders or spawning expensive generation
+      validateGcsConfiguration();
+    }
+
     const identity = resolvePatronIdentity({ name, email, phone });
     const root = repoRoot();
     const folders = ensurePatronFolders(root, { ...identity, aboutMe });
@@ -97,37 +158,10 @@ export async function POST(req: Request) {
     }
 
     let photoPath: string | null = null;
-    if (photo && typeof photo === 'object' && 'arrayBuffer' in photo) {
-      const file = photo as File;
-      const buf = Buffer.from(await file.arrayBuffer());
-      if (buf.length >= 256) {
-        const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
-        const isPng =
-          buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
-        const isWebp =
-          buf.length > 12 &&
-          buf.toString('ascii', 0, 4) === 'RIFF' &&
-          buf.toString('ascii', 8, 12) === 'WEBP';
-
-        if (!isJpeg && !isPng && !isWebp) {
-          return NextResponse.json(
-            {
-              error:
-                'Invalid image format. Please submit a valid JPEG, PNG, or WebP photo.',
-            },
-            { status: 400 }
-          );
-        }
-        const ext = isPng ? '.png' : isWebp ? '.webp' : '.jpg';
-        photoPath = path.join(folders.stagingDir, `source${ext}`);
-        fs.writeFileSync(photoPath, buf);
-        fs.writeFileSync(path.join(folders.publicDir, `source${ext}`), buf);
-      } else {
-        return NextResponse.json(
-          { error: 'Photo file is empty or corrupted (under 256 bytes).' },
-          { status: 400 }
-        );
-      }
+    if (validatedPhoto) {
+      photoPath = path.join(folders.stagingDir, `source${validatedPhoto.ext}`);
+      fs.writeFileSync(photoPath, validatedPhoto.buf);
+      fs.writeFileSync(path.join(folders.publicDir, `source${validatedPhoto.ext}`), validatedPhoto.buf);
     }
 
     const reg: { inserted: boolean; constName?: string } = { inserted: false };
@@ -155,16 +189,6 @@ export async function POST(req: Request) {
           error: 'photo is required when generating a character',
         },
         { status: 400 }
-      );
-    }
-
-    if (!hasImagineCredentials()) {
-      return NextResponse.json(
-        {
-          error:
-            'Image generation credentials missing on server. Please configure XAI_API_KEY (or XAIKEY / HF_TOKEN) in .env',
-        },
-        { status: 503 }
       );
     }
 
@@ -354,13 +378,19 @@ export async function POST(req: Request) {
       if (code === 0) {
         try {
           const stagingDir = folders.stagingDir;
+          const publicDir = folders.publicDir;
+          const resolveReadySprite = (stagingFile: string, publicFile: string) => {
+            const sp = path.join(stagingDir, stagingFile);
+            if (fs.existsSync(sp)) return sp;
+            return path.join(publicDir, publicFile);
+          };
           const cloudUrls = await uploadPatronPackToGcs(identity.characterId, {
-            sit: path.join(stagingDir, 'sit.nobg.png'),
-            talk: path.join(stagingDir, 'talk.nobg.png'),
-            walk_01: path.join(stagingDir, 'walk_01.nobg.png'),
-            walk_02: path.join(stagingDir, 'walk_02.nobg.png'),
+            sit: resolveReadySprite('sit.nobg.png', 'sit.png'),
+            talk: resolveReadySprite('talk.nobg.png', 'talk.png'),
+            walk_01: resolveReadySprite('walk_01.nobg.png', 'walk_01.png'),
+            walk_02: resolveReadySprite('walk_02.nobg.png', 'walk_02.png'),
             source: photoPath || undefined,
-            personality: path.join(stagingDir, 'personality.txt'),
+            personality: resolveReadySprite('personality.txt', 'personality.txt'),
           });
 
           await upsertRuntimePatronDb({

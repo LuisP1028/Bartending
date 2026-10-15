@@ -9,6 +9,18 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
+export function stripOuterQuotes(raw) {
+  let val = String(raw ?? '').trim();
+  while (
+    val.length >= 2 &&
+    ((val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'")))
+  ) {
+    val = val.slice(1, -1).trim();
+  }
+  return val;
+}
+
 /**
  * @param {string} [envPath]
  */
@@ -34,13 +46,7 @@ export function loadRepoEnv(envPath) {
         const eq = trimmed.indexOf('=');
         if (eq <= 0) continue;
         const key = trimmed.slice(0, eq).trim();
-        let val = trimmed.slice(eq + 1).trim();
-        if (
-          (val.startsWith('"') && val.endsWith('"')) ||
-          (val.startsWith("'") && val.endsWith("'"))
-        ) {
-          val = val.slice(1, -1);
-        }
+        const val = stripOuterQuotes(trimmed.slice(eq + 1));
         if (process.env[key] === undefined) {
           process.env[key] = val;
         }
@@ -55,10 +61,44 @@ export function loadRepoEnv(envPath) {
 }
 
 /**
- * Map operator .env names → names expected by clients / docs.
- * Never overwrite an already-set target.
+ * Map operator .env names → names expected by clients / docs,
+ * and strip outer single/double quotes from container-injected variables.
+ * Never overwrite an already-set target with an alias.
  */
 export function applyEnvAliases() {
+  const keysToSanitize = [
+    'XAIKEY',
+    'XAI_KEY',
+    'XAI_API_KEY',
+    'HUGGINGFACE_TOKEN',
+    'HF_TOKEN',
+    'HUGGINGFACE_MODEL',
+    'HF_IMAGE_MODEL',
+    'HUGGINGFACE_VISION_TOKEN',
+    'HF_VLM_TOKEN',
+    'HUGGINGFACE_VISION_MODEL',
+    'HF_VLM_MODEL',
+    'POSTGRES_URL',
+    'DATABASE_URL',
+    'PGSSLMODE',
+    'PII_ENCRYPTION_KEY',
+    'GCS_BUCKET',
+    'GCS_BUCKET_NAME',
+    'GOOGLE_CLOUD_PROJECT',
+    'GCS_PROJECT_ID',
+    'GCS_CREDENTIALS_JSON',
+    'GOOGLE_APPLICATION_CREDENTIALS',
+  ];
+
+  for (const key of keysToSanitize) {
+    if (typeof process.env[key] === 'string') {
+      const cleaned = stripOuterQuotes(process.env[key]);
+      if (cleaned !== process.env[key]) {
+        process.env[key] = cleaned;
+      }
+    }
+  }
+
   const alias = (from, to) => {
     if (process.env[to] === undefined && process.env[from]) {
       process.env[to] = process.env[from];

@@ -192,10 +192,14 @@ export async function installPackFromStagingDir(
       const sitJob = ready.find((r) => r.job.role === 'sit');
       const talkJob = ready.find((r) => r.job.role === 'talk');
       const walkJobs = ready.filter((r) => r.job.role.startsWith('walk_'));
+      const sourceCandidate = ['source.jpg', 'source.png', 'source.webp']
+        .map((name) => path.join(root, name))
+        .find((p) => fs.existsSync(p));
       const cloudUrls = await uploadPatronAssetsToGcs(characterId, {
         sit: sitJob?.installSrc,
         talk: talkJob?.installSrc,
         walks: walkJobs.map((r) => r.installSrc),
+        source: sourceCandidate,
         personality: path.join(root, 'personality.txt'),
       });
       written.cloudUrls = cloudUrls;
