@@ -1,0 +1,12 @@
+src/app/receipt.css
+src/components/receipt/ReceiptPaper.tsx
+src/components/receipt/ReceiptSystem.tsx
+src/lib/receipt/mapTicketToReceipt.ts
+functional_specification_116.md
+required_edits_116.md
+wayfinder/20261015T093600-116-rcpt/map.md
+wayfinder/20261015T093600-116-rcpt/test_matrix_116.md
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-001.md
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-002.md
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-003.md
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-004.md

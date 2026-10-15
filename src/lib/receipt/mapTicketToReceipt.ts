@@ -1,4 +1,5 @@
 import type { CocktailRecipe } from '@/data/RecipeManager';
+import { drinkMethodLabel } from '@/data/methods';
 import { FIXED_PAPER_STYLE } from './palettes';
 import { formatMoney, priceTicket } from './priceTicket';
 import {
@@ -97,13 +98,20 @@ export function buildBodyLines(
       sourceLabel: audit?.vessel?.source,
       mappedId: audit?.vessel?.id || ticket.vessel,
     },
-    { label: 'METHOD', value: ticket.agitation },
+    { label: 'METHOD', value: drinkMethodLabel(ticket.agitation).toUpperCase() },
   ];
 
   // Orders are pinned to a single variant (variants[0]); never dump the catalog menu.
   const selectedVariant = ticket.variants?.[0];
   if (selectedVariant) {
-    lines.push({ label: `[${selectedVariant.variantName}]`, value: '' });
+    const varLabel = (selectedVariant.variantName || '').trim();
+    if (
+      varLabel &&
+      varLabel.toLowerCase() !== 'standard' &&
+      varLabel.toLowerCase() !== 'default'
+    ) {
+      lines.push({ label: `[${varLabel}]`, value: '' });
+    }
     const auditVar =
       audit?.variants?.find((v) => v.variantName === selectedVariant.variantName) ||
       audit?.variants?.[0];

@@ -1,0 +1,6 @@
+src/app/receipt.css
+src/components/receipt/ReceiptPaper.tsx
+src/components/receipt/ReceiptSystem.tsx
+src/lib/receipt/mapTicketToReceipt.ts
+functional_specification_116.md
+required_edits_116.md

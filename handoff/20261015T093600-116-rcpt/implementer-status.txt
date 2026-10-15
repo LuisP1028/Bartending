@@ -1,0 +1,12 @@
+src/app/receipt.css CHANGED ticket-001
+src/app/receipt.css CHANGED ticket-002
+src/components/receipt/ReceiptSystem.tsx CHANGED ticket-001
+src/components/receipt/ReceiptPaper.tsx CHANGED ticket-003
+src/lib/receipt/mapTicketToReceipt.ts CHANGED ticket-003
+required_edits_116.md CHANGED ticket-001
+wayfinder/20261015T093600-116-rcpt/map.md CHANGED ticket-001
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-001.md CHANGED ticket-001
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-002.md CHANGED ticket-002
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-003.md CHANGED ticket-003
+wayfinder/20261015T093600-116-rcpt/tickets/ticket-004.md CHANGED ticket-004
+wayfinder/20261015T093600-116-rcpt/test_matrix_116.md CHANGED ticket-004

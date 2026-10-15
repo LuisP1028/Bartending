@@ -79,10 +79,15 @@ export default function ReceiptPaper({
     margin: 0,
   } as unknown as React.CSSProperties;
 
-  const dateStr = entity.issuedAt.toLocaleDateString();
-  const timeStr = entity.issuedAt.toLocaleTimeString([], {
+  const dateStr = entity.issuedAt.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  });
+  const timeStr = entity.issuedAt.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: true,
   });
 
   const totalDisplay = formatMoney(entity.pricedOrder.total);
@@ -95,7 +100,7 @@ export default function ReceiptPaper({
       : [
           { label: entity.ticket.name, value: '' },
           { label: 'VESSEL', value: resolveVesselDisplay(entity.ticket.vessel) },
-          { label: 'METHOD', value: drinkMethodLabel(entity.ticket.agitation) },
+          { label: 'METHOD', value: drinkMethodLabel(entity.ticket.agitation).toUpperCase() },
         ];
 
   return (
@@ -192,11 +197,11 @@ export default function ReceiptPaper({
               >
                 PATRON: {patronUpper}
               </div>
-              <div className="r-line r-meta">
+              <div className="r-line r-meta" data-testid="receipt-meta-chk">
                 <span className="r-line-label">CHK: {entity.orderId}</span>
                 <span className="r-line-value">{dateStr}</span>
               </div>
-              <div className="r-line r-meta">
+              <div className="r-line r-meta" data-testid="receipt-meta-srv">
                 <span className="r-line-label">SRV: V_BARTENDER</span>
                 <span className="r-line-value">{timeStr}</span>
               </div>
@@ -208,7 +213,11 @@ export default function ReceiptPaper({
             {bodyLines.map((line, i) => (
               <div
                 className={
-                  line.flagged || line.generic ? 'r-line r-line--flagged' : 'r-line'
+                  line.flagged || line.generic
+                    ? 'r-line r-line--flagged'
+                    : i === 0 && !line.value
+                      ? 'r-line r-line--drink-title'
+                      : 'r-line'
                 }
                 key={`body-${i}`}
               >
@@ -264,7 +273,7 @@ export default function ReceiptPaper({
               >
                 PATRON: {patronUpper}
               </div>
-              <div className="r-line r-meta">
+              <div className="r-line r-meta" data-testid="receipt-meta-chk">
                 <span className="r-line-label">CHK: {entity.orderId}</span>
                 <span className="r-line-value">{timeStr}</span>
               </div>
@@ -276,7 +285,7 @@ export default function ReceiptPaper({
                 {resolveVesselDisplay(entity.ticket.vessel)}
               </span>
               <span className="r-summary-method">
-                {drinkMethodLabel(entity.ticket.agitation)}
+                {drinkMethodLabel(entity.ticket.agitation).toUpperCase()}
               </span>
             </div>
             <div className="r-summary-ings">{entity.summaryIngredientsLine}</div>

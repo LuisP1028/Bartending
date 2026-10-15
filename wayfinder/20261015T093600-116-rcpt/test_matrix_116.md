@@ -1,0 +1,15 @@
+# Test Matrix 116 (`test_matrix_116.md`)
+
+**Governing Specification**: `functional_specification_116.md`
+**Wayfinder Run**: `20261015T093600-116-rcpt`
+
+| Test ID | Acceptance Criterion | Invariant | Viewport(s) | Verification Method & Pass Threshold |
+| :--- | :--- | :--- | :--- | :--- |
+| `TM-116-01` | `AC-01` (`1appear` Unobstructed Top Header) | `INV-APPEAR-UNCLIPPED-01` | `1280×800`, `390×844` | During `printing` / `holding`, `.r-title--summary` (`OBELISCO`) bounding box `top >= .receipt-hardware-cluster.bottom` (`0px` bezel overlap). |
+| `TM-116-02` | `AC-02` (`1appear` Complete Summary & Single-Line Meta) | `INV-APPEAR-UNCLIPPED-01`, `INV-TEXT-INTEGRITY-01` | `1280×800`, `390×844` | During `1appear`, `[data-testid="receipt-patron-name"]` has `scrollWidth <= clientWidth`; `[data-testid="receipt-meta-chk"]` has `clientHeight <= 1.4 * lineHeight`; and `.r-total--summary` (`TOTAL`) bottom lies inside `.receipt-printer-mask` (`totalRect.bottom <= maskRect.bottom`). |
+| `TM-116-03` | `AC-03` (`2disappear` Complete Fade-Out) | `INV-DISAPPEAR-CLEAN-01` | `1280×800`, `390×844` | After transient hold + fade-out completes, `[data-testid="receipt-printer-cluster"]` has `data-printer-phase="idle"`, computed `opacity === "0"`, and `visibility === "hidden"`. |
+| `TM-116-04` | `AC-04` (`3be shown` Larger Square Geometry) | `INV-INSPECT-SQUARE-01` | `1280×800`, `390×844` | Clicking a seated patron opens `[data-testid="receipt-inspected"]` with `width / playfield.width >= 0.48`, aspect ratio `width / height` in `[0.85, 1.15]`, and 100% containment inside `.gb-shell__playfield`. |
+| `TM-116-05` | `AC-05` (`3be shown` Single-Line Metadata Integrity) | `INV-TEXT-INTEGRITY-01` | `1280×800`, `390×844` | Inside `[data-testid="receipt-inspected"]`, `[data-testid="receipt-patron-name"]`, `[data-testid="receipt-meta-chk"]`, and `[data-testid="receipt-meta-srv"]` each render on a single horizontal line (`clientHeight <= 1.4 * lineHeight`, `scrollWidth <= clientWidth`). |
+| `TM-116-06` | `AC-06` (`3be shown` Recipe Visibility & Crisp Logo Asset) | `INV-ASSET-INTEGRITY-01`, `INV-TEXT-INTEGRITY-01` | `1280×800`, `390×844` | Inside `[data-testid="receipt-inspected"]`, `.r-logo` has `complete === true`, `naturalWidth > 0`, and `height >= 28px` on desktop; drink title, `VESSEL`, `METHOD`, and ingredient ounce rows are visible inside the square container without horizontal clipping. |
+| `TM-116-07` | `AC-07` (Patron Isolation & Dismissal Restoration) | `INV-PATRON-ISOLATION-01` | `1280×800`, `390×844` | While a patron's square receipt is open, all other patrons have `data-patron-hidden="true"` (`visibility: hidden`); clicking the receipt, background, or Game Boy `A` button closes the receipt and restores all other patrons (`data-patron-hidden="false"`). |
+| `TM-116-08` | `AC-08` (Visual Verification & Zero `{errors}`) | `INV-FAILFAST-01` | `1280×800`, `390×844` | Playwright screenshots confirm visual quality across `1appear`, `2disappear`, and `3be shown` with zero console errors, zero uncaught page errors, and zero network errors. |

@@ -231,7 +231,7 @@ export const RECEIPT_HANDOFF_EXIT_MS = 1000;
 /** Transient printer timing constants (INV-PRINTER-TRANSIENT-01) */
 const PRINTER_FADE_IN_MS = 180;
 const PRINTER_UNROLL_MS = 650;
-const PRINTER_HOLD_MS = 900;
+const PRINTER_HOLD_MS = 1350;
 const PRINTER_FADE_OUT_MS = 280;
 
 export function ReceiptProvider({
