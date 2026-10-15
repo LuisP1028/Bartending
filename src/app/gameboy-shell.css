@@ -1533,3 +1533,48 @@
   transition: transform 0.22s ease-out;
 }
 
+/*
+ * FS118 (INV-START-SELECT-TRANSPARENT-01):
+ * Ensure 3D Game Boy projected hit targets (Start, Select, A, B, D-Pad) remain 100%
+ * transparent on mobile portrait and all viewports — never inherit legacy 2D pill-shaped
+ * backgrounds, box-shadow rings, borders, or ::after text labels.
+ */
+.gb-3d-shell-host [data-gb-3d-controls="true"] button,
+.gb-3d-shell-host .gb-shell__btn-select,
+.gb-3d-shell-host .gb-shell__btn-start,
+.gb-3d-shell-host .gb-shell__btn-a,
+.gb-3d-shell-host .gb-shell__btn-b,
+.gb-3d-shell-host .gb-shell__dpad,
+.gb-3d-shell-host .gb-shell__dpad:active,
+.gb-3d-shell-host .gb-shell__btn-a:active,
+.gb-3d-shell-host .gb-shell__btn-b:active,
+.gb-3d-shell-host .gb-shell__btn-start:active,
+.gb-3d-shell-host .gb-shell__btn-select:active {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  border-radius: 0 !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  filter: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  appearance: none !important;
+}
+
+.gb-3d-shell-host [data-gb-3d-controls="true"] button::before,
+.gb-3d-shell-host [data-gb-3d-controls="true"] button::after,
+.gb-3d-shell-host .gb-shell__btn-select::before,
+.gb-3d-shell-host .gb-shell__btn-select::after,
+.gb-3d-shell-host .gb-shell__btn-start::before,
+.gb-3d-shell-host .gb-shell__btn-start::after,
+.gb-3d-shell-host .gb-shell__btn-a::before,
+.gb-3d-shell-host .gb-shell__btn-a::after,
+.gb-3d-shell-host .gb-shell__btn-b::before,
+.gb-3d-shell-host .gb-shell__btn-b::after {
+  content: none !important;
+  display: none !important;
+}
+
+

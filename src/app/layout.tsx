@@ -30,10 +30,12 @@ export const metadata: Metadata = {
   description: "DITHER-OS lounge bartender simulator",
 };
 
-/** FS56: device-width + cover so safe-area env() works for browser-window fill */
+/** FS56 / FS118: device-width + cover + lock scale=1 so mobile browsers never auto-zoom on input focus */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 

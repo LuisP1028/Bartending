@@ -881,6 +881,21 @@ body {
     cursor: pointer;
 }
 
+/* FS118 (INV-PATRON-ORANGE-OUTLINE-01 / AC-05):
+   Thin orange silhouette contour (~1.5px) around seated patron on pointer hover, D-Pad focus, or active inspection */
+.pov-patron-sprite--sit:hover,
+.pov-patron-sprite--hovered,
+.pov-patron-sprite--dpad-focus,
+.pov-patron-sprite--inspected {
+    filter:
+        drop-shadow(1.5px 0 0 #ff8c00)
+        drop-shadow(-1.5px 0 0 #ff8c00)
+        drop-shadow(0 1.5px 0 #ff8c00)
+        drop-shadow(0 -1.5px 0 #ff8c00)
+        drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+    z-index: 11;
+}
+
 /* Candidate target glow highlight during active drag (FS110) */
 .pov-patron-sprite--candidate-target {
     filter: drop-shadow(0 0 8px #f7ca18) drop-shadow(0 0 16px rgba(247, 202, 24, 0.75)) !important;

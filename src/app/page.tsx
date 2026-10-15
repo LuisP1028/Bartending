@@ -249,6 +249,10 @@ export default function Home() {
   const [activeDialogueSeat, setActiveDialogueSeat] = useState<string | null>(null);
   /** FS114 (INV-PATRON-ISOLATION-01): Seated patron currently isolated for receipt inspection */
   const [isolatedSeatId, setIsolatedSeatId] = useState<string | null>(null);
+  /** FS118 (INV-DPAD-PATRON-LOOP-01): Left-to-right ordered seatIds of currently seated patrons */
+  const [seatedSeatIds, setSeatedSeatIds] = useState<string[]>([]);
+  /** FS118 (INV-DPAD-PATRON-LOOP-01 / INV-PATRON-ORANGE-OUTLINE-01): Currently D-Pad focused patron seatId */
+  const [focusedPatronSeatId, setFocusedPatronSeatId] = useState<string | null>(null);
   /** Drink-placement vessel → liquid-glass drink-build card */
   const [drinkBuildCardOpen, setDrinkBuildCardOpen] = useState(false);
   /** Mat vessel playing success handoff slide (FS37). */
@@ -402,6 +406,9 @@ export default function Home() {
             },
           };
         });
+        setFocusedPatronSeatId((prev) =>
+          prev === meta.seatId ? null : prev
+        );
         patronLayerRef.current?.departSeat(meta.seatId);
       }
     }
@@ -591,10 +598,11 @@ export default function Home() {
         },
       }));
 
-      // 4. Dismiss dialogue if open
+      // 4. Dismiss dialogue and clear D-Pad focus if open for this seat
       if (activeDialogueSeat === seatId) {
         setActiveDialogueSeat(null);
       }
+      setFocusedPatronSeatId((prev) => (prev === seatId ? null : prev));
 
       // 5. Signal patron departure and immediate turnover spawn (FS110 AC6, AC7)
       patronLayerRef.current?.departSeat(seatId);
@@ -1225,6 +1233,27 @@ export default function Home() {
       : { x: 0, y: 0 };
   }, []);
 
+  const handleSeatedSeatsChange = useCallback((seatIds: string[]) => {
+    setSeatedSeatIds(seatIds);
+    setFocusedPatronSeatId((prev) =>
+      prev && !seatIds.includes(prev) ? null : prev
+    );
+  }, []);
+
+  /**
+   * FS118 (INV-DPAD-PATRON-LOOP-01):
+   * Left-to-right ordered list of currently seated patrons with bound orders.
+   */
+  const navigableSeatedSeatIds = useMemo(
+    () =>
+      seatedSeatIds.filter(
+        (sid) =>
+          Boolean(seatOrders[sid]?.receiptInstanceId) &&
+          seatOrders[sid]?.orderStatus !== 'departing'
+      ),
+    [seatedSeatIds, seatOrders]
+  );
+
   const handleHotspotActivate = useCallback((zoneId: string, category: CategoryKey) => {
     if (
       isolatedSeatId !== null ||
@@ -1233,6 +1262,7 @@ export default function Home() {
       receiptInspectRef.current?.inspectReceipt(null);
       setIsolatedSeatId(null);
     }
+    setFocusedPatronSeatId(null);
     // Same zone while open → toggle closed
     if (openCategory !== null && activeZoneId === zoneId) {
       closeOverlay();
@@ -1245,8 +1275,11 @@ export default function Home() {
   }, [openCategory, activeZoneId, closeOverlay, isolatedSeatId]);
 
   /**
-   * FS71/FS77: D-pad — hotspot browse when carousel closed; carousel item
-   * nav when open (←/→ step, ↑ first, ↓ last). Does not pan on focus alone.
+   * FS71/FS77/FS118: D-pad navigation:
+   * - Patron inspection open: left/right switches slide (Order Receipt <-> Conversation Box)
+   * - Category carousel open: left/right steps item, up first, down last
+   * - Stage browse mode: cycles seated patrons at the bar (Left/Right wraps across seated patrons;
+   *   Down moves to nearest bar station hotspot; Up from bar station hotspots returns to nearest seated patron)
    */
   const shellDpad = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right') => {
@@ -1275,8 +1308,104 @@ export default function Home() {
         return;
       }
 
-      // FS71 hotspot browse mode
       const list = shellNavigableHotspots;
+
+      // FS118 (INV-DPAD-PATRON-LOOP-01 / AC-04):
+      // 1) When a seated patron is currently D-Pad focused:
+      if (focusedPatronSeatId !== null && navigableSeatedSeatIds.length > 0) {
+        if (dir === 'left' || dir === 'right') {
+          const curIdx = navigableSeatedSeatIds.indexOf(focusedPatronSeatId);
+          const nextIdx =
+            curIdx === -1
+              ? 0
+              : dir === 'left'
+                ? (curIdx - 1 + navigableSeatedSeatIds.length) %
+                  navigableSeatedSeatIds.length
+                : (curIdx + 1) % navigableSeatedSeatIds.length;
+          setFocusedPatronSeatId(navigableSeatedSeatIds[nextIdx]);
+          setShellFocusZoneId(null);
+          return;
+        }
+        if (dir === 'up') {
+          if (!navigableSeatedSeatIds.includes(focusedPatronSeatId)) {
+            setFocusedPatronSeatId(navigableSeatedSeatIds[0]);
+          }
+          setShellFocusZoneId(null);
+          return;
+        }
+        if (dir === 'down') {
+          // Move down from focused patron to the horizontally nearest bar station hotspot
+          if (list.length > 0) {
+            const seatInfo = barSeatInputs.find(
+              (s) => s.zoneId === focusedPatronSeatId
+            );
+            const seatPos = seatInfo
+              ? shellHotspotAnchor(seatInfo.d)
+              : { x: 592, y: 475 };
+            let bestHotspot = list[0];
+            let bestDist = Infinity;
+            for (const h of list) {
+              const d = pathWithStoredOffset(h.zoneId, h.d, hotspotOffsets);
+              const p = shellHotspotAnchor(d);
+              const dist = Math.abs(p.x - seatPos.x) + Math.abs(p.y - seatPos.y) * 0.25;
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestHotspot = h;
+              }
+            }
+            setFocusedPatronSeatId(null);
+            setShellFocusZoneId(bestHotspot.zoneId);
+          }
+          return;
+        }
+      }
+
+      // 2) When no patron is focused yet, but seated patrons are present:
+      //    - If neither patron nor hotspot is focused yet (initial D-Pad press in play phase) and dir !== 'down',
+      //      focus the first (or last on 'left') seated patron so D-Pad immediately scrolls patrons.
+      //    - Or if pressing 'up' from a bar station hotspot, move focus up to the nearest seated patron.
+      if (navigableSeatedSeatIds.length > 0) {
+        if (shellFocusZoneId === null && dir !== 'down') {
+          const targetSeatId =
+            dir === 'left'
+              ? navigableSeatedSeatIds[navigableSeatedSeatIds.length - 1]
+              : navigableSeatedSeatIds[0];
+          setFocusedPatronSeatId(targetSeatId);
+          setShellFocusZoneId(null);
+          return;
+        }
+        if (dir === 'up') {
+          const curHotspot =
+            list.find((h) => h.zoneId === shellFocusZoneId) ?? list[0];
+          const curHotspotPos = curHotspot
+            ? shellHotspotAnchor(
+                pathWithStoredOffset(
+                  curHotspot.zoneId,
+                  curHotspot.d,
+                  hotspotOffsets
+                )
+              )
+            : { x: 592, y: 700 };
+          let nearestSeatId = navigableSeatedSeatIds[0];
+          let bestDx = Infinity;
+          for (const sid of navigableSeatedSeatIds) {
+            const seatInfo = barSeatInputs.find((s) => s.zoneId === sid);
+            const seatPos = seatInfo
+              ? shellHotspotAnchor(seatInfo.d)
+              : { x: 592, y: 475 };
+            const dx = Math.abs(seatPos.x - curHotspotPos.x);
+            if (dx < bestDx) {
+              bestDx = dx;
+              nearestSeatId = sid;
+            }
+          }
+          setFocusedPatronSeatId(nearestSeatId);
+          setShellFocusZoneId(null);
+          return;
+        }
+      }
+
+      // FS71 hotspot browse mode
       if (list.length === 0) return;
 
       const curId = shellFocusZoneId ?? list[0].zoneId;
@@ -1327,6 +1456,9 @@ export default function Home() {
     [
       isolatedSeatId,
       openCategory,
+      focusedPatronSeatId,
+      navigableSeatedSeatIds,
+      barSeatInputs,
       shellNavigableHotspots,
       shellFocusZoneId,
       hotspotOffsets,
@@ -1335,53 +1467,9 @@ export default function Home() {
   );
 
   /**
-   * FS009 (INV-BUTTON-01):
-   * - B button (`button-b`) = Interact / Confirm / Select:
-   *   Activates/applies the focused carousel item when a category carousel is open,
-   *   advances/dismisses patron dialogue when open, interacts with PatronInspectionCarousel,
-   *   or opens the focused hotspot carousel.
-   */
-  const shellPressBInteract = useCallback(() => {
-    if (openCategory !== null) {
-      shellCarouselRef.current?.activateFocused();
-      return;
-    }
-    if (
-      isolatedSeatId !== null ||
-      receiptInspectRef.current?.getInspectedId() != null
-    ) {
-      receiptInspectRef.current?.interactCarousel();
-      return;
-    }
-    if (activeDialogueSeat !== null) {
-      dialogueBoxRef.current?.interact();
-      return;
-    }
-    const list = shellNavigableHotspots;
-    if (list.length === 0) return;
-    const zoneId = shellFocusZoneId ?? list[0].zoneId;
-    const h = list.find((x) => x.zoneId === zoneId) ?? list[0];
-    if (!h.category) return;
-    setShellFocusZoneId(h.zoneId);
-    setOpenCategory(h.category);
-    setActiveZoneId(h.zoneId);
-  }, [
-    openCategory,
-    activeDialogueSeat,
-    isolatedSeatId,
-    shellNavigableHotspots,
-    shellFocusZoneId,
-  ]);
-
-  /**
-   * FS009 (INV-BUTTON-01):
-   * - A button (`button-a`) = Back / Cancel / Dismiss:
-   *   Dismisses open DrinkBuildCard, open category carousel, or patron dialogue box.
-   */
-  /**
-   * FS114 (INV-PATRON-ISOLATION-01 / AC-04 / AC-05):
-   * Clicking a seated patron x (without dragging a vessel) isolates patron x,
-   * selects their order on the bar mat, and opens their full receipt in the red reference box.
+   * FS114 (INV-PATRON-ISOLATION-01 / AC-04 / AC-05) & FS118 (INV-DPAD-PATRON-LOOP-01):
+   * Clicking or pressing A on a seated patron x (without dragging a vessel) isolates patron x,
+   * selects their order on the bar mat, and opens their full receipt / conversation carousel.
    */
   const handlePatronClick = useCallback(
     (seatId: string) => {
@@ -1398,6 +1486,7 @@ export default function Home() {
       if (isolatedSeatId === seatId) {
         receiptInspectRef.current?.inspectReceipt(null);
         setIsolatedSeatId(null);
+        setFocusedPatronSeatId(seatId);
         return;
       }
 
@@ -1408,6 +1497,8 @@ export default function Home() {
         setActiveDialogueSeat(null);
       }
 
+      setFocusedPatronSeatId(seatId);
+      setShellFocusZoneId(null);
       setIsolatedSeatId(seatId);
       receiptInspectRef.current?.inspectReceipt(order.receiptInstanceId);
     },
@@ -1424,12 +1515,63 @@ export default function Home() {
   );
 
   /**
-   * FS009 (INV-BUTTON-01) & FS114 (AC-04):
-   * - A button (`button-a`) = Back / Cancel / Dismiss:
-   *   Dismisses open DrinkBuildCard, inspected receipt (restoring isolated patrons),
-   *   open category carousel, or patron dialogue box.
+   * FS118 (INV-AB-SWAP-01 / INV-DPAD-PATRON-LOOP-01 / AC-03 / AC-04):
+   * - A button (`button-a`) = Interact / Confirm / Select:
+   *   Activates/applies the focused carousel item when a category carousel is open,
+   *   interacts with PatronInspectionCarousel when open, opens the D-Pad-focused patron's
+   *   receipt/conversation inspection box, advances/dismisses patron dialogue when open,
+   *   or opens the focused hotspot carousel.
    */
-  const shellPressABack = useCallback(() => {
+  const shellPressAInteract = useCallback(() => {
+    if (openCategory !== null) {
+      shellCarouselRef.current?.activateFocused();
+      return;
+    }
+    if (
+      isolatedSeatId !== null ||
+      receiptInspectRef.current?.getInspectedId() != null
+    ) {
+      receiptInspectRef.current?.interactCarousel();
+      return;
+    }
+    if (
+      focusedPatronSeatId !== null &&
+      navigableSeatedSeatIds.includes(focusedPatronSeatId)
+    ) {
+      handlePatronClick(focusedPatronSeatId);
+      return;
+    }
+    if (activeDialogueSeat !== null) {
+      dialogueBoxRef.current?.interact();
+      return;
+    }
+    const list = shellNavigableHotspots;
+    if (list.length === 0) return;
+    const zoneId = shellFocusZoneId ?? list[0].zoneId;
+    const h = list.find((x) => x.zoneId === zoneId) ?? list[0];
+    if (!h.category) return;
+    setShellFocusZoneId(h.zoneId);
+    setOpenCategory(h.category);
+    setActiveZoneId(h.zoneId);
+  }, [
+    openCategory,
+    isolatedSeatId,
+    focusedPatronSeatId,
+    navigableSeatedSeatIds,
+    handlePatronClick,
+    activeDialogueSeat,
+    shellNavigableHotspots,
+    shellFocusZoneId,
+  ]);
+
+  /**
+   * FS118 (INV-AB-SWAP-01 / INV-DPAD-PATRON-LOOP-01 / AC-03 / AC-04):
+   * - B button (`button-b`) = Back / Cancel / Dismiss:
+   *   Dismisses open DrinkBuildCard, closes inspected patron receipt/conversation box and returns
+   *   directly to hovering/focusing over that patron (`focusedPatronSeatId`), closes open category
+   *   carousel, or dismisses patron dialogue box.
+   */
+  const shellPressBBack = useCallback(() => {
     if (drinkBuildCardOpen) {
       setDrinkBuildCardOpen(false);
       return;
@@ -1438,8 +1580,13 @@ export default function Home() {
       isolatedSeatId !== null ||
       receiptInspectRef.current?.getInspectedId() != null
     ) {
+      const returningSeatId = isolatedSeatId;
       receiptInspectRef.current?.inspectReceipt(null);
       setIsolatedSeatId(null);
+      if (returningSeatId) {
+        setFocusedPatronSeatId(returningSeatId);
+        setShellFocusZoneId(null);
+      }
       return;
     }
     if (openCategory !== null) {
@@ -1956,10 +2103,10 @@ export default function Home() {
   }, [joinStage]);
 
   /**
-   * FS009 Unified 3D Console Physical Button Handlers:
-   * - D-Pad: Scrolls options in Menu / Comm-Link / Camera / Playfield Hotspots / Carousels
-   * - B (`button-b`): Interact / Confirm / Select
-   * - A (`button-a`): Back / Cancel / Dismiss
+   * FS009 / FS118 Unified 3D Console Physical Button Handlers (INV-AB-SWAP-01):
+   * - D-Pad: Scrolls options in Menu / Comm-Link / Camera / Playfield Patrons / Hotspots / Carousels
+   * - A (`button-a`): Interact / Confirm / Select
+   * - B (`button-b`): Back / Cancel / Dismiss
    * - Start (`button-start`): Trigger game immediately (`play` phase)
    * - Select / Options (`button-select`): Trigger menu with "Join the bar!" & "Mode Selection"
    */
@@ -1976,7 +2123,7 @@ export default function Home() {
     [phase, shellDpad]
   );
 
-  const handle3DPressB = useCallback(() => {
+  const handle3DPressA = useCallback(() => {
     if (phase === 'intro') {
       bootIntroRef.current?.interactTap();
       return;
@@ -1986,11 +2133,11 @@ export default function Home() {
       return;
     }
     if (phase === 'play') {
-      shellPressBInteract();
+      shellPressAInteract();
     }
-  }, [phase, shellPressBInteract]);
+  }, [phase, shellPressAInteract]);
 
-  const handle3DPressA = useCallback(() => {
+  const handle3DPressB = useCallback(() => {
     if (phase === 'intro') {
       bootIntroRef.current?.finish();
       return;
@@ -2000,9 +2147,9 @@ export default function Home() {
       return;
     }
     if (phase === 'play') {
-      shellPressABack();
+      shellPressBBack();
     }
-  }, [phase, shellPressABack]);
+  }, [phase, shellPressBBack]);
 
   const handle3DPressStart = useCallback(() => {
     if (joinStage !== null) {
@@ -2294,9 +2441,9 @@ export default function Home() {
           }}
         >
           {/*
-            FS009 — 3D Nintendo Game Boy Console Housing (`game-boy.glb`, 15 parts, baked textures)
+            FS009 / FS118 — 3D Nintendo Game Boy Console Housing (`game-boy.glb`, 15 parts, baked textures)
             with native-color DITHER-OS Bartending screen projection and physical button mapping:
-            D-Pad = Scroll options, B = Interact/Select, A = Back/Cancel, Start = Trigger Game,
+            D-Pad = Scroll options / patrons, A = Interact/Select, B = Back/Cancel, Start = Trigger Game,
             Select/Options = Trigger Menu ("Join the bar!", Mode Selection).
           */}
           <GameBoy3DShell
@@ -2377,6 +2524,7 @@ export default function Home() {
                     seats={barSeatInputs}
                     layoutOverrides={patronLayouts}
                     editMode={patronEditOpen}
+                    dpadFocusedSeatId={focusedPatronSeatId}
                     isolatedSeatId={isolatedSeatId}
                     highlightedSeatId={
                       dragState.isDragging
@@ -2389,6 +2537,7 @@ export default function Home() {
                       hotspotOffsets
                     )}
                     onSitComplete={handlePatronSitComplete}
+                    onSeatedSeatsChange={handleSeatedSeatsChange}
                     onServeDrinkToSeat={handleServeDrinkToSeat}
                     onPatronClick={handlePatronClick}
                   />

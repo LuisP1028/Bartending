@@ -14,9 +14,9 @@ export type DpadDirection = 'up' | 'down' | 'left' | 'right';
 export interface GameBoy3DShellProps {
   children: React.ReactNode;
   onDpad?: (dir: DpadDirection) => void;
-  /** B button: Interact / Confirm / Select (FS009 INV-BUTTON-01) */
+  /** B button: Back / Cancel / Dismiss (FS118 INV-AB-SWAP-01) */
   onPressB?: () => void;
-  /** A button: Back / Cancel / Dismiss (FS009 INV-BUTTON-01) */
+  /** A button: Interact / Confirm / Select (FS118 INV-AB-SWAP-01) */
   onPressA?: () => void;
   /** Start button: Trigger game immediately (FS009 INV-BUTTON-01) */
   onPressStart?: () => void;
@@ -657,10 +657,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-cross-up'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -679,10 +683,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-cross-down'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -701,10 +709,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-cross-left'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -723,10 +735,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-cross-right'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -734,8 +750,8 @@ export default function GameBoy3DShell({
           <button
             type="button"
             className="gb-shell__btn-b"
-            aria-label="Interact / Select (B Button)"
-            title="Interact / Select (B Button)"
+            aria-label="Back / Close (B Button)"
+            title="Back / Close (B Button)"
             onClick={triggerB}
             style={{
               position: 'absolute',
@@ -745,11 +761,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-b'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
               borderRadius: '50%',
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -757,8 +776,8 @@ export default function GameBoy3DShell({
           <button
             type="button"
             className="gb-shell__btn-a"
-            aria-label="Back / Close (A Button)"
-            title="Back / Close (A Button)"
+            aria-label="Interact / Select (A Button)"
+            title="Interact / Select (A Button)"
             onClick={triggerA}
             style={{
               position: 'absolute',
@@ -768,11 +787,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-a'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
               borderRadius: '50%',
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -791,10 +813,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-select'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}
@@ -813,10 +839,14 @@ export default function GameBoy3DShell({
               height: `${buttonRects['button-start'].height}px`,
               background: 'transparent',
               border: 'none',
+              boxShadow: 'none',
+              outline: 'none',
+              borderRadius: 0,
               padding: 0,
               margin: 0,
               cursor: 'pointer',
               pointerEvents: 'auto',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
         )}

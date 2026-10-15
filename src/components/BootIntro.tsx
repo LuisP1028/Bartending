@@ -18,9 +18,9 @@ const BOOT_SKIP_TAPS = 5;
 const AUTOPLAY_RETRY_MS = 8_000;
 
 export type BootIntroHandle = {
-  /** B button: count toward skip tap / unlock playback */
+  /** A button: count toward skip tap / unlock playback (FS118 INV-AB-SWAP-01) */
   interactTap: () => void;
-  /** Start / A / Select override: finish intro immediately */
+  /** Start / B / Select override: finish intro immediately (FS118 INV-AB-SWAP-01) */
   finish: () => void;
 };
 

@@ -71,6 +71,7 @@ type MotionClock = {
 
 export interface PatronLayerHandle {
   departSeat: (seatId: string) => boolean;
+  getSeatedSeatIds: () => string[];
 }
 
 type PatronLayerProps = {
@@ -79,6 +80,8 @@ type PatronLayerProps = {
   barCutoffD?: string;
   editMode?: boolean;
   highlightedSeatId?: string | null;
+  /** FS118 (INV-DPAD-PATRON-LOOP-01 / INV-PATRON-ORANGE-OUTLINE-01): D-Pad focused seatId */
+  dpadFocusedSeatId?: string | null;
   /** FS114 (INV-PATRON-ISOLATION-01): When non-null, only the patron at this seatId is rendered */
   isolatedSeatId?: string | null;
   onSitComplete?: (info: {
@@ -86,6 +89,8 @@ type PatronLayerProps = {
     characterId: string;
     seatId: string;
   }) => void;
+  /** FS118: Emits left-to-right ordered seatIds of currently seated patrons whenever seated set changes */
+  onSeatedSeatsChange?: (seatIds: string[]) => void;
   onServeDrinkToSeat?: (seatId: string) => void;
   /** FS114 (AC-04): Clicking a seated patron opens their receipt inspection & isolates them */
   onPatronClick?: (seatId: string) => void;
@@ -188,8 +193,10 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
       barCutoffD = '',
       editMode = false,
       highlightedSeatId = null,
+      dpadFocusedSeatId = null,
       isolatedSeatId = null,
       onSitComplete,
+      onSeatedSeatsChange,
       onServeDrinkToSeat,
       onPatronClick,
     },
@@ -206,6 +213,9 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
   layoutOverridesRef.current = layoutOverrides;
   const onSitCompleteRef = useRef(onSitComplete);
   onSitCompleteRef.current = onSitComplete;
+  const onSeatedSeatsChangeRef = useRef(onSeatedSeatsChange);
+  onSeatedSeatsChangeRef.current = onSeatedSeatsChange;
+  const lastSeatedKeyRef = useRef<string>('');
 
   /** Per-instance walk clocks (data only). Single driver owns progression. */
   const motionClockRef = useRef(new Map<string, MotionClock>());
@@ -560,6 +570,22 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
     ensureMotionDriver();
   }, [editMode, ensureMotionDriver]);
 
+  const [hoveredSeatId, setHoveredSeatId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const seatedSet = new Set(
+      instances
+        .filter((inst) => inst.phase === 'seated' && Boolean(inst.seatId))
+        .map((inst) => inst.seatId)
+    );
+    const orderedSeated = BAR_SEAT_ZONE_IDS.filter((id) => seatedSet.has(id));
+    const key = orderedSeated.join(',');
+    if (key !== lastSeatedKeyRef.current) {
+      lastSeatedKeyRef.current = key;
+      onSeatedSeatsChangeRef.current?.(orderedSeated);
+    }
+  }, [instances]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -608,6 +634,14 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
           }, 50);
         }
         return found;
+      },
+      getSeatedSeatIds: () => {
+        const seatedSet = new Set(
+          instancesRef.current
+            .filter((inst) => inst.phase === 'seated' && Boolean(inst.seatId))
+            .map((inst) => inst.seatId)
+        );
+        return BAR_SEAT_ZONE_IDS.filter((id) => seatedSet.has(id));
       },
     }),
     [ensureMotionDriver, trySpawn]
@@ -677,6 +711,10 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
         const isSeated = inst.phase === 'seated';
         const isLeaving = inst.phase === 'leaving';
         const isHighlighted = isSeated && highlightedSeatId === inst.seatId;
+        const isDpadFocused = isSeated && dpadFocusedSeatId === inst.seatId;
+        const isInspected = isSeated && isolatedSeatId === inst.seatId;
+        const isHovered = isSeated && hoveredSeatId === inst.seatId;
+        const hasOrangeOutline = isHovered || isDpadFocused || isInspected;
 
         const pos = isSeated
           ? inst.sitPoint
@@ -704,7 +742,7 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
             key={inst.instanceKey}
             className={`pov-patron-sprite${
               isSeated
-                ? ` pov-patron-sprite--sit${isHighlighted ? ' pov-patron-sprite--candidate-target' : ''}`
+                ? ` pov-patron-sprite--sit${isHighlighted ? ' pov-patron-sprite--candidate-target' : ''}${isDpadFocused ? ' pov-patron-sprite--dpad-focus' : ''}${isInspected ? ' pov-patron-sprite--inspected' : ''}${isHovered ? ' pov-patron-sprite--hovered' : ''}`
                 : ' pov-patron-sprite--walk'
             }`}
             src={src}
@@ -714,6 +752,9 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
             data-character-id={inst.characterId}
             data-seat-id={inst.seatId}
             data-phase={inst.phase}
+            data-dpad-focused={isDpadFocused ? 'true' : undefined}
+            data-inspected={isInspected ? 'true' : undefined}
+            data-orange-outline={hasOrangeOutline ? 'true' : undefined}
             style={{
               left: `${pct.leftPct}%`,
               top: `${pct.topPct}%`,
@@ -723,6 +764,19 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
               }`,
               ...(isLeaving ? { pointerEvents: 'none' as const } : {}),
             }}
+            onPointerEnter={
+              isSeated
+                ? () => setHoveredSeatId(inst.seatId)
+                : undefined
+            }
+            onPointerLeave={
+              isSeated
+                ? () =>
+                    setHoveredSeatId((prev) =>
+                      prev === inst.seatId ? null : prev
+                    )
+                : undefined
+            }
             onDragOver={
               isSeated
                 ? (e) => {

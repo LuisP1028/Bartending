@@ -650,13 +650,16 @@
   background-color: #050814;
   color: #ffffff;
   border: 1.5px solid #94a3b8;
-  padding: clamp(3px, 1.4cqh, 6px) clamp(4px, 1.8cqw, 8px);
-  font-family: inherit;
-  font-size: clamp(6px, 2.7cqh, 9px);
-  line-height: 1.2;
+  padding: clamp(2px, 1cqh, 5px) clamp(5px, 1.8cqw, 8px);
+  font-family: var(--font-receipt), 'VT323', var(--font-press-start), monospace;
+  /* FS118 (INV-NO-MOBILE-ZOOM-01): >=16px prevents iOS Safari / mobile browser auto-zoom on focus */
+  font-size: 16px;
+  line-height: 1.05;
   text-transform: uppercase;
   outline: none;
   box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 .customInput::placeholder {

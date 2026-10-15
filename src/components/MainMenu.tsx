@@ -30,9 +30,9 @@ export type MenuPlayMode = 'OBELISCO' | 'CLASSICS';
 
 export type MainMenuHandle = {
   dpad: (dir: 'up' | 'down' | 'left' | 'right') => void;
-  /** B button: Interact / Confirm / Select (FS009 INV-BUTTON-01) */
+  /** A button: Interact / Confirm / Select (FS118 INV-AB-SWAP-01) */
   interact: () => void;
-  /** A button: Back / Cancel / Dismiss (FS009 INV-BUTTON-01) */
+  /** B button: Back / Cancel / Dismiss (FS118 INV-AB-SWAP-01) */
   back: () => void;
 };
 
@@ -539,14 +539,14 @@ const MainMenu = forwardRef<MainMenuHandle, MainMenuProps>(function MainMenu(
                 <button
                   type="button"
                   className="gb-shell__btn-b"
-                  aria-label="Interact / Select"
-                  onClick={activateCurrent}
+                  aria-label="Back"
+                  onClick={goBack}
                 />
                 <button
                   type="button"
                   className="gb-shell__btn-a"
-                  aria-label="Back"
-                  onClick={goBack}
+                  aria-label="Interact / Select"
+                  onClick={activateCurrent}
                 />
               </div>
               <div className="gb-shell__btn-start-select">
