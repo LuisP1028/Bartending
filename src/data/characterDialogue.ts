@@ -3,7 +3,7 @@
  * No network calls here — routing data only.
  */
 
-import { getCharacter, getCharacterPersonality } from './characters';
+import { getCharacterPersonality } from './characters';
 
 /**
  * Catalog keyed by CharacterDef.personality.
@@ -50,8 +50,21 @@ export function loadCharacterPromptFile(
       const content = fs.readFileSync(filePath, 'utf8').trim();
       if (content.length > 0) return content;
     }
+    const metaPath = path.join(
+      repoRoot,
+      'public/assets/patrons',
+      characterId,
+      'meta.json'
+    );
+    if (fs.existsSync(metaPath)) {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as {
+        aboutMe?: string;
+      };
+      const aboutMe = meta.aboutMe?.trim();
+      if (aboutMe && aboutMe.length > 0) return aboutMe;
+    }
   } catch {
-    /* fall through to catalog */
+    /* fall through */
   }
   return null;
 }
@@ -84,42 +97,45 @@ export async function resolveAuthoritativePersona(
   characterId: string,
   repoRoot: string = process.cwd()
 ): Promise<string> {
-  // 1. Check authoritative disk file
-  const filePrompt = loadCharacterPromptFile(characterId, repoRoot);
+  if (!characterId || typeof characterId !== 'string' || !characterId.trim()) {
+    throw new PersonaNotFoundError(String(characterId));
+  }
+
+  // 1. Check authoritative disk file (personality.txt or meta.json aboutMe)
+  const filePrompt = loadCharacterPromptFile(characterId.trim(), repoRoot);
   if (filePrompt && filePrompt.length > 0) {
     return filePrompt;
   }
 
-  // 2. Query relational PostgreSQL database fallback
-  if (typeof window === 'undefined') {
+  // 2. Query relational PostgreSQL database if configured
+  if (
+    typeof window === 'undefined' &&
+    (process.env.DATABASE_URL || process.env.POSTGRES_URL)
+  ) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { query } = require('@/lib/db') as {
         query: <T>(text: string, params?: unknown[]) => Promise<{ rows: T[] }>;
       };
-      const res = await query<{ about_me: string | null }>(
-        'SELECT about_me FROM patrons WHERE id = $1 LIMIT 1',
-        [characterId]
-      );
+      const res = await Promise.race([
+        query<{ about_me: string | null }>(
+          'SELECT about_me FROM patrons WHERE id = $1 LIMIT 1',
+          [characterId.trim()]
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('DB lookup timeout')), 1200)
+        ),
+      ]);
       const dbBio = res.rows[0]?.about_me?.trim();
       if (dbBio && dbBio.length > 0) {
         return dbBio;
       }
     } catch {
-      // Database query error or table empty
+      // Database query error or timeout — proceed to fail-fast
     }
   }
 
-  // 3. Fallback to static catalog if defined for stock characters
-  const char = getCharacter(characterId);
-  if (char) {
-    const catalogPrompt = resolveSystemPromptForPersonality(char.personality);
-    if (catalogPrompt && catalogPrompt.length > 0) {
-      return catalogPrompt;
-    }
-  }
-
-  // 4. Fatal fail-fast
+  // 3. Fatal fail-fast (INV-FAILFAST-DIALOGUE-01: no silent static fallback)
   throw new PersonaNotFoundError(characterId);
 }
 

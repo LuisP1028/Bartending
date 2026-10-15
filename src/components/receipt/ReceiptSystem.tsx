@@ -12,6 +12,11 @@ import React, {
 import type { CocktailRecipe } from '@/data/RecipeManager';
 import type { ReceiptEntity } from '@/lib/receipt/types';
 import { createReceiptEntity } from '@/lib/receipt/mapTicketToReceipt';
+import { talkSrcForCharacter, sitSrcForCharacter } from '@/data/patronAssetPaths';
+import PatronInspectionCarousel, {
+  type CarouselSlide,
+  type PatronInspectionCarouselHandle,
+} from '@/components/PatronInspectionCarousel';
 import ReceiptPaper from './ReceiptPaper';
 import '@/app/receipt.css';
 
@@ -46,6 +51,11 @@ export type PrinterLifecyclePhase =
 export interface ReceiptInspectController {
   inspectReceipt: (instanceId: string | null) => void;
   getInspectedId: () => string | null;
+  switchCarouselSlide: (dirOrSlide: 'left' | 'right' | CarouselSlide) => void;
+  openFullScreenChat: () => void;
+  isFullScreenChatOpen: () => boolean;
+  getActiveSlide: () => CarouselSlide;
+  interactCarousel: () => void;
 }
 
 type ReceiptContextValue = {
@@ -55,6 +65,8 @@ type ReceiptContextValue = {
   /** Active mode id/label for closed receipt titles. */
   modeName: string;
   stageRef: React.RefObject<HTMLDivElement | null>;
+  carouselRef: React.RefObject<PatronInspectionCarouselHandle | null>;
+  seatGreetings?: Record<string, string>;
   printerPhase: PrinterLifecyclePhase;
   printing: ReceiptEntity[];
   free: ReceiptEntity[];
@@ -69,6 +81,7 @@ type ReceiptContextValue = {
   onPointerCancel: (instanceId: string, e: React.PointerEvent) => void;
   onContextMenu: (instanceId: string, e: React.MouseEvent) => void;
   onToggleExpand: (instanceId: string) => void;
+  onCloseInspect: () => void;
 };
 
 const ReceiptContext = createContext<ReceiptContextValue | null>(null);
@@ -91,6 +104,8 @@ type ReceiptProviderProps = {
   activeReceiptId: string | null;
   /** Active mode id/label for closed receipt titles (e.g. OBELISCO, CLASSICS). */
   modeName: string;
+  /** FS113: Map of seatId -> spoken greeting / order line for PatronInspectionCarousel. */
+  seatGreetings?: Record<string, string>;
   onActiveTicketChange: (ticket: CocktailRecipe | null) => void;
   onGenerate: () => CocktailRecipe | null;
   /**
@@ -238,6 +253,7 @@ export function ReceiptProvider({
   activeTicket,
   activeReceiptId,
   modeName,
+  seatGreetings,
   onActiveTicketChange,
   onGenerate,
   onSelectReceipt,
@@ -279,6 +295,7 @@ export function ReceiptProvider({
     document.body.classList.remove('receipt-dragging');
   }, []);
   const stageRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<PatronInspectionCarouselHandle | null>(null);
   /** Queue of receipt instanceIds waiting for their transient print animation */
   const printQueueRef = useRef<string[]>([]);
   const printingRef = useRef(false);
@@ -772,6 +789,21 @@ export function ReceiptProvider({
     inspectControllerRef.current = {
       inspectReceipt,
       getInspectedId,
+      switchCarouselSlide: (dirOrSlide) => {
+        carouselRef.current?.switchSlide(dirOrSlide);
+      },
+      openFullScreenChat: () => {
+        carouselRef.current?.openFullScreenChat();
+      },
+      isFullScreenChatOpen: () => {
+        return carouselRef.current?.isFullScreenChatOpen() ?? false;
+      },
+      getActiveSlide: () => {
+        return carouselRef.current?.getActiveSlide() ?? 'order';
+      },
+      interactCarousel: () => {
+        carouselRef.current?.interact();
+      },
     };
     return () => {
       inspectControllerRef.current = null;
@@ -1074,12 +1106,18 @@ export function ReceiptProvider({
       ((r.inspected && !r.crumpled) || r.handoffExit)
   );
 
+  const onCloseInspect = useCallback(() => {
+    inspectReceipt(null);
+  }, [inspectReceipt]);
+
   const value = useMemo<ReceiptContextValue>(
     () => ({
       activeTicket,
       activeReceiptId,
       modeName,
       stageRef,
+      carouselRef,
+      seatGreetings,
       printerPhase,
       printing,
       free,
@@ -1093,11 +1131,13 @@ export function ReceiptProvider({
       onPointerCancel,
       onContextMenu,
       onToggleExpand: toggleExpand,
+      onCloseInspect,
     }),
     [
       activeTicket,
       activeReceiptId,
       modeName,
+      seatGreetings,
       printerPhase,
       printing,
       free,
@@ -1111,6 +1151,7 @@ export function ReceiptProvider({
       onPointerCancel,
       onContextMenu,
       toggleExpand,
+      onCloseInspect,
     ]
   );
 
@@ -1121,6 +1162,8 @@ export function ReceiptProvider({
 export function ReceiptStageOverlay() {
   const {
     stageRef,
+    carouselRef,
+    seatGreetings,
     printerPhase,
     printing,
     free,
@@ -1135,6 +1178,7 @@ export function ReceiptStageOverlay() {
     onPointerCancel,
     onContextMenu,
     onToggleExpand,
+    onCloseInspect,
   } = useReceipt();
 
   const paperProps = {
@@ -1189,14 +1233,58 @@ export function ReceiptStageOverlay() {
         <div
           className={`receipt-free-layer${anyInspected ? ' receipt-free-layer--inspecting' : ''}`}
         >
-          {free.map((entity) => (
-            <ReceiptPaper
-              key={entity.instanceId}
-              entity={entity}
-              isActiveOrder={entity.instanceId === activeReceiptId}
-              {...paperProps}
-            />
-          ))}
+          {free.map((entity) => {
+            const isCarouselTarget =
+              entity.inspected &&
+              !entity.crumpled &&
+              !entity.handoffExit &&
+              Boolean(entity.seatId && entity.characterId);
+
+            if (isCarouselTarget && entity.seatId && entity.characterId) {
+              const portraitSrc =
+                talkSrcForCharacter(entity.characterId) ||
+                sitSrcForCharacter(entity.characterId);
+              const greeting =
+                (seatGreetings && seatGreetings[entity.seatId]) ||
+                'WHAT ARE WE POURING TONIGHT, BARTENDER?';
+
+              return (
+                <PatronInspectionCarousel
+                  key={entity.instanceId}
+                  ref={carouselRef}
+                  seatId={entity.seatId}
+                  characterId={entity.characterId}
+                  patronName={entity.patronName || 'PATRON'}
+                  portraitSrc={portraitSrc}
+                  initialGreeting={greeting}
+                  activeOrder={{
+                    name: entity.ticket.name,
+                    vessel: entity.ticket.vessel,
+                    agitation: entity.ticket.agitation,
+                    garnishes: entity.ticket.garnishes,
+                  }}
+                  onClose={onCloseInspect}
+                  orderReceiptNode={
+                    <ReceiptPaper
+                      entity={entity}
+                      isActiveOrder={entity.instanceId === activeReceiptId}
+                      insideCarousel={true}
+                      {...paperProps}
+                    />
+                  }
+                />
+              );
+            }
+
+            return (
+              <ReceiptPaper
+                key={entity.instanceId}
+                entity={entity}
+                isActiveOrder={entity.instanceId === activeReceiptId}
+                {...paperProps}
+              />
+            );
+          })}
         </div>
 
         {toast ? <div className="receipt-copy-toast">{toast}</div> : null}

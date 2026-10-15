@@ -635,6 +635,7 @@ export default function GameBoy3DShell({
         className="gb-shell__controls"
         data-gb-3d-controls="true"
         style={{
+          display: 'block',
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',

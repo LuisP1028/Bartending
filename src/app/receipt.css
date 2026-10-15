@@ -78,9 +78,9 @@
   --receipt-ui-scale: 1;
 }
 
-/* Inspected Full face may paint above stage chrome; host raises stacking */
+/* Inspected Full face / PatronInspectionCarousel / Full-Screen Chatbox sits above stage HUD */
 .receipt-system--pov.receipt-system--has-inspect {
-  z-index: 40;
+  z-index: 75;
   overflow: visible;
 }
 
@@ -798,6 +798,18 @@ body.receipt-dragging {
   transform: none !important;
   touch-action: pan-y;
   cursor: pointer;
+}
+
+/* FS113: Inspected receipt hosted inside Slide 1 of PatronInspectionCarousel */
+.receipt-wrapper.state-inspected.receipt-wrapper--in-carousel {
+  position: relative !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  flex: 1 1 auto;
+  cursor: default;
 }
 
 .receipt-printer-mask .receipt-paper--summary {

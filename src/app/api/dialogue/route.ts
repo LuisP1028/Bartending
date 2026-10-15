@@ -16,6 +16,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      body.type !== 'order' &&
+      body.type !== 'rejection' &&
+      body.type !== 'starters' &&
+      body.type !== 'chat'
+    ) {
+      return NextResponse.json(
+        { error: `Invalid dialogue request type: ${String((body as { type?: unknown }).type)}`, code: 'INVALID_PAYLOAD' },
+        { status: 400 }
+      );
+    }
+
+    if (
+      body.type === 'chat' &&
+      (typeof body.playerMessage !== 'string' || !body.playerMessage.trim())
+    ) {
+      return NextResponse.json(
+        { error: 'Missing or empty playerMessage for chat request', code: 'INVALID_PAYLOAD' },
+        { status: 400 }
+      );
+    }
+
     const result = await generateDialogueCompletion(body);
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {

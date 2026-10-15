@@ -1250,6 +1250,20 @@ export default function Home() {
    */
   const shellDpad = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right') => {
+      // FS113: Patron Inspection Carousel slide switching (Order Receipt <-> Conversation Box)
+      if (
+        isolatedSeatId !== null ||
+        receiptInspectRef.current?.getInspectedId() != null
+      ) {
+        if (
+          (dir === 'left' || dir === 'right') &&
+          !receiptInspectRef.current?.isFullScreenChatOpen()
+        ) {
+          receiptInspectRef.current?.switchCarouselSlide(dir);
+        }
+        return;
+      }
+
       // FS77 carousel mode
       if (openCategory !== null) {
         const car = shellCarouselRef.current;
@@ -1311,6 +1325,7 @@ export default function Home() {
       setShellFocusZoneId(next.zoneId);
     },
     [
+      isolatedSeatId,
       openCategory,
       shellNavigableHotspots,
       shellFocusZoneId,
@@ -1323,23 +1338,24 @@ export default function Home() {
    * FS009 (INV-BUTTON-01):
    * - B button (`button-b`) = Interact / Confirm / Select:
    *   Activates/applies the focused carousel item when a category carousel is open,
-   *   advances/dismisses patron dialogue when open, or opens the focused hotspot carousel.
+   *   advances/dismisses patron dialogue when open, interacts with PatronInspectionCarousel,
+   *   or opens the focused hotspot carousel.
    */
   const shellPressBInteract = useCallback(() => {
     if (openCategory !== null) {
       shellCarouselRef.current?.activateFocused();
       return;
     }
-    if (activeDialogueSeat !== null) {
-      dialogueBoxRef.current?.interact();
-      return;
-    }
     if (
       isolatedSeatId !== null ||
       receiptInspectRef.current?.getInspectedId() != null
     ) {
-      receiptInspectRef.current?.inspectReceipt(null);
-      setIsolatedSeatId(null);
+      receiptInspectRef.current?.interactCarousel();
+      return;
+    }
+    if (activeDialogueSeat !== null) {
+      dialogueBoxRef.current?.interact();
+      return;
     }
     const list = shellNavigableHotspots;
     if (list.length === 0) return;
@@ -1723,8 +1739,14 @@ export default function Home() {
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Element | null;
       if (!target) return;
-      // Clicking the inspected receipt itself is handled by ReceiptSystem toggleExpand
-      if (target.closest?.('.receipt-wrapper.state-inspected')) return;
+      // Clicking inside the PatronInspectionCarousel, Full-Screen Chatbox, or inspected receipt is handled internally
+      if (
+        target.closest?.('[data-testid="patron-inspection-carousel"]') ||
+        target.closest?.('[data-testid="patron-chatbox-fullscreen"]') ||
+        target.closest?.('.receipt-wrapper.state-inspected')
+      ) {
+        return;
+      }
       // Clicking a seated patron sprite is handled by handlePatronClick
       if (target.closest?.('.pov-patron-sprite--sit')) return;
       // Clicking 3D Game Boy shell controls is handled by button handlers
@@ -2155,6 +2177,19 @@ export default function Home() {
       />
     ) : null;
 
+  const seatGreetings = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const [sid, ord] of Object.entries(seatOrders)) {
+      const msg =
+        rejectionDialogues[sid] ||
+        ord.rejectionDialogue ||
+        ord.activeDialogue ||
+        ord.orderDialogue;
+      if (msg) out[sid] = msg;
+    }
+    return out;
+  }, [seatOrders, rejectionDialogues]);
+
   return (
     <>
       <GlobalSVGDefs />
@@ -2236,6 +2271,7 @@ export default function Home() {
           modeName={modeName}
           activeTicket={activeTicket}
           activeReceiptId={activeReceiptId}
+          seatGreetings={seatGreetings}
           handoffExitRef={handoffExitRef}
           getReceiptTotalRef={getReceiptTotalRef}
           printAttachedTicketRef={printAttachedTicketRef}
@@ -2585,8 +2621,10 @@ export default function Home() {
                     />
                   ) : null}
 
-                  {/* FS109/FS110: Retro RPG Dialogue Box */}
-                  {activeDialogueSeat && seatOrders[activeDialogueSeat] && (
+                  {/* FS109/FS110: Retro RPG Dialogue Box (suppressed when PatronInspectionCarousel is active) */}
+                  {isolatedSeatId === null &&
+                    activeDialogueSeat &&
+                    seatOrders[activeDialogueSeat] && (
                     <RetroRpgDialogueBox
                       ref={dialogueBoxRef}
                       isOpen={true}

@@ -16,6 +16,8 @@ type ReceiptPaperProps = {
   modeName: string;
   /** True when this receipt owns the live drink_placement build. */
   isActiveOrder?: boolean;
+  /** True when hosted inside PatronInspectionCarousel Slide 1. */
+  insideCarousel?: boolean;
   onAnimationEnd: (instanceId: string, rect: DOMRect) => void;
   onPointerDown: (instanceId: string, e: React.PointerEvent) => void;
   onPointerMove: (instanceId: string, e: React.PointerEvent) => void;
@@ -30,6 +32,7 @@ export default function ReceiptPaper({
   entity,
   modeName,
   isActiveOrder = false,
+  insideCarousel = false,
   onAnimationEnd,
   onPointerDown,
   onPointerMove,
@@ -59,6 +62,7 @@ export default function ReceiptPaper({
     entity.crumpled ? 'state-crumpled' : '',
     // Inspected + not crumpled drives Full face (showFull) and scale class
     showFull ? 'state-inspected' : '',
+    insideCarousel ? 'receipt-wrapper--in-carousel' : '',
     isActiveOrder ? 'receipt-wrapper--active-order' : '',
     isHandoffExit ? 'receipt-wrapper--handoff-exit' : '',
   ]
@@ -113,25 +117,25 @@ export default function ReceiptPaper({
         onAnimationEnd(entity.instanceId, rect);
       }}
       onPointerDown={(e) => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         pointerGestureRef.current = true;
         onPointerDown(entity.instanceId, e);
       }}
       onPointerMove={(e) => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         onPointerMove(entity.instanceId, e);
       }}
       onPointerUp={(e) => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         onPointerUp(entity.instanceId, e);
       }}
       onPointerCancel={(e) => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         pointerGestureRef.current = false;
         onPointerCancel(entity.instanceId, e);
       }}
       onClick={() => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         if (pointerGestureRef.current) {
           pointerGestureRef.current = false;
           return;
@@ -141,18 +145,20 @@ export default function ReceiptPaper({
       }}
       onContextMenu={(e) => onContextMenu(entity.instanceId, e)}
       title={
-        isHandoffExit
+        isHandoffExit || insideCarousel
           ? undefined
           : showFull
             ? 'Click to collapse'
             : 'Click to expand'
       }
-      role="button"
+      role={insideCarousel ? 'region' : 'button'}
       tabIndex={
-        entity.phase === 'free' && !entity.inMask && !isHandoffExit ? 0 : -1
+        entity.phase === 'free' && !entity.inMask && !isHandoffExit && !insideCarousel
+          ? 0
+          : -1
       }
       onKeyDown={(e) => {
-        if (isHandoffExit) return;
+        if (isHandoffExit || insideCarousel) return;
         if (entity.phase !== 'free' || entity.inMask || entity.crumpled) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

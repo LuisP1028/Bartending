@@ -1,0 +1,693 @@
+.pixelArt {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ==========================================================================
+   MODE A: Non-Occluding 2-Slide Patron Inspection Carousel
+   (Order Receipt <-> Conversation Box)
+   ========================================================================== */
+
+.carouselContainer {
+  position: absolute;
+  top: calc(var(--shell-glass-inset-y, 0px) + (var(--shell-glass-h, 100%) * 0.05));
+  height: calc(var(--shell-glass-h, 100%) * 0.86);
+  width: calc(var(--shell-glass-w, 100%) * 0.48);
+  z-index: 9100;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1.2cqh, 6px);
+  box-sizing: border-box;
+  container-type: size;
+  user-select: none;
+  font-family: var(--font-press-start), 'Press Start 2P', monospace;
+}
+
+.sideRight {
+  left: calc(var(--shell-glass-inset-x, 0px) + (var(--shell-glass-w, 100%) * 0.48));
+}
+
+.sideLeft {
+  left: calc(var(--shell-glass-inset-x, 0px) + (var(--shell-glass-w, 100%) * 0.04));
+}
+
+/* Carousel Top Navigation Header */
+.carouselHeader {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  background-color: #09133b;
+  border: 2px solid #ffffff;
+  outline: 1px solid #000000;
+  box-shadow:
+    inset 0 0 0 1.5px #09133b,
+    0 3px 8px rgba(0, 0, 0, 0.65);
+  padding: 2px 3px;
+  box-sizing: border-box;
+  z-index: 5;
+}
+
+.navArrowBtn {
+  flex: 0 0 auto;
+  background-color: #13225c;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: clamp(5.5px, 3.8cqw, 8.5px);
+  line-height: 1;
+  cursor: pointer;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(14px, 10cqw, 22px);
+  min-height: clamp(14px, 6cqh, 20px);
+}
+
+.navArrowBtn:hover,
+.navArrowBtn:focus-visible {
+  background-color: #f7ca18;
+  color: #000000;
+  border-color: #000000;
+  outline: none;
+}
+
+.tabGroup {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tabBtn {
+  flex: 1 1 0;
+  min-width: 0;
+  background-color: #060b1c;
+  color: #94a3b8;
+  border: 1px solid #475569;
+  padding: 2px 2px;
+  font-family: inherit;
+  font-size: clamp(5px, 3.4cqw, 7.5px);
+  line-height: 1.1;
+  cursor: pointer;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: clamp(14px, 6cqh, 20px);
+}
+
+.tabBtnActive {
+  background-color: #f7ca18;
+  color: #000000;
+  border-color: #ffffff;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.closeBtn {
+  flex: 0 0 auto;
+  background-color: #7f1d1d;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: clamp(6px, 4cqw, 9px);
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: clamp(14px, 10cqw, 22px);
+  min-height: clamp(14px, 6cqh, 20px);
+}
+
+.closeBtn:hover,
+.closeBtn:focus-visible {
+  background-color: #ef4444;
+  color: #ffffff;
+  outline: none;
+}
+
+/* Carousel Slide Body */
+.carouselBody {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.orderSlideViewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   Slide 2: Retro RPG Conversation Box inside Carousel
+   ========================================================================== */
+
+.conversationSlideBox {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+  background-color: #09133b;
+  border: 2.5px solid #ffffff;
+  outline: 1.5px solid #000000;
+  box-shadow:
+    inset 0 0 0 2px #09133b,
+    inset 0 0 0 3.5px #ffffff,
+    0 6px 16px rgba(0, 0, 0, 0.75);
+  padding: clamp(5px, 3.5cqh, 10px) clamp(5px, 3.5cqw, 10px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(4px, 2cqh, 8px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  cursor: pointer;
+}
+
+.convHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: clamp(5px, 3.5cqw, 10px);
+  flex-shrink: 0;
+}
+
+.convPortraitFrame {
+  flex-shrink: 0;
+  width: clamp(28px, 24cqw, 48px);
+  height: clamp(28px, 24cqw, 48px);
+  aspect-ratio: 1 / 1;
+  background-color: #060b1c;
+  border: 2px solid #cbd5e1;
+  border-radius: 2px;
+  box-shadow:
+    inset 1px 1px 0px #ffffff,
+    inset -1px -1px 0px #475569,
+    0 0 0 1px #000000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.convPortraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+.convSpeakerMeta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.convSpeakerName {
+  font-size: clamp(6px, 4.4cqw, 9.5px);
+  font-weight: 700;
+  color: #f7ca18;
+  text-transform: uppercase;
+  text-shadow: 1.5px 1.5px 0px #000000;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.convOrderSub {
+  font-size: clamp(5px, 3.4cqw, 7.5px);
+  color: #93c5fd;
+  text-transform: uppercase;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.convGreetingBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  background-color: rgba(6, 11, 28, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: clamp(4px, 2.2cqh, 7px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.convGreetingText {
+  font-size: clamp(5.5px, 3.8cqw, 8.5px);
+  line-height: 1.32;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0;
+  word-break: break-word;
+  text-shadow: 1px 1px 0px #030612;
+}
+
+.convTalkActionBtn {
+  flex-shrink: 0;
+  width: 100%;
+  background-color: #f7ca18;
+  color: #000000;
+  border: 2px solid #ffffff;
+  outline: 1px solid #000000;
+  padding: clamp(4px, 2.2cqh, 7px) clamp(4px, 3cqw, 8px);
+  font-family: inherit;
+  font-size: clamp(5.5px, 3.8cqw, 8.5px);
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 2px 0 #000000;
+}
+
+.convTalkActionBtn:hover,
+.convTalkActionBtn:focus-visible {
+  background-color: #fde047;
+  outline: none;
+}
+
+/* ==========================================================================
+   MODE B: Full-Screen Patron Chatbox
+   Covers >= 92% width and >= 90% height (96% x 96%) of Game Boy screen
+   ========================================================================== */
+
+.fullScreenChatbox {
+  position: absolute;
+  left: calc(var(--shell-glass-inset-x, 0px) + (var(--shell-glass-w, 100%) * 0.02));
+  top: calc(var(--shell-glass-inset-y, 0px) + (var(--shell-glass-h, 100%) * 0.02));
+  width: calc(var(--shell-glass-w, 100%) * 0.96);
+  height: calc(var(--shell-glass-h, 100%) * 0.96);
+  z-index: 9200;
+  pointer-events: auto;
+  box-sizing: border-box;
+  container-type: size;
+  user-select: none;
+  font-family: var(--font-press-start), 'Press Start 2P', monospace;
+}
+
+.fullScreenWindow {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: #09133b;
+  border: clamp(2px, 1.2cqh, 3px) solid #ffffff;
+  outline: clamp(1px, 0.8cqh, 2px) solid #000000;
+  box-shadow:
+    inset 0 0 0 clamp(1.5px, 1cqh, 2.5px) #09133b,
+    inset 0 0 0 clamp(2.5px, 1.8cqh, 4px) #ffffff,
+    0 8px 24px rgba(0, 0, 0, 0.85);
+  padding: clamp(5px, 2.8cqh, 12px) clamp(6px, 2.5cqw, 14px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(4px, 2cqh, 9px);
+  overflow: hidden;
+}
+
+/* Corner Loops matching Retro RPG Scrollwork */
+.cornerLoop {
+  position: absolute;
+  width: clamp(9px, 4.5cqh, 15px);
+  height: clamp(9px, 4.5cqh, 15px);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.cornerTopLeft {
+  top: -3px;
+  left: -3px;
+}
+
+.cornerTopRight {
+  top: -3px;
+  right: -3px;
+}
+
+.cornerBottomLeft {
+  bottom: -3px;
+  left: -3px;
+}
+
+.cornerBottomRight {
+  bottom: -3px;
+  right: -3px;
+}
+
+/* Chatbox Top Header: Beveled Photo + Gold Patron Name + Navigation */
+.chatboxHeader {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(5px, 2cqw, 12px);
+  padding-bottom: clamp(3px, 1.5cqh, 6px);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.35);
+}
+
+.chatboxIdentity {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 2.2cqw, 12px);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chatboxPortraitFrame {
+  flex-shrink: 0;
+  width: clamp(28px, 16cqh, 52px);
+  height: clamp(28px, 16cqh, 52px);
+  aspect-ratio: 1 / 1;
+  background-color: #060b1c;
+  border: 2px solid #cbd5e1;
+  border-radius: 3px;
+  box-shadow:
+    inset 1.5px 1.5px 0px #ffffff,
+    inset -1.5px -1.5px 0px #475569,
+    0 0 0 1.5px #000000,
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chatboxPortraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+.chatboxNameStack {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chatboxPatronName {
+  font-size: clamp(6.5px, 3.4cqh, 11px);
+  font-weight: 700;
+  color: #f7ca18;
+  text-transform: uppercase;
+  text-shadow: 1.5px 1.5px 0px #000000;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chatboxOrderTag {
+  font-size: clamp(5px, 2.5cqh, 8px);
+  color: #93c5fd;
+  text-transform: uppercase;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chatboxHeaderActions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(3px, 1.2cqw, 6px);
+}
+
+.backToOrderBtn {
+  background-color: #13225c;
+  color: #f7ca18;
+  border: 1.5px solid #ffffff;
+  padding: clamp(2px, 1.2cqh, 5px) clamp(4px, 1.6cqw, 8px);
+  font-family: inherit;
+  font-size: clamp(5.5px, 2.6cqh, 8.5px);
+  line-height: 1.1;
+  cursor: pointer;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.backToOrderBtn:hover,
+.backToOrderBtn:focus-visible {
+  background-color: #f7ca18;
+  color: #000000;
+  outline: none;
+}
+
+.chatboxCloseBtn {
+  background-color: #7f1d1d;
+  color: #ffffff;
+  border: 1.5px solid #ffffff;
+  padding: clamp(2px, 1.2cqh, 5px) clamp(5px, 1.8cqw, 8px);
+  font-family: inherit;
+  font-size: clamp(6px, 2.8cqh, 9.5px);
+  line-height: 1.1;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.chatboxCloseBtn:hover,
+.chatboxCloseBtn:focus-visible {
+  background-color: #ef4444;
+  outline: none;
+}
+
+/* Central Transcript & Typewriter Speech Area */
+.chatboxTranscript {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background-color: rgba(6, 11, 28, 0.72);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  padding: clamp(4px, 2cqh, 9px) clamp(5px, 2.2cqw, 10px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1.5cqh, 6px);
+  cursor: pointer;
+}
+
+.playerBubble {
+  align-self: flex-end;
+  max-width: 92%;
+  background-color: #1e3a8a;
+  border: 1px solid #93c5fd;
+  padding: clamp(2px, 1cqh, 4px) clamp(4px, 1.6cqw, 7px);
+  font-size: clamp(5px, 2.5cqh, 8px);
+  line-height: 1.25;
+  color: #e0f2fe;
+  text-transform: uppercase;
+  word-break: break-word;
+}
+
+.patronSpeechRow {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-right: 12px;
+}
+
+.patronMessageText {
+  font-size: clamp(5.8px, 3cqh, 9.5px);
+  line-height: 1.34;
+  color: #ffffff;
+  text-transform: uppercase;
+  word-break: break-word;
+  letter-spacing: 0.02em;
+  text-shadow: 1px 1px 0px #030612;
+  margin: 0;
+  white-space: pre-line;
+}
+
+.thinkingText {
+  font-size: clamp(6px, 3cqh, 9.5px);
+  color: #f7ca18;
+  letter-spacing: 0.15em;
+  margin: 0;
+}
+
+@keyframes retroBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+.promptArrow {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  animation: retroBounce 0.75s steps(2, jump-none) infinite;
+}
+
+/* Fail-Fast Error Banner */
+.errorBanner {
+  flex: 0 0 auto;
+  background-color: #450a0a;
+  border: 1.5px solid #f87171;
+  color: #fecaca;
+  padding: clamp(3px, 1.4cqh, 6px) clamp(4px, 1.8cqw, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: clamp(5px, 2.4cqh, 8px);
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.errorText {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.retryBtn {
+  flex-shrink: 0;
+  background-color: #991b1b;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  padding: 2px 5px;
+  font-family: inherit;
+  font-size: clamp(5px, 2.3cqh, 7.5px);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+/* Two LLM-Generated Starters Area */
+.startersContainer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2.5px, 1.2cqh, 5px);
+}
+
+.startersLoading {
+  background-color: #060b1c;
+  border: 1px dashed #64748b;
+  color: #94a3b8;
+  padding: clamp(3px, 1.5cqh, 6px);
+  font-size: clamp(5px, 2.5cqh, 8px);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.starterBtn {
+  width: 100%;
+  background-color: #111c44;
+  color: #f8fafc;
+  border: 1px solid #60a5fa;
+  padding: clamp(3px, 1.4cqh, 6px) clamp(4px, 1.8cqw, 8px);
+  font-family: inherit;
+  font-size: clamp(5px, 2.5cqh, 8px);
+  line-height: 1.24;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+  word-break: break-word;
+  transition: background-color 0.1s ease;
+}
+
+.starterBtn:hover:not(:disabled),
+.starterBtn:focus-visible:not(:disabled) {
+  background-color: #1e3a8a;
+  border-color: #f7ca18;
+  color: #f7ca18;
+  outline: none;
+}
+
+.starterBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Custom Input Row */
+.customInputRow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: clamp(3px, 1.4cqw, 6px);
+  width: 100%;
+}
+
+.customInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  background-color: #050814;
+  color: #ffffff;
+  border: 1.5px solid #94a3b8;
+  padding: clamp(3px, 1.4cqh, 6px) clamp(4px, 1.8cqw, 8px);
+  font-family: inherit;
+  font-size: clamp(6px, 2.7cqh, 9px);
+  line-height: 1.2;
+  text-transform: uppercase;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.customInput::placeholder {
+  color: #64748b;
+}
+
+.customInput:focus {
+  border-color: #f7ca18;
+}
+
+.sendBtn {
+  flex: 0 0 auto;
+  background-color: #f7ca18;
+  color: #000000;
+  border: 1.5px solid #ffffff;
+  padding: clamp(3px, 1.4cqh, 6px) clamp(5px, 2cqw, 10px);
+  font-family: inherit;
+  font-size: clamp(5.5px, 2.6cqh, 8.5px);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sendBtn:hover:not(:disabled),
+.sendBtn:focus-visible:not(:disabled) {
+  background-color: #fde047;
+  outline: none;
+}
+
+.sendBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
