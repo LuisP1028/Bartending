@@ -2613,6 +2613,31 @@ export default function Home() {
                       onDismiss={() => setActiveDialogueSeat(null)}
                     />
                   )}
+
+                  <DrinkBuildCard
+                    open={drinkBuildCardOpen}
+                    drinkTitle={drinkBuildTitle}
+                    lines={drinkBuildLines}
+                    sizePx={vesselBoxPx}
+                    onClose={() => setDrinkBuildCardOpen(false)}
+                    onTrash={() => {
+                      trashDrink();
+                      // Drop parked progress for the active order (paper stays)
+                      const key = activeReceiptIdRef.current;
+                      if (key) {
+                        const next = { ...buildsRef.current };
+                        delete next[key];
+                        buildsRef.current = next;
+                        setBuildsByReceiptId(next);
+                      } else {
+                        const next = { ...buildsRef.current };
+                        delete next[FREESTYLE_BUILD_KEY];
+                        buildsRef.current = next;
+                        setBuildsByReceiptId(next);
+                      }
+                      setDrinkBuildCardOpen(false);
+                    }}
+                  />
                 </PovStageShell>
               </section>
             )}
@@ -2620,31 +2645,6 @@ export default function Home() {
 
           {phase === 'play' && mode && manifest ? (
             <>
-              <DrinkBuildCard
-                open={drinkBuildCardOpen}
-                drinkTitle={drinkBuildTitle}
-                lines={drinkBuildLines}
-                sizePx={vesselBoxPx}
-                onClose={() => setDrinkBuildCardOpen(false)}
-                onTrash={() => {
-                  trashDrink();
-                  // Drop parked progress for the active order (paper stays)
-                  const key = activeReceiptIdRef.current;
-                  if (key) {
-                    const next = { ...buildsRef.current };
-                    delete next[key];
-                    buildsRef.current = next;
-                    setBuildsByReceiptId(next);
-                  } else {
-                    const next = { ...buildsRef.current };
-                    delete next[FREESTYLE_BUILD_KEY];
-                    buildsRef.current = next;
-                    setBuildsByReceiptId(next);
-                  }
-                  setDrinkBuildCardOpen(false);
-                }}
-              />
-
               {/* Ticket controls outside POV corner art */}
               <ReceiptToolbar
                 errors={errors}

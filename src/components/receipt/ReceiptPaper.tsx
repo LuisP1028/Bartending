@@ -79,17 +79,6 @@ export default function ReceiptPaper({
     margin: 0,
   } as unknown as React.CSSProperties;
 
-  const dateStr = entity.issuedAt.toLocaleDateString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
-  });
-  const timeStr = entity.issuedAt.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
-
   const totalDisplay = formatMoney(entity.pricedOrder.total);
   const tax = entity.pricedOrder.tax;
   const patronUpper = (entity.patronName || '').trim().toUpperCase();
@@ -197,14 +186,6 @@ export default function ReceiptPaper({
               >
                 PATRON: {patronUpper}
               </div>
-              <div className="r-line r-meta" data-testid="receipt-meta-chk">
-                <span className="r-line-label">CHK: {entity.orderId}</span>
-                <span className="r-line-value">{dateStr}</span>
-              </div>
-              <div className="r-line r-meta" data-testid="receipt-meta-srv">
-                <span className="r-line-label">SRV: V_BARTENDER</span>
-                <span className="r-line-value">{timeStr}</span>
-              </div>
             </div>
 
             <div className="r-divider" />
@@ -272,10 +253,6 @@ export default function ReceiptPaper({
                 data-testid="receipt-patron-name"
               >
                 PATRON: {patronUpper}
-              </div>
-              <div className="r-line r-meta" data-testid="receipt-meta-chk">
-                <span className="r-line-label">CHK: {entity.orderId}</span>
-                <span className="r-line-value">{timeStr}</span>
               </div>
             </div>
             <div className="r-divider" />

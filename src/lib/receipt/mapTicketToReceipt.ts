@@ -63,7 +63,8 @@ export function buildSeed(orderId: string, ticket: CocktailRecipe): string {
   }
   const frag = Math.abs(h).toString(36).toUpperCase().slice(0, 8);
   const nameFrag = ticket.name.replace(/\s+/g, '').slice(0, 6).toUpperCase();
-  return `${orderId}-${nameFrag}-${frag}`;
+  const numFrag = orderId.replace(/^ORD-/i, '');
+  return `${nameFrag}-${numFrag}-${frag}`;
 }
 
 export function makeOrderId(): string {

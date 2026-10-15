@@ -1,0 +1,15 @@
+src/components/receipt/ReceiptPaper.tsx CHANGED ticket-001
+src/lib/receipt/mapTicketToReceipt.ts CHANGED ticket-001
+src/components/DrinkBuildCard.tsx CHANGED ticket-002
+src/app/page.tsx CHANGED ticket-002
+src/app/globals.css CHANGED ticket-002
+src/components/CategoryOverlay.tsx CHANGED ticket-003
+src/data/povHotspots.ts CHANGED ticket-004
+functional_specification_117.md CHANGED ticket-001
+required_edits_117.md CHANGED ticket-001
+wayfinder/20261015T104800-117-ui/map.md CHANGED ticket-001
+wayfinder/20261015T104800-117-ui/tickets/ticket-001.md CHANGED ticket-001
+wayfinder/20261015T104800-117-ui/tickets/ticket-002.md CHANGED ticket-002
+wayfinder/20261015T104800-117-ui/tickets/ticket-003.md CHANGED ticket-003
+wayfinder/20261015T104800-117-ui/tickets/ticket-004.md CHANGED ticket-004
+wayfinder/20261015T104800-117-ui/test_matrix_117.md CHANGED ticket-004

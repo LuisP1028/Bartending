@@ -1,0 +1,9 @@
+src/app/globals.css
+src/app/page.tsx
+src/components/CategoryOverlay.tsx
+src/components/DrinkBuildCard.tsx
+src/components/receipt/ReceiptPaper.tsx
+src/data/povHotspots.ts
+src/lib/receipt/mapTicketToReceipt.ts
+functional_specification_117.md
+required_edits_117.md
