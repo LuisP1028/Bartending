@@ -189,8 +189,21 @@ function prettyPricedOrder(
 export function createReceiptEntity(
   ticket: CocktailRecipe,
   zIndex: number,
-  options?: CreateReceiptOptions
+  options: CreateReceiptOptions
 ): ReceiptEntity {
+  if (!ticket || !ticket.name) {
+    throw new Error(
+      '[createReceiptEntity] Fatal: valid CocktailRecipe is required (INV-FAILFAST-01).'
+    );
+  }
+  const patronName =
+    typeof options?.patronName === 'string' ? options.patronName.trim() : '';
+  if (!patronName) {
+    throw new Error(
+      '[createReceiptEntity] Fatal: non-empty patronName is required for receipt attribution (INV-FAILFAST-01).'
+    );
+  }
+
   const cloned = cloneTicket(ticket);
   const orderId = makeOrderId();
   const seed = buildSeed(orderId, cloned);
@@ -212,6 +225,7 @@ export function createReceiptEntity(
     seed,
     paperStyle: FIXED_PAPER_STYLE,
     ticket: cloned,
+    patronName,
     issuedAt,
     paid: false,
     pricedOrder,
@@ -236,6 +250,7 @@ export function formatRecipeClipboard(entity: ReceiptEntity): string {
   const resolveName = resolveDisplayName;
   const lines: string[] = [
     `DITHER-OS RECIPE [${entity.orderId}]`,
+    `PATRON: ${entity.patronName.toUpperCase()}`,
     `SEED: ${entity.seed}`,
     `DRINK: ${t.name}`,
     `VESSEL: ${resolveVesselDisplay(t.vessel)}`,

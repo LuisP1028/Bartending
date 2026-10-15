@@ -307,6 +307,7 @@ export default function GlassAsset({
     <div
       onClick={onClick}
       aria-label={label}
+      data-carousel-label={label}
       title={label}
       style={{
         border: bare ? 'none' : 'clamp(2px, 0.5vmin, 4px) solid var(--glass-dark)',
@@ -327,7 +328,7 @@ export default function GlassAsset({
         boxSizing: 'border-box',
         /* FS64: do not clip vessel garnish overhangs on mobile overlay */
         overflow: isOverlay ? 'visible' : undefined,
-        gap: isOverlay ? 2 : 0,
+        gap: 0,
         lineHeight: 0,
       }}
     >
@@ -335,9 +336,10 @@ export default function GlassAsset({
         className={`asset-art-root${animClass ? ` ${animClass}` : ''}`}
         style={{
           position: 'relative',
-          width: isOverlay ? 'min(100%, 72px)' : 'clamp(80px, 18vw, 160px)',
+          width: isOverlay ? 'auto' : 'clamp(80px, 18vw, 160px)',
+          height: isOverlay ? '92%' : undefined,
           maxWidth: isOverlay ? '100%' : undefined,
-          maxHeight: isOverlay ? '100%' : undefined,
+          maxHeight: isOverlay ? '92%' : undefined,
           aspectRatio: '64 / 96',
           transformOrigin: isOverlay ? 'center center' : 'bottom center',
           marginBottom: isOverlay ? 0 : 'clamp(8px, 2vh, 16px)',
@@ -436,7 +438,7 @@ export default function GlassAsset({
           {metrics ? renderGarnishList(overOutline) : null}
         </svg>
       </div>
-      {label ? <div className="asset-under-label">{label}</div> : null}
+      {label && !isOverlay ? <div className="asset-under-label">{label}</div> : null}
     </div>
   );
 }

@@ -113,14 +113,14 @@ const RetroRpgDialogueBox = forwardRef<
   return (
     <div
       className={styles.wrapper}
+      data-testid="retro-rpg-dialogue-box"
       onClick={handleClick}
       role="dialog"
       aria-live="polite"
     >
       {/* Corner Loops */}
       <svg
-        className={`${styles.cornerLoop} ${styles.pixelArt}`}
-        style={{ top: -6, left: -6 }}
+        className={`${styles.cornerLoop} ${styles.cornerTopLeft} ${styles.pixelArt}`}
         viewBox="0 0 24 24"
       >
         <rect
@@ -138,8 +138,7 @@ const RetroRpgDialogueBox = forwardRef<
         <rect x="7" y="7" width="5" height="5" fill="#ffffff" />
       </svg>
       <svg
-        className={`${styles.cornerLoop} ${styles.pixelArt}`}
-        style={{ top: -6, right: -6 }}
+        className={`${styles.cornerLoop} ${styles.cornerTopRight} ${styles.pixelArt}`}
         viewBox="0 0 24 24"
       >
         <rect
@@ -157,8 +156,7 @@ const RetroRpgDialogueBox = forwardRef<
         <rect x="12" y="7" width="5" height="5" fill="#ffffff" />
       </svg>
       <svg
-        className={`${styles.cornerLoop} ${styles.pixelArt}`}
-        style={{ bottom: -6, left: -6 }}
+        className={`${styles.cornerLoop} ${styles.cornerBottomLeft} ${styles.pixelArt}`}
         viewBox="0 0 24 24"
       >
         <rect
@@ -176,8 +174,7 @@ const RetroRpgDialogueBox = forwardRef<
         <rect x="7" y="12" width="5" height="5" fill="#ffffff" />
       </svg>
       <svg
-        className={`${styles.cornerLoop} ${styles.pixelArt}`}
-        style={{ bottom: -6, right: -6 }}
+        className={`${styles.cornerLoop} ${styles.cornerBottomRight} ${styles.pixelArt}`}
         viewBox="0 0 24 24"
       >
         <rect

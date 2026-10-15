@@ -1,0 +1,22 @@
+{
+  "ticket_id": "ticket-002",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Receipt Patron Attribution & Fail-Fast Ticket Mapping",
+  "acceptance_criteria": ["AC-02", "INV-FAILFAST-01"],
+  "modified_files": [
+    "src/lib/receipt/types.ts",
+    "src/lib/receipt/mapTicketToReceipt.ts",
+    "src/components/receipt/ReceiptPaper.tsx",
+    "src/app/receipt.css"
+  ],
+  "verification": {
+    "patron_attributions_verified": [
+      "PATRON: TRUMP",
+      "PATRON: ELDER",
+      "PATRON: CAESAR"
+    ],
+    "summary_and_full_face_rendered": true,
+    "fail_fast_guards_verified": true
+  }
+}

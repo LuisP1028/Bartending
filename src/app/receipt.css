@@ -94,16 +94,41 @@
   overflow: visible;
 }
 
-/* Printer cluster — top-right via resolved cqi/cqb insets (FS61) */
+/* Printer cluster — transient top-right inside visible Game Boy glass (FS114 / INV-PRINTER-TRANSIENT-01) */
 .receipt-hardware-cluster {
   position: absolute;
-  top: clamp(4px, 1.2cqb, 10px);
-  right: clamp(4px, 1cqi, 12px);
+  top: calc(var(--shell-glass-inset-y, 0px) + clamp(4px, 1.2cqb, 10px));
+  right: calc(var(--shell-glass-inset-x, 0px) + clamp(4px, 1.2cqi, 12px));
   width: max(80px, calc(var(--receipt-paper-w) + 16px));
   height: max(36px, min(52px, 7.5cqb));
   z-index: 1000;
   pointer-events: none;
   min-height: 36px;
+  transition: opacity 180ms ease-out, visibility 180ms ease-out;
+}
+
+.receipt-hardware-cluster.printer-phase--idle,
+.receipt-printer-mask.printer-phase--idle {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.receipt-hardware-cluster.printer-phase--fading-in,
+.receipt-hardware-cluster.printer-phase--printing,
+.receipt-hardware-cluster.printer-phase--holding,
+.receipt-printer-mask.printer-phase--fading-in,
+.receipt-printer-mask.printer-phase--printing,
+.receipt-printer-mask.printer-phase--holding {
+  opacity: 1;
+  visibility: visible;
+}
+
+.receipt-hardware-cluster.printer-phase--fading-out,
+.receipt-printer-mask.printer-phase--fading-out {
+  opacity: 0;
+  visibility: visible;
+  transition: opacity 260ms ease-in;
 }
 
 .receipt-hardware-wall {
@@ -146,17 +171,18 @@
   box-shadow: inset 0 clamp(1px, 0.4cqb, 3px) clamp(2px, 0.5cqb, 4px) rgba(0, 0, 0, 1);
 }
 
-/* Clip mask under top-right slot — footprint matches print paper (FS61) */
+/* Clip mask under top-right slot — footprint matches print paper (FS61/FS114) */
 .receipt-printer-mask {
   position: absolute;
-  top: clamp(28px, 7cqb, 52px);
-  right: clamp(4px, 1cqi, 12px);
+  top: calc(var(--shell-glass-inset-y, 0px) + clamp(28px, 7cqb, 52px));
+  right: calc(var(--shell-glass-inset-x, 0px) + clamp(12px, 2cqi, 20px));
   width: var(--receipt-paper-w);
   height: min(var(--receipt-paper-h), 45cqb);
   overflow: hidden;
   pointer-events: none;
   z-index: 500;
   background: transparent;
+  transition: opacity 180ms ease-out, visibility 180ms ease-out;
 }
 
 .receipt-free-layer {
@@ -337,12 +363,12 @@
 }
 
 .receipt-wrapper.anim-printing {
-  /* FS61: stay inside printer mask footprint during unroll */
+  /* FS61/FS114: stay inside printer mask footprint during transient unroll */
   width: 100%;
   max-width: 100%;
   max-height: 100%;
   height: auto;
-  animation: receipt-unroll 1.5s steps(24, end) forwards;
+  animation: receipt-unroll 0.62s steps(18, end) forwards;
   cursor: default;
   pointer-events: none;
 }
@@ -696,24 +722,125 @@ body.receipt-dragging {
   z-index: 10;
 }
 
-/* Inspect: full face, fixed bound + scroll inside paper — no scale grow */
+/* Patron attribution banner on summary & full faces (FS114 / AC-03) */
+.receipt-patron-attribution {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  font-size: var(--r-fs-md);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #000000;
+  background: rgba(0, 0, 0, 0.07);
+  border-top: 1px solid #1a1a1a;
+  border-bottom: 1px solid #1a1a1a;
+  padding: 2px 4px;
+  margin: 2px 0 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.receipt-patron-attribution--summary {
+  font-size: var(--r-fs-sm);
+  padding: 1px 3px;
+  margin: 1px 0 2px 0;
+}
+
+/*
+ * FS114 (INV-RECEIPT-BOX-01 / AC-05):
+ * Inspected receipt anchored inside the red reference box of the visible Game Boy screen:
+ * left: 35%, top: 14%, width: 35%, height: 58% of .gb-shell__playfield (--shell-glass-*).
+ */
 .receipt-wrapper.state-inspected {
   z-index: 9000 !important;
-  width: var(--receipt-paper-w);
-  height: var(--receipt-paper-h);
-  max-height: var(--receipt-paper-h);
+  left: calc(var(--shell-glass-inset-x, 0px) + (var(--shell-glass-w, 100%) * 0.35)) !important;
+  top: calc(var(--shell-glass-inset-y, 0px) + (var(--shell-glass-h, 100%) * 0.14)) !important;
+  width: calc(var(--shell-glass-w, 100%) * 0.35) !important;
+  height: calc(var(--shell-glass-h, 100%) * 0.58) !important;
+  max-height: calc(var(--shell-glass-h, 100%) * 0.58) !important;
+  container-type: size;
   overflow: hidden !important;
   transform: none !important;
-  /* FS62: allow vertical pan to reach paper scrollport (override touch-action: none) */
   touch-action: pan-y;
-  cursor: default;
+  cursor: pointer;
+}
+
+.receipt-printer-mask .receipt-paper--summary {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
 }
 
 .receipt-wrapper.state-inspected .receipt-paper--full {
+  --r-pad-full: clamp(3px, 2.2cqh, 7px) clamp(4px, 3.5cqw, 8px)
+    clamp(4px, 2.8cqh, 8px);
+  --r-fs-xs: clamp(5.5px, 4.8cqw, 9px);
+  --r-fs-sm: clamp(6px, 5.2cqw, 9.5px);
+  --r-fs-md: clamp(6.5px, 5.6cqw, 10.5px);
+  --r-fs-lg: clamp(7px, 6.2cqw, 11.5px);
+  --r-fs-xl: clamp(7.5px, 6.8cqw, 12.5px);
+  --r-fs-2xl: clamp(8px, 7.4cqw, 13.5px);
+  --r-fs-3xl: clamp(8.5px, 8cqw, 14.5px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+  padding: var(--r-pad-full);
+  font-size: var(--r-fs-md);
+  line-height: 1.14;
   touch-action: pan-y;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+.receipt-wrapper.state-inspected .r-logo {
+  max-height: clamp(14px, 11cqh, 28px);
+  width: auto;
+  max-width: 78%;
+  margin: 1px auto 2px;
+}
+
+.receipt-wrapper.state-inspected .receipt-patron-attribution {
+  font-size: var(--r-fs-sm);
+  padding: 1px 3px;
+  margin: 1px 0 2px 0;
+}
+
+.receipt-wrapper.state-inspected .r-divider {
+  margin: clamp(1px, 1cqh, 3px) 0;
+}
+
+.receipt-wrapper.state-inspected .r-line {
+  gap: clamp(2px, 2cqw, 6px);
+  margin-bottom: clamp(0.5px, 0.5cqh, 2px);
+  font-size: var(--r-fs-md);
+  line-height: 1.08;
+}
+
+.receipt-wrapper.state-inspected .r-line.r-total {
+  font-size: var(--r-fs-xl);
+  margin-top: clamp(1px, 1cqh, 3px);
+}
+
+.receipt-wrapper.state-inspected .r-footer {
+  margin-top: clamp(2px, 1.2cqh, 4px);
+  font-size: var(--r-fs-xs);
+}
+
+.receipt-wrapper.state-inspected .r-barcode-container {
+  margin-top: clamp(2px, 1.2cqh, 4px);
+}
+
+.receipt-wrapper.state-inspected .r-barcode {
+  height: clamp(12px, 8cqh, 22px);
+}
+
+.receipt-wrapper.state-inspected .r-seed {
+  font-size: var(--r-fs-xs);
+  margin-top: 1px;
 }
 
 /* Context menu */

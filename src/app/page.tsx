@@ -78,6 +78,7 @@ import {
   ReceiptToolbar,
   useReceiptStageFlags,
   type PatronReceiptMeta,
+  type ReceiptInspectController,
 } from '@/components/receipt/ReceiptSystem';
 import MoneyFanoutFlyby from '@/components/receipt/MoneyFanoutFlyby';
 
@@ -86,6 +87,16 @@ const AVAILABLE_MODES = ['OBELISCO', 'CLASSICS'] as const;
 const OBELISCO_MODE_LOGO_SRC = '/assets/logos/obelisco/obelisco-logo-gold.png';
 /** Gold script cutout for CLASSICS mode control (sys-header). */
 const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
+
+export type ShellGlassHudMetrics = {
+  tx: number;
+  tyTop: number;
+  tyBot: number;
+  glassInsetX: number;
+  glassInsetY: number;
+  glassW: number;
+  glassH: number;
+};
 
 /** POV shell: clip carousels on-stage; only receipt Inspect may overflow. */
 function PovStageShell({
@@ -98,8 +109,8 @@ function PovStageShell({
   povStageRef: React.RefObject<HTMLDivElement | null>;
   /** FS74: shell cover pan (px) so selected carousel stays in glass */
   stagePan?: { x: number; y: number };
-  /** FS75: pin jigger/printer to visible glass corners */
-  shellHudNudge?: { tx: number; tyTop: number; tyBot: number };
+  /** FS75 / FS114: pin HUD, dialogue, and inspected receipt to visible Game Boy glass */
+  shellHudNudge?: ShellGlassHudMetrics;
   children: React.ReactNode;
 }) {
   const { anyInspected } = useReceiptStageFlags();
@@ -111,7 +122,15 @@ function PovStageShell({
         ? 'visible'
         : 'hidden';
 
-  const hud = shellHudNudge ?? { tx: 0, tyTop: 0, tyBot: 0 };
+  const hud = shellHudNudge ?? {
+    tx: 0,
+    tyTop: 0,
+    tyBot: 0,
+    glassInsetX: 0,
+    glassInsetY: 0,
+    glassW: 0,
+    glassH: 0,
+  };
   const style = {
     overflow,
     transform: 'none',
@@ -119,6 +138,11 @@ function PovStageShell({
     ['--shell-hud-tx' as string]: `${hud.tx}px`,
     ['--shell-hud-ty-top' as string]: `${hud.tyTop}px`,
     ['--shell-hud-ty-bot' as string]: `${hud.tyBot}px`,
+    // FS114: visible Game Boy glass rect within cover-sized .pov-stage
+    ['--shell-glass-inset-x' as string]: `${hud.glassInsetX}px`,
+    ['--shell-glass-inset-y' as string]: `${hud.glassInsetY}px`,
+    ['--shell-glass-w' as string]: hud.glassW > 0 ? `${hud.glassW}px` : '100%',
+    ['--shell-glass-h' as string]: hud.glassH > 0 ? `${hud.glassH}px` : '100%',
   } as React.CSSProperties;
 
   return (
@@ -223,6 +247,8 @@ export default function Home() {
   const [seatOrders, setSeatOrders] = useState<Record<string, PatronSeatOrder>>({});
   const [rejectionDialogues, setRejectionDialogues] = useState<Record<string, string>>({});
   const [activeDialogueSeat, setActiveDialogueSeat] = useState<string | null>(null);
+  /** FS114 (INV-PATRON-ISOLATION-01): Seated patron currently isolated for receipt inspection */
+  const [isolatedSeatId, setIsolatedSeatId] = useState<string | null>(null);
   /** Drink-placement vessel → liquid-glass drink-build card */
   const [drinkBuildCardOpen, setDrinkBuildCardOpen] = useState(false);
   /** Mat vessel playing success handoff slide (FS37). */
@@ -235,18 +261,20 @@ export default function Home() {
   >(null);
   /** FS110: Imperative handle to PatronLayer for departures */
   const patronLayerRef = useRef<PatronLayerHandle | null>(null);
-  /** FS110: Attach ticket on sit-complete */
+  /** FS110/FS114: Attach ticket on sit-complete (returns receipt instanceId synchronously) */
   const printAttachedTicketRef = useRef<
     | ((
         ticket: CocktailRecipe,
         meta: PatronReceiptMeta
-      ) => string | null)
+      ) => string)
     | null
   >(null);
   /** FS110: Lookup patron attached to a receipt */
   const getReceiptAttachmentRef = useRef<
     ((instanceId: string) => PatronReceiptMeta | null) | null
   >(null);
+  /** FS114: Imperative receipt inspection controller */
+  const receiptInspectRef = useRef<ReceiptInspectController | null>(null);
 
   /** FS110: Unified pointer drag and snap-back state for active cocktail vessel */
   const [dragState, setDragState] = useState<{
@@ -352,6 +380,7 @@ export default function Home() {
 
     const doneReceiptId = activeReceiptIdRef.current;
     setDrinkBuildCardOpen(false);
+    setIsolatedSeatId(null);
     setVesselHandoff(true);
     startHandoffAnim();
 
@@ -433,6 +462,7 @@ export default function Home() {
       setSeatOrders({});
       setRejectionDialogues({});
       setActiveDialogueSeat(null);
+      setIsolatedSeatId(null);
       setModeName(next);
       void setMode(next);
     },
@@ -529,6 +559,7 @@ export default function Home() {
       trashDrink();
       setDrinkBuildCardOpen(false);
       setErrors([]);
+      setIsolatedSeatId(null);
 
       // 2. Finalize attached receipt if open
       if (order.receiptInstanceId && handoffExitRef.current) {
@@ -705,7 +736,18 @@ export default function Home() {
       const { instanceKey, characterId, seatId } = info;
       if (!mode) return;
       const recipe = mode.getRecipeManager().getRandomTicket();
-      if (!recipe) return;
+      if (!recipe) {
+        throw new Error(
+          `[handlePatronSitComplete] Fatal: No recipe generated for seated patron ${characterId} at ${seatId} (INV-FAILFAST-01).`
+        );
+      }
+
+      const charDef = requireCharacter(characterId);
+      if (!charDef?.displayName?.trim()) {
+        throw new Error(
+          `[handlePatronSitComplete] Fatal: Missing displayName for character ${characterId} (INV-FAILFAST-01).`
+        );
+      }
 
       // Clean reset any old rejection dialogue for this seat
       setRejectionDialogues((prev) => {
@@ -715,12 +757,13 @@ export default function Home() {
         return next;
       });
 
-      // 1. Attach receipt on the ticket rack
+      // 1. Attach receipt on the ticket rack (sync create + transient print lifecycle)
       let receiptInstanceId: string | null = null;
       if (printAttachedTicketRef.current) {
         receiptInstanceId = printAttachedTicketRef.current(recipe, {
           characterId,
           seatId,
+          patronName: charDef.displayName,
         });
       }
 
@@ -1005,13 +1048,16 @@ export default function Home() {
    */
   const [shellStagePan, setShellStagePan] = useState({ x: 0, y: 0 });
   /**
-   * FS75: nudge stage-corner HUD (jigger / printer) into the visible glass
-   * after cover crop + pan (px, applied as translate on those chrome nodes).
+   * FS75 / FS114: nudge stage-corner HUD and expose visible Game Boy glass rect.
    */
-  const [shellHudNudge, setShellHudNudge] = useState({
+  const [shellHudNudge, setShellHudNudge] = useState<ShellGlassHudMetrics>({
     tx: 0,
     tyTop: 0,
     tyBot: 0,
+    glassInsetX: 0,
+    glassInsetY: 0,
+    glassW: 0,
+    glassH: 0,
   });
   const [frameStyle, setFrameStyle] = useState<StageFrameStyle | null>(null);
   /** Active vessel box from drink_placement path */
@@ -1180,6 +1226,13 @@ export default function Home() {
   }, []);
 
   const handleHotspotActivate = useCallback((zoneId: string, category: CategoryKey) => {
+    if (
+      isolatedSeatId !== null ||
+      receiptInspectRef.current?.getInspectedId() != null
+    ) {
+      receiptInspectRef.current?.inspectReceipt(null);
+      setIsolatedSeatId(null);
+    }
     // Same zone while open → toggle closed
     if (openCategory !== null && activeZoneId === zoneId) {
       closeOverlay();
@@ -1189,7 +1242,7 @@ export default function Home() {
     setOpenCategory(category);
     setActiveZoneId(zoneId);
     setShellFocusZoneId(zoneId);
-  }, [openCategory, activeZoneId, closeOverlay]);
+  }, [openCategory, activeZoneId, closeOverlay, isolatedSeatId]);
 
   /**
    * FS71/FS77: D-pad — hotspot browse when carousel closed; carousel item
@@ -1281,6 +1334,13 @@ export default function Home() {
       dialogueBoxRef.current?.interact();
       return;
     }
+    if (
+      isolatedSeatId !== null ||
+      receiptInspectRef.current?.getInspectedId() != null
+    ) {
+      receiptInspectRef.current?.inspectReceipt(null);
+      setIsolatedSeatId(null);
+    }
     const list = shellNavigableHotspots;
     if (list.length === 0) return;
     const zoneId = shellFocusZoneId ?? list[0].zoneId;
@@ -1289,16 +1349,81 @@ export default function Home() {
     setShellFocusZoneId(h.zoneId);
     setOpenCategory(h.category);
     setActiveZoneId(h.zoneId);
-  }, [openCategory, activeDialogueSeat, shellNavigableHotspots, shellFocusZoneId]);
+  }, [
+    openCategory,
+    activeDialogueSeat,
+    isolatedSeatId,
+    shellNavigableHotspots,
+    shellFocusZoneId,
+  ]);
 
   /**
    * FS009 (INV-BUTTON-01):
    * - A button (`button-a`) = Back / Cancel / Dismiss:
    *   Dismisses open DrinkBuildCard, open category carousel, or patron dialogue box.
    */
+  /**
+   * FS114 (INV-PATRON-ISOLATION-01 / AC-04 / AC-05):
+   * Clicking a seated patron x (without dragging a vessel) isolates patron x,
+   * selects their order on the bar mat, and opens their full receipt in the red reference box.
+   */
+  const handlePatronClick = useCallback(
+    (seatId: string) => {
+      if (dragStateRef.current.isDragging || handoffInProgressRef.current) {
+        return;
+      }
+      const order = seatOrders[seatId];
+      if (!order || !order.receiptInstanceId) {
+        throw new Error(
+          `[handlePatronClick] Fatal: Seated patron at ${seatId} has no bound order or receiptInstanceId (INV-FAILFAST-01).`
+        );
+      }
+
+      if (isolatedSeatId === seatId) {
+        receiptInspectRef.current?.inspectReceipt(null);
+        setIsolatedSeatId(null);
+        return;
+      }
+
+      if (openCategory !== null) {
+        closeOverlay();
+      }
+      if (activeDialogueSeat !== null) {
+        setActiveDialogueSeat(null);
+      }
+
+      setIsolatedSeatId(seatId);
+      receiptInspectRef.current?.inspectReceipt(order.receiptInstanceId);
+    },
+    [seatOrders, isolatedSeatId, openCategory, closeOverlay, activeDialogueSeat]
+  );
+
+  const handleReceiptInspectChange = useCallback(
+    (instanceId: string | null) => {
+      if (instanceId === null) {
+        setIsolatedSeatId(null);
+      }
+    },
+    []
+  );
+
+  /**
+   * FS009 (INV-BUTTON-01) & FS114 (AC-04):
+   * - A button (`button-a`) = Back / Cancel / Dismiss:
+   *   Dismisses open DrinkBuildCard, inspected receipt (restoring isolated patrons),
+   *   open category carousel, or patron dialogue box.
+   */
   const shellPressABack = useCallback(() => {
     if (drinkBuildCardOpen) {
       setDrinkBuildCardOpen(false);
+      return;
+    }
+    if (
+      isolatedSeatId !== null ||
+      receiptInspectRef.current?.getInspectedId() != null
+    ) {
+      receiptInspectRef.current?.inspectReceipt(null);
+      setIsolatedSeatId(null);
       return;
     }
     if (openCategory !== null) {
@@ -1308,7 +1433,13 @@ export default function Home() {
     if (activeDialogueSeat !== null) {
       setActiveDialogueSeat(null);
     }
-  }, [drinkBuildCardOpen, openCategory, closeOverlay, activeDialogueSeat]);
+  }, [
+    drinkBuildCardOpen,
+    isolatedSeatId,
+    openCategory,
+    closeOverlay,
+    activeDialogueSeat,
+  ]);
 
   /** Pointer: activate then blur path so browser bbox focus ring never lingers. */
   const onHotspotPointerActivate = useCallback(
@@ -1377,8 +1508,8 @@ export default function Home() {
   }, [drinkPlacementD, phase]);
 
   /**
-   * FS75 / FS100 / FS009: Keep jigger + receipt printer chrome anchored to the visible glass viewport.
-   * Static geometry calculation: does NOT fluctuate when drawers are opened or closed.
+   * FS75 / FS100 / FS009 / FS114: Keep HUD, dialogue box, and inspected receipt anchored
+   * to the visible Game Boy glass viewport (.gb-shell__playfield / .pov-shell-section).
    */
   useEffect(() => {
     let cancelled = false;
@@ -1386,7 +1517,15 @@ export default function Home() {
       if (cancelled) return;
       const stage = povStageRef.current;
       if (!stage) {
-        setShellHudNudge({ tx: 0, tyTop: 0, tyBot: 0 });
+        setShellHudNudge({
+          tx: 0,
+          tyTop: 0,
+          tyBot: 0,
+          glassInsetX: 0,
+          glassInsetY: 0,
+          glassW: 0,
+          glassH: 0,
+        });
         return;
       }
       const section = stage.parentElement;
@@ -1395,27 +1534,55 @@ export default function Home() {
         !section.classList.contains('pov-shell-section') ||
         !section.closest('.gb-shell__playfield')
       ) {
-        setShellHudNudge({ tx: 0, tyTop: 0, tyBot: 0 });
+        setShellHudNudge({
+          tx: 0,
+          tyTop: 0,
+          tyBot: 0,
+          glassInsetX: 0,
+          glassInsetY: 0,
+          glassW: 0,
+          glassH: 0,
+        });
         return;
       }
       const S = section.getBoundingClientRect();
       const T = stage.getBoundingClientRect();
       if (S.width < 8 || S.height < 8 || T.width < 8 || T.height < 8) return;
-      // Move stage-corner chrome to the matching glass corner (viewport Δ = CSS px).
-      const next = {
+
+      const glassInsetX = Math.max(0, S.left - T.left);
+      const glassInsetY = Math.max(0, S.top - T.top);
+      const glassW = S.width;
+      const glassH = S.height;
+
+      // Apply directly on stage DOM node immediately so first paint has exact glass metrics
+      stage.style.setProperty('--shell-glass-inset-x', `${glassInsetX}px`);
+      stage.style.setProperty('--shell-glass-inset-y', `${glassInsetY}px`);
+      stage.style.setProperty('--shell-glass-w', `${glassW}px`);
+      stage.style.setProperty('--shell-glass-h', `${glassH}px`);
+
+      const next: ShellGlassHudMetrics = {
         tx: S.right - T.right,
         tyTop: S.top - T.top,
         tyBot: S.bottom - T.bottom,
+        glassInsetX,
+        glassInsetY,
+        glassW,
+        glassH,
       };
       setShellHudNudge((prev) =>
-        prev.tx === next.tx &&
-        prev.tyTop === next.tyTop &&
-        prev.tyBot === next.tyBot
+        Math.abs(prev.tx - next.tx) < 0.5 &&
+        Math.abs(prev.tyTop - next.tyTop) < 0.5 &&
+        Math.abs(prev.tyBot - next.tyBot) < 0.5 &&
+        Math.abs(prev.glassInsetX - next.glassInsetX) < 0.5 &&
+        Math.abs(prev.glassInsetY - next.glassInsetY) < 0.5 &&
+        Math.abs(prev.glassW - next.glassW) < 0.5 &&
+        Math.abs(prev.glassH - next.glassH) < 0.5
           ? prev
           : next
       );
     };
 
+    updateHudNudge();
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(updateHudNudge);
     });
@@ -1540,6 +1707,51 @@ export default function Home() {
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [openCategory, closeOverlay, blurHotspotFocus]);
+
+  // FS114 (INV-PATRON-ISOLATION-01 / AC-04): Dismiss inspected receipt & restore all patrons on Escape or outside click
+  useEffect(() => {
+    if (isolatedSeatId === null) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        receiptInspectRef.current?.inspectReceipt(null);
+        setIsolatedSeatId(null);
+      }
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Element | null;
+      if (!target) return;
+      // Clicking the inspected receipt itself is handled by ReceiptSystem toggleExpand
+      if (target.closest?.('.receipt-wrapper.state-inspected')) return;
+      // Clicking a seated patron sprite is handled by handlePatronClick
+      if (target.closest?.('.pov-patron-sprite--sit')) return;
+      // Clicking 3D Game Boy shell controls is handled by button handlers
+      if (
+        target.closest?.('[data-gb-3d-canvas]') ||
+        target.closest?.('[data-gb-3d-controls]') ||
+        target.closest?.('.gb-shell__controls') ||
+        target.closest?.('.gb-shell__dpad') ||
+        target.closest?.('.gb-shell__btn-a') ||
+        target.closest?.('.gb-shell__btn-b') ||
+        target.closest?.('.gb-shell__btn-ab') ||
+        target.closest?.('.gb-shell__btn-start') ||
+        target.closest?.('.gb-shell__btn-select')
+      ) {
+        return;
+      }
+      receiptInspectRef.current?.inspectReceipt(null);
+      setIsolatedSeatId(null);
+    };
+
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [isolatedSeatId]);
 
   const renderOverlayCarousel = (category: CategoryKey, zoneId: string | null) => {
     switch (category) {
@@ -2028,6 +2240,8 @@ export default function Home() {
           getReceiptTotalRef={getReceiptTotalRef}
           printAttachedTicketRef={printAttachedTicketRef}
           getReceiptAttachmentRef={getReceiptAttachmentRef}
+          inspectControllerRef={receiptInspectRef}
+          onInspectChange={handleReceiptInspectChange}
           onActiveTicketChange={(ticket) => {
             if (handoffInProgressRef.current) return;
             setActiveTicket(ticket);
@@ -2127,6 +2341,7 @@ export default function Home() {
                     seats={barSeatInputs}
                     layoutOverrides={patronLayouts}
                     editMode={patronEditOpen}
+                    isolatedSeatId={isolatedSeatId}
                     highlightedSeatId={
                       dragState.isDragging
                         ? dragState.targetSeatId
@@ -2139,6 +2354,7 @@ export default function Home() {
                     )}
                     onSitComplete={handlePatronSitComplete}
                     onServeDrinkToSeat={handleServeDrinkToSeat}
+                    onPatronClick={handlePatronClick}
                   />
                   <svg
                     className="pov-hotspot-svg"

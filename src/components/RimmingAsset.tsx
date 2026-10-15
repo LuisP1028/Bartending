@@ -21,6 +21,7 @@ export default function RimmingAsset({ type, svgHref, label, onClick, presentati
       data-garnish-type={type}
       className="rimming-asset-root"
       aria-label={label}
+      data-carousel-label={label}
       title={label}
       style={{
         border: bare ? 'none' : '2px solid #222',
@@ -42,15 +43,15 @@ export default function RimmingAsset({ type, svgHref, label, onClick, presentati
         outline: 'none',
         boxShadow: bare ? 'none' : undefined,
         overflow: isOverlay ? 'hidden' : undefined,
-        gap: isOverlay ? 2 : 4,
+        gap: isOverlay ? 0 : 4,
       }}
     >
       <div
         className="asset-art-root"
         style={{
-          width: isOverlay ? 'min(100%, 90px)' : 'clamp(80px, 15vw, 160px)',
+          width: isOverlay ? 'min(100%, 96px)' : 'clamp(80px, 15vw, 160px)',
           maxWidth: isOverlay ? '100%' : undefined,
-          maxHeight: isOverlay ? '50%' : undefined,
+          maxHeight: isOverlay ? '76%' : undefined,
           aspectRatio: '60 / 16',
           display: 'flex',
           alignItems: 'center',
@@ -79,7 +80,7 @@ export default function RimmingAsset({ type, svgHref, label, onClick, presentati
           <use href={`#${svgHref}`} />
         </svg>
       </div>
-      {label ? <div className="asset-under-label">{label}</div> : null}
+      {label && !isOverlay ? <div className="asset-under-label">{label}</div> : null}
     </div>
   );
 }

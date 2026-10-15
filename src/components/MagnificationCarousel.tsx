@@ -3,9 +3,12 @@
 import React, {
   useRef,
   useEffect,
+  useContext,
+  useCallback,
   forwardRef,
   useImperativeHandle,
 } from 'react';
+import { CarouselFocusContext } from './CategoryOverlay';
 
 interface MagnificationCarouselProps {
   children: React.ReactNode;
@@ -14,6 +17,8 @@ interface MagnificationCarouselProps {
    * `overlay` / `local` — optical centering; amber art glow on focus (no proximity scale).
    */
   layout?: 'page' | 'overlay' | 'local';
+  /** FS114: callback fired whenever the centered/focused item label changes */
+  onFocusedLabelChange?: (label: string) => void;
 }
 
 /** FS77 / FS009: shell D-pad & B-button control of the open local carousel */
@@ -30,6 +35,23 @@ function getWrappers(container: HTMLElement) {
   return Array.from(
     container.querySelectorAll('.carousel-item-wrapper')
   ) as HTMLElement[];
+}
+
+function extractWrapperLabel(wrapper: HTMLElement | null | undefined): string {
+  if (!wrapper) return '';
+  const direct =
+    wrapper.getAttribute('data-carousel-label') ||
+    wrapper.getAttribute('aria-label');
+  if (direct) return direct;
+  const child = wrapper.querySelector(
+    '[data-carousel-label], [aria-label]'
+  ) as HTMLElement | null;
+  if (!child) return '';
+  return (
+    child.getAttribute('data-carousel-label') ||
+    child.getAttribute('aria-label') ||
+    ''
+  );
 }
 
 function scrollWrapperToCenter(
@@ -71,8 +93,28 @@ function nearestWrapperIndex(container: HTMLElement): number {
 const MagnificationCarousel = forwardRef<
   MagnificationCarouselHandle,
   MagnificationCarouselProps
->(function MagnificationCarousel({ children, layout = 'page' }, ref) {
+>(function MagnificationCarousel(
+  { children, layout = 'page', onFocusedLabelChange },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contextSetFocusedLabel = useContext(CarouselFocusContext);
+  const onFocusedLabelChangeRef = useRef(onFocusedLabelChange);
+  onFocusedLabelChangeRef.current = onFocusedLabelChange;
+  const contextSetFocusedLabelRef = useRef(contextSetFocusedLabel);
+  contextSetFocusedLabelRef.current = contextSetFocusedLabel;
+  const lastReportedLabelRef = useRef<string>('');
+
+  const reportFocusedLabel = useCallback((label: string) => {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    if (lastReportedLabelRef.current !== trimmed) {
+      lastReportedLabelRef.current = trimmed;
+    }
+    contextSetFocusedLabelRef.current?.(trimmed);
+    onFocusedLabelChangeRef.current?.(trimmed);
+  }, []);
+
   /** Persist scroll across remeasures (parent re-renders must not restart controller). */
   const scrollLeftRef = useRef(0);
   /** True after first successful layout of this carousel instance. */
@@ -81,6 +123,26 @@ const MagnificationCarousel = forwardRef<
   const layoutRef = useRef(layout);
   /** Last observed wrapper count — remeasure when inventory DOM changes without effect restart. */
   const wrapperCountRef = useRef(0);
+
+  // Immediately seed the first child's label on mount / children change
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      const wrappers = getWrappers(container);
+      const cur = nearestWrapperIndex(container);
+      const targetWrapper = cur >= 0 ? wrappers[cur] : wrappers[0];
+      const domLabel = extractWrapperLabel(targetWrapper);
+      if (domLabel) {
+        reportFocusedLabel(domLabel);
+        return;
+      }
+    }
+    const childArr = React.Children.toArray(children);
+    const first = childArr[0] as React.ReactElement<{ label?: string }> | undefined;
+    if (first?.props?.label) {
+      reportFocusedLabel(first.props.label);
+    }
+  }, [children, reportFocusedLabel]);
 
   useImperativeHandle(
     ref,
@@ -96,6 +158,8 @@ const MagnificationCarousel = forwardRef<
           (cur + delta + wrappers.length) % wrappers.length;
         scrollWrapperToCenter(container, wrappers[next], false);
         scrollLeftRef.current = container.scrollLeft;
+        const nextLabel = extractWrapperLabel(wrappers[next]);
+        if (nextLabel) reportFocusedLabel(nextLabel);
         // Fire scroll so focus glow updates
         container.dispatchEvent(new Event('scroll'));
       },
@@ -106,6 +170,8 @@ const MagnificationCarousel = forwardRef<
         if (!wrappers[0]) return;
         scrollWrapperToCenter(container, wrappers[0], false);
         scrollLeftRef.current = container.scrollLeft;
+        const firstLabel = extractWrapperLabel(wrappers[0]);
+        if (firstLabel) reportFocusedLabel(firstLabel);
         container.dispatchEvent(new Event('scroll'));
       },
       goLast() {
@@ -113,12 +179,15 @@ const MagnificationCarousel = forwardRef<
         if (!container) return;
         const wrappers = getWrappers(container);
         if (!wrappers.length) return;
+        const lastWrapper = wrappers[wrappers.length - 1];
         scrollWrapperToCenter(
           container,
-          wrappers[wrappers.length - 1],
+          lastWrapper,
           false
         );
         scrollLeftRef.current = container.scrollLeft;
+        const lastLabel = extractWrapperLabel(lastWrapper);
+        if (lastLabel) reportFocusedLabel(lastLabel);
         container.dispatchEvent(new Event('scroll'));
       },
       activateFocused() {
@@ -134,7 +203,7 @@ const MagnificationCarousel = forwardRef<
         target.click();
       },
     }),
-    []
+    [reportFocusedLabel]
   );
 
   useEffect(() => {
@@ -176,16 +245,14 @@ const MagnificationCarousel = forwardRef<
       });
       if (maxItemW <= 0 && !isLocal) return;
 
-      // Local: cell fits inside frame — never wider/taller than container
+      // Local: cell fits inside frame — uses full vertical height so bottles fill ~94% cleanly
       let cellW: number;
       let cellH: number | null = null;
       if (isLocal && cw > 0) {
         const budgetW = Math.max(24, cw * 0.92);
-        const budgetH = ch > 0 ? Math.max(24, ch * 0.88) : budgetW;
-        cellW = Math.min(maxItemW > 0 ? maxItemW : budgetW, budgetW);
-        // Prefer square-ish cell that fits height so bottles scale down
-        cellH = Math.min(budgetH, cellW * 1.5);
-        cellW = Math.min(cellW, cellH * 1.1);
+        const budgetH = ch > 0 ? Math.max(24, ch * 0.96) : budgetW;
+        cellH = budgetH;
+        cellW = Math.min(budgetW, Math.max(48, cellH * 0.82));
       } else {
         cellW = maxItemW;
       }
@@ -207,8 +274,8 @@ const MagnificationCarousel = forwardRef<
       const pad = Math.max(0, (cw - cellW) / 2);
       container.style.paddingLeft = `${pad}px`;
       container.style.paddingRight = `${pad}px`;
-      container.style.paddingTop = isLocal ? '4px' : layout === 'page' ? '40px' : '16px';
-      container.style.paddingBottom = isLocal ? '4px' : layout === 'page' ? '40px' : '16px';
+      container.style.paddingTop = isLocal ? '2px' : layout === 'page' ? '40px' : '16px';
+      container.style.paddingBottom = isLocal ? '2px' : layout === 'page' ? '40px' : '16px';
     };
 
     const scrollToCenter = (wrapper: HTMLElement, smooth = false) => {
@@ -228,13 +295,22 @@ const MagnificationCarousel = forwardRef<
       scrollLeftRef.current = c.scrollLeft;
       const containerRect = c.getBoundingClientRect();
       const containerCenter = containerRect.left + containerRect.width / 2;
+      const wrappers = getWrappers(c);
+      const nearestIdx = nearestWrapperIndex(c);
 
-      getWrappers(c).forEach((el) => {
+      if (nearestIdx >= 0 && wrappers[nearestIdx]) {
+        const nearestLabel = extractWrapperLabel(wrappers[nearestIdx]);
+        if (nearestLabel) {
+          reportFocusedLabel(nearestLabel);
+        }
+      }
+
+      wrappers.forEach((el, idx) => {
         const childRect = el.getBoundingClientRect();
         const childCenter = childRect.left + childRect.width / 2;
         const distance = Math.abs(containerCenter - childCenter);
         const focusThreshold = Math.max(containerRect.width * 0.28, isLocal ? 28 : 60);
-        const focused = distance <= focusThreshold;
+        const focused = isLocal ? idx === nearestIdx : distance <= focusThreshold;
 
         const artRoot = el.querySelector('.asset-art-root') as HTMLElement | null;
         const artSvg = artRoot?.querySelector('svg') as SVGElement | null;
@@ -399,12 +475,14 @@ const MagnificationCarousel = forwardRef<
       });
     };
     // layout only — do not re-bind on children identity (RE38 B1-a)
-  }, [layout]);
+  }, [layout, reportFocusedLabel]);
 
   const scrollToItem = (e: React.MouseEvent<HTMLDivElement>) => {
     const wrapper = e.currentTarget;
     const c = containerRef.current;
     if (!c) return;
+    const clickedLabel = extractWrapperLabel(wrapper);
+    if (clickedLabel) reportFocusedLabel(clickedLabel);
     const cRect = c.getBoundingClientRect();
     const wRect = wrapper.getBoundingClientRect();
     const delta =

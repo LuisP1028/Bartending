@@ -79,12 +79,16 @@ type PatronLayerProps = {
   barCutoffD?: string;
   editMode?: boolean;
   highlightedSeatId?: string | null;
+  /** FS114 (INV-PATRON-ISOLATION-01): When non-null, only the patron at this seatId is rendered */
+  isolatedSeatId?: string | null;
   onSitComplete?: (info: {
     instanceKey: string;
     characterId: string;
     seatId: string;
   }) => void;
   onServeDrinkToSeat?: (seatId: string) => void;
+  /** FS114 (AC-04): Clicking a seated patron opens their receipt inspection & isolates them */
+  onPatronClick?: (seatId: string) => void;
 };
 
 function freeSeats(
@@ -184,8 +188,10 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
       barCutoffD = '',
       editMode = false,
       highlightedSeatId = null,
+      isolatedSeatId = null,
       onSitComplete,
       onServeDrinkToSeat,
+      onPatronClick,
     },
     ref
   ) {
@@ -664,7 +670,10 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
           : undefined
       }
     >
-      {instances.map((inst) => {
+      {(isolatedSeatId != null
+        ? instances.filter((inst) => inst.seatId === isolatedSeatId)
+        : instances
+      ).map((inst) => {
         const isSeated = inst.phase === 'seated';
         const isLeaving = inst.phase === 'leaving';
         const isHighlighted = isSeated && highlightedSeatId === inst.seatId;
@@ -701,6 +710,7 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
             src={src}
             alt=""
             draggable={false}
+            data-testid={isSeated ? `patron-seat-${inst.seatId}` : undefined}
             data-character-id={inst.characterId}
             data-seat-id={inst.seatId}
             data-phase={inst.phase}
@@ -731,8 +741,9 @@ const PatronLayer = forwardRef<PatronLayerHandle, PatronLayerProps>(
             }
             onClick={
               isSeated
-                ? () => {
-                    onServeDrinkToSeat?.(inst.seatId);
+                ? (e) => {
+                    e.stopPropagation();
+                    onPatronClick?.(inst.seatId);
                   }
                 : undefined
             }

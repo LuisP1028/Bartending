@@ -29,6 +29,7 @@ export default function GarnishAsset({
       onClick={onClick}
       data-garnish-type={type}
       aria-label={label}
+      data-carousel-label={label}
       title={label}
       style={{
         border: bare ? 'none' : 'clamp(1px, 0.2vmin, 2px) solid #222',
@@ -47,7 +48,7 @@ export default function GarnishAsset({
         cursor: onClick ? 'pointer' : undefined,
         boxSizing: 'border-box',
         overflow: isOverlay ? 'hidden' : undefined,
-        gap: isOverlay ? 2 : 4,
+        gap: isOverlay ? 0 : 4,
         ...(rindColor ? { '--rind': rindColor } as React.CSSProperties : {}),
         ...(pulpColor ? { '--pulp': pulpColor } as React.CSSProperties : {})
       }}
@@ -55,9 +56,10 @@ export default function GarnishAsset({
       <div
         className="asset-art-root"
         style={{
-          width: isOverlay ? 'min(100%, 48px)' : 'clamp(48px, 10vw, 80px)',
+          width: isOverlay ? 'auto' : 'clamp(48px, 10vw, 80px)',
+          height: isOverlay ? '86%' : undefined,
           maxWidth: isOverlay ? '100%' : undefined,
-          maxHeight: isOverlay ? '70%' : undefined,
+          maxHeight: isOverlay ? '86%' : undefined,
           aspectRatio: '1',
           display: 'flex',
           alignItems: 'center',
@@ -67,7 +69,7 @@ export default function GarnishAsset({
           boxShadow: 'none',
           boxSizing: 'border-box',
           minHeight: 0,
-          flex: isOverlay ? '1 1 auto' : undefined,
+          flex: isOverlay ? '0 1 auto' : undefined,
         }}
       >
         <svg
@@ -83,7 +85,7 @@ export default function GarnishAsset({
           <use href={`#${svgHref}`} />
         </svg>
       </div>
-      {label ? <div className="asset-under-label">{label}</div> : null}
+      {label && !isOverlay ? <div className="asset-under-label">{label}</div> : null}
     </div>
   );
 }

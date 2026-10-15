@@ -105,6 +105,7 @@ export default function BottleAsset({
     <div
       onClick={onClick}
       aria-label={label}
+      data-carousel-label={label}
       title={label}
       className={isOverlay ? 'bottle-asset bottle-asset--overlay' : 'bottle-asset'}
       style={{
@@ -126,19 +127,19 @@ export default function BottleAsset({
         lineHeight: 0,
         boxSizing: 'border-box',
         overflow: isOverlay ? 'hidden' : undefined,
-        gap: isOverlay ? 2 : 0,
+        gap: 0,
       }}
     >
       <div
         className="asset-art-root"
         style={{
           position: 'relative',
-          /* FS57: larger overlay art so silhouette survives mobile stage cells */
-          width: isOverlay ? 'min(100%, 72px)' : 'clamp(80px, 18vw, 160px)',
+          /* FS114: unclipped full-height overlay bottle silhouette */
+          width: isOverlay ? 'auto' : 'clamp(80px, 18vw, 160px)',
+          height: isOverlay ? '94%' : undefined,
           maxWidth: isOverlay ? '100%' : undefined,
-          maxHeight: isOverlay ? '78%' : undefined,
-          height: isOverlay ? 'auto' : undefined,
-          flex: isOverlay ? '1 1 auto' : undefined,
+          maxHeight: isOverlay ? '94%' : undefined,
+          flex: isOverlay ? '0 1 auto' : undefined,
           aspectRatio: '64 / 96',
           transformOrigin: 'center center',
           marginBottom: 0,
@@ -191,7 +192,7 @@ export default function BottleAsset({
           {customForeground}
         </svg>
       </div>
-      {label ? <div className="asset-under-label">{label}</div> : null}
+      {label && !isOverlay ? <div className="asset-under-label">{label}</div> : null}
     </div>
   );
 }

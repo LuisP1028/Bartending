@@ -1,0 +1,26 @@
+{
+  "ticket_id": "ticket-001",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Bottom-Docked Character Dialogue Box & Container-Proportional Typography",
+  "acceptance_criteria": ["AC-01", "INV-DIALOGUE-BOTTOM-01"],
+  "modified_files": [
+    "src/components/RetroRpgDialogueBox.tsx",
+    "src/components/RetroRpgDialogueBox.module.css",
+    "src/app/page.tsx"
+  ],
+  "verification": {
+    "desktop_1280x800": {
+      "heightRatio": 0.275,
+      "widthRatio": 0.95,
+      "textOverflows": false,
+      "screenshot": ".playwright-mcp/ac01_desktop_dialogue_bottom_docked.png"
+    },
+    "mobile_390x844": {
+      "heightRatio": 0.275,
+      "widthRatio": 0.95,
+      "textOverflows": false,
+      "screenshot": ".playwright-mcp/ac01_mobile_dialogue_bottom_docked.png"
+    }
+  }
+}

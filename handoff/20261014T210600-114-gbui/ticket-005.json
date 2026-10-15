@@ -1,0 +1,32 @@
+{
+  "ticket_id": "ticket-005",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Jigger Control Sizing & Unclipped Typography",
+  "acceptance_criteria": ["AC-06", "INV-JIGGER-TEXT-01"],
+  "modified_files": [
+    "src/app/globals.css"
+  ],
+  "verification": {
+    "desktop_1280x800": {
+      "captionText": "JIGGER",
+      "captionScrollWidth": 34,
+      "captionClientWidth": 34,
+      "currentText": "0.50 oz",
+      "currentScrollWidth": 34,
+      "currentClientWidth": 34,
+      "captionInsideTrigger": true,
+      "currentInsideTrigger": true
+    },
+    "mobile_390x844": {
+      "captionText": "JIGGER",
+      "captionScrollWidth": 34,
+      "captionClientWidth": 34,
+      "currentText": "0.50 oz",
+      "currentScrollWidth": 34,
+      "currentClientWidth": 34,
+      "captionInsideTrigger": true,
+      "currentInsideTrigger": true
+    }
+  }
+}

@@ -446,6 +446,7 @@ export function ReceiptProvider({
       const entity = createReceiptEntity(job.ticket, nextZ, {
         characterId: job.characterId,
         seatId: job.seatId,
+        patronName: job.characterId || 'WALK-IN',
       });
       // Print only — do not steal selection / mat / active ticket (FS40)
       setReceipts((prev) => [...prev, entity]);

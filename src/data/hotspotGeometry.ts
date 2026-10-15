@@ -30,6 +30,13 @@ export const HARDWARE_ZONE_IDS = new Set([
   'ice',
 ]);
 
+export const BOTTLE_SHELF_ZONE_IDS = new Set([
+  'speedrail',
+  'syrups',
+  'juices',
+  'fridge',
+]);
+
 /** Minimum paint box for one full hardware overlay asset (px), independent of % math. */
 export const HARDWARE_FRAME_MIN_PX = 112;
 
@@ -65,11 +72,13 @@ export function measurePathBounds(d: string): ViewBoxBounds | null {
   svg.appendChild(path);
   document.body.appendChild(svg);
 
-  let bounds: ViewBoxBounds | null = null;
+  let bounds: ViewBoxBounds | null;
   try {
     const b = path.getBBox();
     if (b.width > 0 && b.height > 0) {
       bounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+    } else {
+      bounds = null;
     }
   } catch {
     bounds = null;
@@ -119,7 +128,9 @@ export function boundsToFrameStyle(
   const hotspotHPct = (bounds.height / VH) * 100;
 
   const aspect = bounds.height > 0 ? bounds.width / bounds.height : 1;
-  const isWideShort = aspect >= WIDE_HOTSPOT_ASPECT;
+  const isBottleShelf = zoneId ? BOTTLE_SHELF_ZONE_IDS.has(zoneId) : false;
+  const isWideShort =
+    zoneId === 'rims' || (!zoneId && !isBottleShelf && aspect >= WIDE_HOTSPOT_ASPECT);
   const isHardwareZone = zoneId ? HARDWARE_ZONE_IDS.has(zoneId) : false;
 
   let frameWPct =
@@ -127,7 +138,10 @@ export function boundsToFrameStyle(
   let frameHPct =
     hotspotHPct * (isWideShort ? WIDE_FRAME_HEIGHT_OF_HOTSPOT : FRAME_HEIGHT_OF_HOTSPOT);
 
-  if (isWideShort) {
+  if (isBottleShelf) {
+    frameWPct = clamp(hotspotWPct * 1.15, 28, 62);
+    frameHPct = clamp(hotspotHPct * 2.1, 30, 38);
+  } else if (isWideShort) {
     frameWPct = clamp(frameWPct, WIDE_FRAME_MIN_WIDTH_PCT, FRAME_MAX_STAGE_WIDTH_PCT);
     frameHPct = clamp(frameHPct, WIDE_FRAME_MIN_HEIGHT_PCT, WIDE_FRAME_MAX_HEIGHT_PCT);
   } else {

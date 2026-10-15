@@ -1,0 +1,26 @@
+{
+  "ticket_id": "ticket-003",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Transient Receipt Printer Lifecycle & Sequential Print Queue",
+  "acceptance_criteria": ["AC-03", "INV-PRINTER-TRANSIENT-01"],
+  "modified_files": [
+    "src/components/receipt/ReceiptSystem.tsx",
+    "dither-os-bartending/src/components/receipt/ReceiptSystem.tsx",
+    "src/app/receipt.css",
+    "src/lib/hfDialogueService.ts"
+  ],
+  "verification": {
+    "observed_phases": [
+      "idle",
+      "fading-in",
+      "printing",
+      "holding",
+      "fading-out",
+      "idle"
+    ],
+    "idle_printer_opacity": "0",
+    "idle_printer_visibility": "hidden",
+    "free_tickets_visible_when_idle": 0
+  }
+}

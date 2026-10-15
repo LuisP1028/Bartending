@@ -33,13 +33,20 @@ type DragState = {
 export type PatronReceiptMeta = {
   characterId: string;
   seatId: string;
+  patronName: string;
 };
 
-type QueuedPrint = {
-  ticket: CocktailRecipe;
-  characterId?: string;
-  seatId?: string;
-};
+export type PrinterLifecyclePhase =
+  | 'idle'
+  | 'fading-in'
+  | 'printing'
+  | 'holding'
+  | 'fading-out';
+
+export interface ReceiptInspectController {
+  inspectReceipt: (instanceId: string | null) => void;
+  getInspectedId: () => string | null;
+}
 
 type ReceiptContextValue = {
   activeTicket: CocktailRecipe | null;
@@ -48,6 +55,7 @@ type ReceiptContextValue = {
   /** Active mode id/label for closed receipt titles. */
   modeName: string;
   stageRef: React.RefObject<HTMLDivElement | null>;
+  printerPhase: PrinterLifecyclePhase;
   printing: ReceiptEntity[];
   free: ReceiptEntity[];
   /** True when any free receipt is expanded (full face). */
@@ -102,22 +110,30 @@ type ReceiptProviderProps = {
     ((instanceId: string) => number | null) | null
   >;
   /**
-   * FS51: host prints character-attached tickets on sit-complete.
-   * Returns new receipt instanceId (sync create).
+   * FS51/FS114: host prints character-attached tickets on sit-complete.
+   * Always returns new receipt instanceId synchronously (even when queued).
    */
   printAttachedTicketRef?: React.MutableRefObject<
     | ((
         ticket: CocktailRecipe,
         meta: PatronReceiptMeta
-      ) => string | null)
+      ) => string)
     | null
   >;
   /**
-   * FS51: host reads characterId/seatId for leave after success validate.
+   * FS51: host reads characterId/seatId/patronName for leave after success validate.
    */
   getReceiptAttachmentRef?: React.MutableRefObject<
     ((instanceId: string) => PatronReceiptMeta | null) | null
   >;
+  /**
+   * FS114: Imperative inspect controller for patron-click receipt inspection & dismissal.
+   */
+  inspectControllerRef?: React.MutableRefObject<ReceiptInspectController | null>;
+  /**
+   * FS114: Notifies host when the inspected receipt instanceId changes (or null on dismiss).
+   */
+  onInspectChange?: (instanceId: string | null) => void;
   children: React.ReactNode;
 };
 
@@ -212,6 +228,12 @@ function computePaperMetricsFromStage(
 /** Match CSS transition (~0.9s) + small buffer before remove. */
 export const RECEIPT_HANDOFF_EXIT_MS = 1000;
 
+/** Transient printer timing constants (INV-PRINTER-TRANSIENT-01) */
+const PRINTER_FADE_IN_MS = 180;
+const PRINTER_UNROLL_MS = 650;
+const PRINTER_HOLD_MS = 900;
+const PRINTER_FADE_OUT_MS = 280;
+
 export function ReceiptProvider({
   activeTicket,
   activeReceiptId,
@@ -223,10 +245,13 @@ export function ReceiptProvider({
   getReceiptTotalRef,
   printAttachedTicketRef,
   getReceiptAttachmentRef,
+  inspectControllerRef,
+  onInspectChange,
   children,
 }: ReceiptProviderProps) {
   const [receipts, setReceipts] = useState<ReceiptEntity[]>([]);
-  const [activeZ, setActiveZ] = useState(501);
+  const [, setActiveZ] = useState(501);
+  const [printerPhase, setPrinterPhase] = useState<PrinterLifecyclePhase>('idle');
   const [toast, setToast] = useState<string | null>(null);
   const dragRef = useRef<DragState>(null);
   /** True once pointer moved past drag threshold (real paper drag, not a click). */
@@ -238,17 +263,8 @@ export function ReceiptProvider({
   const scrollGestureRef = useRef(false);
   /**
    * FS86 / RE86 — Summary paper-drag ownership (Safari-first).
-   *
-   * Secondary body class lock (overscroll reinforcement only). Does NOT change
-   * frozen touch-action for the active finger (PE3); durable TE path is the
-   * permanent document listeners in the mount effect below.
    */
   const dragScrollLockRef = useRef(false);
-  /**
-   * True after touchstart on a summary free wrapper until touchend/cancel.
-   * Lets the pre-registered non-passive touchmove handler claim the sequence
-   * even before pointerdown sets dragRef (Safari pan race).
-   */
   const summaryTouchClaimRef = useRef(false);
   const acquireDragScrollLock = useCallback(() => {
     if (dragScrollLockRef.current) return;
@@ -263,22 +279,30 @@ export function ReceiptProvider({
     document.body.classList.remove('receipt-dragging');
   }, []);
   const stageRef = useRef<HTMLDivElement>(null);
-  const printQueueRef = useRef<QueuedPrint[]>([]);
+  /** Queue of receipt instanceIds waiting for their transient print animation */
+  const printQueueRef = useRef<string[]>([]);
   const printingRef = useRef(false);
+  const activePrintIdRef = useRef<string | null>(null);
   /** Keep z counter in a ref so we never nest setState inside another updater. */
   const activeZRef = useRef(501);
-  /** Print-complete fallback timers by instanceId. */
-  const printTimeoutsRef = useRef<Map<string, number>>(new Map());
+  /** Transient printer phase timers */
+  const printerTimersRef = useRef<number[]>([]);
   /** Handoff exit remove timers by instanceId. */
   const handoffExitTimeoutsRef = useRef<Map<string, number>>(new Map());
-  /** Latest receipts for total lookup without stale closures (FS49). */
+  /** Latest receipts for synchronous lookup without stale closures (FS49/FS114). */
   const receiptsRef = useRef(receipts);
   receiptsRef.current = receipts;
+  const onInspectChangeRef = useRef(onInspectChange);
+  onInspectChangeRef.current = onInspectChange;
 
-  const isPrinting = receipts.some((r) => r.phase === 'printing');
   const anyInspected = receipts.some(
     (r) => r.phase === 'free' && !r.inMask && r.inspected && !r.crumpled
   );
+
+  const clearPrinterTimers = useCallback(() => {
+    printerTimersRef.current.forEach((id) => window.clearTimeout(id));
+    printerTimersRef.current = [];
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -306,21 +330,11 @@ export function ReceiptProvider({
   const resolvePaperHeight = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return PAPER_H;
-    // Prefer live free-paper painted height when present (summary is content-sized).
     const paperEl = stage.querySelector('.receipt-wrapper') as HTMLElement | null;
     if (paperEl?.offsetHeight && paperEl.offsetHeight > 0) return paperEl.offsetHeight;
     const probed = readCssPaperMetrics(stage);
     if (probed) return probed.h;
     return computePaperMetricsFromStage(stage.clientWidth, stage.clientHeight).h;
-  }, []);
-
-  /** Stage UI scale for printer-aligned release offsets (matches CSS --receipt-ui-scale FS60). */
-  const stageUiScale = useCallback(() => {
-    const stage = stageRef.current;
-    if (!stage || stage.clientWidth <= 0) return 1;
-    const probed = readCssPaperMetrics(stage);
-    if (probed && Number.isFinite(probed.scale)) return probed.scale;
-    return computePaperMetricsFromStage(stage.clientWidth, stage.clientHeight).scale;
   }, []);
 
   const clampPosition = useCallback(
@@ -355,57 +369,81 @@ export function ReceiptProvider({
     [clampPosition, resolvePaperWidth]
   );
 
-  const releaseToFree = useCallback(
-    (instanceId: string, rect?: DOMRect | null) => {
-      const stage = stageRef.current;
-      // FS61: stage-fraction insets (avoid broken px * scale that disagreed with CSS)
-      const releaseTop = stage
-        ? Math.max(8, Math.round(stage.clientHeight * 0.06))
-        : 10;
-      const releaseInset = stage
-        ? Math.max(4, Math.round(stage.clientWidth * 0.015))
-        : 8;
-      let pos = { left: releaseInset, top: releaseTop };
-      if (stage && rect) {
-        const sRect = stage.getBoundingClientRect();
-        // Prefer painted rect, but clamp; if rect is left-stuck mid-print, snap top-right family
-        const fromRect = clampPosition(rect.left - sRect.left, rect.top - sRect.top);
-        const paperW = resolvePaperWidth();
-        const preferRight = stage.clientWidth - paperW - releaseInset;
-        const nearLeft = fromRect.left < stage.clientWidth * 0.15;
-        pos = nearLeft
-          ? clampPosition(preferRight, Math.min(fromRect.top, releaseTop))
-          : fromRect;
-      } else if (stage) {
-        const paperW = resolvePaperWidth();
-        pos = clampPosition(stage.clientWidth - paperW - releaseInset, releaseTop);
+  /**
+   * FS114 (INV-PRINTER-TRANSIENT-01):
+   * Execute transient printer sequence for `instanceId`:
+   * fading-in -> printing -> holding -> fading-out -> release to stored free & advance queue or idle.
+   */
+  const runPrintCycleRef = useRef<(instanceId: string) => void>(() => {});
+  const advancePrintQueue = useCallback(() => {
+    clearPrinterTimers();
+    while (printQueueRef.current.length > 0) {
+      const nextId = printQueueRef.current.shift()!;
+      const exists = receiptsRef.current.find(
+        (r) => r.instanceId === nextId && r.phase === 'queued'
+      );
+      if (exists) {
+        runPrintCycleRef.current(nextId);
+        return;
       }
+    }
+    printingRef.current = false;
+    activePrintIdRef.current = null;
+    setPrinterPhase('idle');
+  }, [clearPrinterTimers]);
+
+  const runPrintCycle = useCallback(
+    (instanceId: string) => {
+      clearPrinterTimers();
+      printingRef.current = true;
+      activePrintIdRef.current = instanceId;
 
       setReceipts((prev) => {
-        const target = prev.find((r) => r.instanceId === instanceId);
-        if (!target || target.phase !== 'printing') return prev;
-        return prev.map((r) =>
+        const next = prev.map((r) =>
           r.instanceId === instanceId
-            ? {
-                ...r,
-                phase: 'free' as const,
-                inMask: false,
-                position: pos,
-                inspected: false,
-              }
+            ? { ...r, phase: 'printing' as const, inMask: true }
             : r
         );
+        receiptsRef.current = next;
+        return next;
       });
-      printingRef.current = false;
 
-      const t = printTimeoutsRef.current.get(instanceId);
-      if (t != null) {
-        window.clearTimeout(t);
-        printTimeoutsRef.current.delete(instanceId);
-      }
+      setPrinterPhase('fading-in');
+
+      const t1 = window.setTimeout(() => {
+        setPrinterPhase('printing');
+      }, PRINTER_FADE_IN_MS);
+
+      const t2 = window.setTimeout(() => {
+        setPrinterPhase('holding');
+      }, PRINTER_FADE_IN_MS + PRINTER_UNROLL_MS);
+
+      const t3 = window.setTimeout(() => {
+        setPrinterPhase('fading-out');
+      }, PRINTER_FADE_IN_MS + PRINTER_UNROLL_MS + PRINTER_HOLD_MS);
+
+      const t4 = window.setTimeout(() => {
+        setReceipts((prev) => {
+          const next = prev.map((r) =>
+            r.instanceId === instanceId && r.phase === 'printing'
+              ? {
+                  ...r,
+                  phase: 'free' as const,
+                  inMask: false,
+                }
+              : r
+          );
+          receiptsRef.current = next;
+          return next;
+        });
+        advancePrintQueue();
+      }, PRINTER_FADE_IN_MS + PRINTER_UNROLL_MS + PRINTER_HOLD_MS + PRINTER_FADE_OUT_MS);
+
+      printerTimersRef.current = [t1, t2, t3, t4];
     },
-    [clampPosition, resolvePaperWidth]
+    [clearPrinterTimers, advancePrintQueue]
   );
+  runPrintCycleRef.current = runPrintCycle;
 
   /** Keep free paper on-stage when stage box resizes (FS52 §7.3). */
   useEffect(() => {
@@ -438,89 +476,106 @@ export function ReceiptProvider({
     return () => ro.disconnect();
   }, [clampPosition]);
 
-  const startPrint = useCallback(
-    (job: QueuedPrint): string => {
-      printingRef.current = true;
-      // Pure: create entity once outside any setState updater (Strict Mode safe)
-      const nextZ = allocZ();
-      const entity = createReceiptEntity(job.ticket, nextZ, {
-        characterId: job.characterId,
-        seatId: job.seatId,
-      });
-      // Print only — do not steal selection / mat / active ticket (FS40)
-      setReceipts((prev) => [...prev, entity]);
+  const enqueueOrStartEntity = useCallback(
+    (entity: ReceiptEntity): string => {
+      if (printingRef.current) {
+        const queuedEntity: ReceiptEntity = {
+          ...entity,
+          phase: 'queued',
+          inMask: true,
+        };
+        receiptsRef.current = [...receiptsRef.current, queuedEntity];
+        setReceipts((prev) => {
+          const next = prev.some((r) => r.instanceId === queuedEntity.instanceId)
+            ? prev
+            : [...prev, queuedEntity];
+          receiptsRef.current = next;
+          return next;
+        });
+        printQueueRef.current.push(entity.instanceId);
+        return entity.instanceId;
+      }
 
-      // Fallback if CSS animationend never fires
-      const timeoutId = window.setTimeout(() => {
-        releaseToFree(entity.instanceId, null);
-      }, 1700);
-      printTimeoutsRef.current.set(entity.instanceId, timeoutId);
+      const printingEntity: ReceiptEntity = {
+        ...entity,
+        phase: 'printing',
+        inMask: true,
+      };
+      receiptsRef.current = [...receiptsRef.current, printingEntity];
+      setReceipts((prev) => {
+        const next = prev.some((r) => r.instanceId === printingEntity.instanceId)
+          ? prev
+          : [...prev, printingEntity];
+        receiptsRef.current = next;
+        return next;
+      });
+      runPrintCycle(entity.instanceId);
       return entity.instanceId;
     },
-    [allocZ, releaseToFree]
+    [runPrintCycle]
   );
-
-  const enqueueOrPrint = useCallback(
-    (job: QueuedPrint): string | null => {
-      if (printingRef.current) {
-        printQueueRef.current.push(job);
-        // instanceId not known until dequeued — callers that need sync id
-        // should only print when idle; attached print prefers immediate start.
-        return null;
-      }
-      return startPrint(job);
-    },
-    [startPrint]
-  );
-
-  useEffect(() => {
-    if (isPrinting) {
-      printingRef.current = true;
-      return;
-    }
-    printingRef.current = false;
-    if (printQueueRef.current.length > 0) {
-      const next = printQueueRef.current.shift()!;
-      startPrint(next);
-    }
-  }, [isPrinting, startPrint]);
 
   useEffect(() => {
     return () => {
-      printTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
-      printTimeoutsRef.current.clear();
+      clearPrinterTimers();
       handoffExitTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
       handoffExitTimeoutsRef.current.clear();
     };
-  }, []);
+  }, [clearPrinterTimers]);
 
   /**
-   * Success validate: mark receipt for upward slide, then remove from stage.
-   * Other receipts are untouched.
+   * Success validate: remove receipt (or animate handoffExit if currently inspected),
+   * and notify inspect listener if this receipt was inspected.
    */
-  const handoffExitReceipt = useCallback((instanceId: string) => {
-    setReceipts((prev) => {
-      const target = prev.find((r) => r.instanceId === instanceId);
-      if (!target || target.handoffExit) return prev;
-      return prev.map((r) =>
-        r.instanceId === instanceId ? { ...r, handoffExit: true, inspected: false } : r
-      );
-    });
+  const handoffExitReceipt = useCallback(
+    (instanceId: string) => {
+      const target = receiptsRef.current.find((r) => r.instanceId === instanceId);
+      if (!target) return;
 
-    const existing = handoffExitTimeoutsRef.current.get(instanceId);
-    if (existing != null) window.clearTimeout(existing);
-
-    const timeoutId = window.setTimeout(() => {
-      setReceipts((prev) => prev.filter((r) => r.instanceId !== instanceId));
-      handoffExitTimeoutsRef.current.delete(instanceId);
-      const printT = printTimeoutsRef.current.get(instanceId);
-      if (printT != null) {
-        window.clearTimeout(printT);
-        printTimeoutsRef.current.delete(instanceId);
+      printQueueRef.current = printQueueRef.current.filter((id) => id !== instanceId);
+      if (activePrintIdRef.current === instanceId) {
+        advancePrintQueue();
       }
-    }, RECEIPT_HANDOFF_EXIT_MS);
-    handoffExitTimeoutsRef.current.set(instanceId, timeoutId);
-  }, []);
+
+      if (target.inspected) {
+        onInspectChangeRef.current?.(null);
+      }
+
+      // If uninspected, remove immediately (zero screen footprint invariant)
+      if (!target.inspected) {
+        setReceipts((prev) => {
+          const next = prev.filter((r) => r.instanceId !== instanceId);
+          receiptsRef.current = next;
+          return next;
+        });
+        return;
+      }
+
+      setReceipts((prev) => {
+        const next = prev.map((r) =>
+          r.instanceId === instanceId
+            ? { ...r, handoffExit: true, inspected: false }
+            : r
+        );
+        receiptsRef.current = next;
+        return next;
+      });
+
+      const existing = handoffExitTimeoutsRef.current.get(instanceId);
+      if (existing != null) window.clearTimeout(existing);
+
+      const timeoutId = window.setTimeout(() => {
+        setReceipts((prev) => {
+          const next = prev.filter((r) => r.instanceId !== instanceId);
+          receiptsRef.current = next;
+          return next;
+        });
+        handoffExitTimeoutsRef.current.delete(instanceId);
+      }, RECEIPT_HANDOFF_EXIT_MS);
+      handoffExitTimeoutsRef.current.set(instanceId, timeoutId);
+    },
+    [advancePrintQueue]
+  );
 
   useEffect(() => {
     if (!handoffExitRef) return;
@@ -548,8 +603,12 @@ export function ReceiptProvider({
   const getReceiptAttachment = useCallback(
     (instanceId: string): PatronReceiptMeta | null => {
       const entity = receiptsRef.current.find((r) => r.instanceId === instanceId);
-      if (!entity?.characterId || !entity?.seatId) return null;
-      return { characterId: entity.characterId, seatId: entity.seatId };
+      if (!entity?.characterId || !entity?.seatId || !entity?.patronName) return null;
+      return {
+        characterId: entity.characterId,
+        seatId: entity.seatId,
+        patronName: entity.patronName,
+      };
     },
     []
   );
@@ -562,25 +621,21 @@ export function ReceiptProvider({
     };
   }, [getReceiptAttachmentRef, getReceiptAttachment]);
 
-  /** FS51: sit-complete print with character/seat attachment. Sync instanceId when not busy. */
+  /**
+   * FS51/FS114: sit-complete print with character/seat/patronName attachment.
+   * Always creates entity synchronously and returns its instanceId.
+   */
   const printAttachedTicket = useCallback(
-    (ticket: CocktailRecipe, meta: PatronReceiptMeta): string | null => {
-      // If printer busy, queue with meta; instanceId deferred (still prints without mat steal)
-      if (printingRef.current) {
-        printQueueRef.current.push({
-          ticket,
-          characterId: meta.characterId,
-          seatId: meta.seatId,
-        });
-        return null;
-      }
-      return startPrint({
-        ticket,
+    (ticket: CocktailRecipe, meta: PatronReceiptMeta): string => {
+      const nextZ = allocZ();
+      const entity = createReceiptEntity(ticket, nextZ, {
         characterId: meta.characterId,
         seatId: meta.seatId,
+        patronName: meta.patronName,
       });
+      return enqueueOrStartEntity(entity);
     },
-    [startPrint]
+    [allocZ, enqueueOrStartEntity]
   );
 
   useEffect(() => {
@@ -601,22 +656,26 @@ export function ReceiptProvider({
       showToast('NO RECIPES AVAILABLE');
       return;
     }
-    enqueueOrPrint({ ticket });
-  }, [onGenerate, enqueueOrPrint, showToast]);
+    const nextZ = allocZ();
+    const entity = createReceiptEntity(ticket, nextZ, {
+      patronName: 'BAR TICKET',
+    });
+    enqueueOrStartEntity(entity);
+  }, [onGenerate, allocZ, enqueueOrStartEntity, showToast]);
 
   const handleAnimationEnd = useCallback(
-    (instanceId: string, rect: DOMRect) => {
-      releaseToFree(instanceId, rect);
+    (_instanceId: string, _rect: DOMRect) => {
+      // Transient lifecycle timer governs hold -> fade-out -> release deterministically.
     },
-    [releaseToFree]
+    []
   );
 
   const bumpZ = useCallback(
     (instanceId: string, opts?: { clearInspect?: boolean }) => {
       const nextZ = allocZ();
       const clearInspect = opts?.clearInspect !== false;
-      setReceipts((prev) =>
-        prev.map((r) =>
+      setReceipts((prev) => {
+        const next = prev.map((r) =>
           r.instanceId === instanceId
             ? {
                 ...r,
@@ -624,47 +683,113 @@ export function ReceiptProvider({
                 inspected: clearInspect ? false : r.inspected,
               }
             : r
-        )
-      );
+        );
+        receiptsRef.current = next;
+        return next;
+      });
     },
     [allocZ]
   );
 
-  /** Bind mat ownership to a free receipt (idempotent if already active). */
+  /** Bind mat ownership to a receipt (idempotent if already active). */
   const selectFreeReceipt = useCallback(
     (instanceId: string) => {
-      const entity = receipts.find((r) => r.instanceId === instanceId);
-      if (!entity || entity.phase !== 'free' || entity.inMask || entity.handoffExit)
-        return;
+      const entity = receiptsRef.current.find((r) => r.instanceId === instanceId);
+      if (!entity || entity.handoffExit) return;
       onSelectReceipt(entity.instanceId, entity.ticket);
       onActiveTicketChange(entity.ticket);
     },
-    [receipts, onSelectReceipt, onActiveTicketChange]
+    [onSelectReceipt, onActiveTicketChange]
   );
 
-  /** Click receipt: toggle expanded full face ↔ compact summary. */
-  const toggleExpand = useCallback(
-    (instanceId: string) => {
-      selectFreeReceipt(instanceId);
+  /**
+   * FS114: Programmatically inspect a specific receipt (or null to dismiss inspection).
+   */
+  const inspectReceipt = useCallback(
+    (instanceId: string | null) => {
+      if (instanceId === null) {
+        let hadInspected = false;
+        setReceipts((prev) => {
+          hadInspected = prev.some((r) => r.inspected);
+          if (!hadInspected) return prev;
+          const next = prev.map((r) =>
+            r.inspected ? { ...r, inspected: false } : r
+          );
+          receiptsRef.current = next;
+          return next;
+        });
+        onInspectChangeRef.current?.(null);
+        return;
+      }
+
+      const target = receiptsRef.current.find((r) => r.instanceId === instanceId);
+      if (!target) {
+        throw new Error(
+          `[ReceiptInspectController] Fatal: Receipt ${instanceId} not found (INV-FAILFAST-01).`
+        );
+      }
+
+      // If target was queued or actively printing, release it to free immediately so it can be inspected cleanly
+      printQueueRef.current = printQueueRef.current.filter((id) => id !== instanceId);
+      if (activePrintIdRef.current === instanceId) {
+        advancePrintQueue();
+      }
+
       const nextZ = allocZ();
-      setReceipts((prev) =>
-        prev.map((r) => {
-          if (r.instanceId !== instanceId) return r;
-          if (r.crumpled || r.phase === 'printing' || r.inMask || r.handoffExit)
-            return r;
-          if (!r.inspected) {
+      setReceipts((prev) => {
+        const next = prev.map((r) => {
+          if (r.instanceId === instanceId) {
             return {
               ...r,
+              phase: 'free' as const,
+              inMask: false,
               inspected: true,
               zIndex: nextZ,
               position: positionForInspect(r.position),
             };
           }
-          return { ...r, inspected: false, zIndex: nextZ };
-        })
-      );
+          return r.inspected ? { ...r, inspected: false } : r;
+        });
+        receiptsRef.current = next;
+        return next;
+      });
+
+      selectFreeReceipt(instanceId);
+      onInspectChangeRef.current?.(instanceId);
     },
-    [allocZ, positionForInspect, selectFreeReceipt]
+    [allocZ, advancePrintQueue, positionForInspect, selectFreeReceipt]
+  );
+
+  const getInspectedId = useCallback((): string | null => {
+    const found = receiptsRef.current.find(
+      (r) => r.phase === 'free' && !r.inMask && r.inspected && !r.crumpled
+    );
+    return found ? found.instanceId : null;
+  }, []);
+
+  useEffect(() => {
+    if (!inspectControllerRef) return;
+    inspectControllerRef.current = {
+      inspectReceipt,
+      getInspectedId,
+    };
+    return () => {
+      inspectControllerRef.current = null;
+    };
+  }, [inspectControllerRef, inspectReceipt, getInspectedId]);
+
+  /** Click receipt: toggle expanded full face ↔ dismiss inspection. */
+  const toggleExpand = useCallback(
+    (instanceId: string) => {
+      const target = receiptsRef.current.find((r) => r.instanceId === instanceId);
+      if (!target || target.crumpled || target.handoffExit) return;
+      if (target.inspected) {
+        inspectReceipt(null);
+      } else {
+        inspectReceipt(instanceId);
+      }
+    },
+    [inspectReceipt]
   );
 
   const endPointerGesture = useCallback(
@@ -940,7 +1065,14 @@ export function ReceiptProvider({
   }, []);
 
   const printing = receipts.filter((r) => r.phase === 'printing' && r.inMask);
-  const free = receipts.filter((r) => r.phase === 'free' && !r.inMask);
+  // FS114 (INV-PRINTER-TRANSIENT-01): Uninspected free receipts occupy zero screen footprint;
+  // only inspected receipts (or active handoffExit) render on the stage.
+  const free = receipts.filter(
+    (r) =>
+      r.phase === 'free' &&
+      !r.inMask &&
+      ((r.inspected && !r.crumpled) || r.handoffExit)
+  );
 
   const value = useMemo<ReceiptContextValue>(
     () => ({
@@ -948,6 +1080,7 @@ export function ReceiptProvider({
       activeReceiptId,
       modeName,
       stageRef,
+      printerPhase,
       printing,
       free,
       anyInspected,
@@ -965,6 +1098,7 @@ export function ReceiptProvider({
       activeTicket,
       activeReceiptId,
       modeName,
+      printerPhase,
       printing,
       free,
       anyInspected,
@@ -987,6 +1121,7 @@ export function ReceiptProvider({
 export function ReceiptStageOverlay() {
   const {
     stageRef,
+    printerPhase,
     printing,
     free,
     anyInspected,
@@ -1013,13 +1148,22 @@ export function ReceiptStageOverlay() {
     onToggleExpand,
   };
 
+  // INV-PATRON-ISOLATION-01: Printer bezel must never be visible during receipt inspection
+  const effectivePrinterPhase: PrinterLifecyclePhase = anyInspected
+    ? 'idle'
+    : printerPhase;
+
   return (
     <div
       className={`receipt-system receipt-system--pov${anyInspected ? ' receipt-system--has-inspect' : ''}`}
       aria-hidden={false}
     >
       <div className="receipt-stage-root" ref={stageRef}>
-        <div className="receipt-hardware-cluster">
+        <div
+          className={`receipt-hardware-cluster printer-phase--${effectivePrinterPhase}`}
+          data-printer-phase={effectivePrinterPhase}
+          data-testid="receipt-printer-cluster"
+        >
           <div className="receipt-hardware-wall">
             <div className="receipt-printer-bezel">
               <div className="receipt-printer-slot" />
@@ -1027,15 +1171,19 @@ export function ReceiptStageOverlay() {
           </div>
         </div>
 
-        <div className="receipt-printer-mask">
-          {printing.map((entity) => (
-            <ReceiptPaper
-              key={entity.instanceId}
-              entity={entity}
-              isActiveOrder={entity.instanceId === activeReceiptId}
-              {...paperProps}
-            />
-          ))}
+        <div
+          className={`receipt-printer-mask printer-phase--${effectivePrinterPhase}`}
+          data-printer-phase={effectivePrinterPhase}
+        >
+          {effectivePrinterPhase !== 'idle' &&
+            printing.map((entity) => (
+              <ReceiptPaper
+                key={entity.instanceId}
+                entity={entity}
+                isActiveOrder={entity.instanceId === activeReceiptId}
+                {...paperProps}
+              />
+            ))}
         </div>
 
         <div

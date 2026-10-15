@@ -40,6 +40,7 @@ export default function ReceiptPaper({
 }: ReceiptPaperProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const pointerGestureRef = useRef(false);
   const palette = FIXED_PAPER_PALETTE;
   const showFull = entity.inspected && !entity.crumpled;
   const brand = resolveModeReceiptBrand(modeName);
@@ -69,11 +70,14 @@ export default function ReceiptPaper({
     '--ink-color': palette.ink,
     '--jagged-svg': getJaggedEdge(palette.paper),
     '--crumpled-svg': getCrumpledSprite(palette.paper, palette.ink),
-    left: entity.inMask ? 0 : `${entity.position.left}px`,
-    top: entity.inMask ? 0 : `${entity.position.top}px`,
+    ...(entity.inMask
+      ? { left: 0, top: 0 }
+      : showFull
+        ? {}
+        : { left: `${entity.position.left}px`, top: `${entity.position.top}px` }),
     zIndex: showFull ? 9000 : entity.zIndex,
     margin: 0,
-  } as React.CSSProperties;
+  } as unknown as React.CSSProperties;
 
   const dateStr = entity.issuedAt.toLocaleDateString();
   const timeStr = entity.issuedAt.toLocaleTimeString([], {
@@ -83,6 +87,7 @@ export default function ReceiptPaper({
 
   const totalDisplay = formatMoney(entity.pricedOrder.total);
   const tax = entity.pricedOrder.tax;
+  const patronUpper = (entity.patronName || '').trim().toUpperCase();
 
   const bodyLines =
     entity.bodyLines && entity.bodyLines.length > 0
@@ -98,7 +103,11 @@ export default function ReceiptPaper({
       ref={wrapperRef}
       className={classNames}
       style={style}
+      data-testid={showFull ? 'receipt-inspected' : 'receipt-wrapper'}
       data-instance-id={entity.instanceId}
+      data-seat-id={entity.seatId ?? undefined}
+      data-character-id={entity.characterId ?? undefined}
+      data-patron-name={entity.patronName}
       data-receipt-face={showFull ? 'full' : 'summary'}
       data-inspected={showFull ? 'true' : 'false'}
       data-active-order={isActiveOrder ? 'true' : 'false'}
@@ -111,6 +120,7 @@ export default function ReceiptPaper({
       }}
       onPointerDown={(e) => {
         if (isHandoffExit) return;
+        pointerGestureRef.current = true;
         onPointerDown(entity.instanceId, e);
       }}
       onPointerMove={(e) => {
@@ -123,7 +133,17 @@ export default function ReceiptPaper({
       }}
       onPointerCancel={(e) => {
         if (isHandoffExit) return;
+        pointerGestureRef.current = false;
         onPointerCancel(entity.instanceId, e);
+      }}
+      onClick={() => {
+        if (isHandoffExit) return;
+        if (pointerGestureRef.current) {
+          pointerGestureRef.current = false;
+          return;
+        }
+        if (entity.phase !== 'free' || entity.inMask || entity.crumpled) return;
+        onToggleExpand(entity.instanceId);
       }}
       onContextMenu={(e) => onContextMenu(entity.instanceId, e)}
       title={
@@ -166,6 +186,12 @@ export default function ReceiptPaper({
                 alt={brand.logoAlt}
                 draggable={false}
               />
+              <div
+                className="receipt-patron-attribution"
+                data-testid="receipt-patron-name"
+              >
+                PATRON: {patronUpper}
+              </div>
               <div className="r-line r-meta">
                 <span className="r-line-label">CHK: {entity.orderId}</span>
                 <span className="r-line-value">{dateStr}</span>
@@ -232,6 +258,12 @@ export default function ReceiptPaper({
           <>
             <div className="r-header r-header--summary">
               <div className="r-title r-title--summary">{modeName}</div>
+              <div
+                className="receipt-patron-attribution receipt-patron-attribution--summary"
+                data-testid="receipt-patron-name"
+              >
+                PATRON: {patronUpper}
+              </div>
               <div className="r-line r-meta">
                 <span className="r-line-label">CHK: {entity.orderId}</span>
                 <span className="r-line-value">{timeStr}</span>

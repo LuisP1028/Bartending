@@ -41,6 +41,7 @@ export default function HardwareAsset({
       className="hardware-asset-root"
       data-hardware-type={type}
       aria-label={label}
+      data-carousel-label={label}
       title={label}
       style={{
         border: bare ? 'none' : 'clamp(1px, 0.2vmin, 2px) solid #222',
@@ -62,7 +63,7 @@ export default function HardwareAsset({
         outline: 'none',
         boxShadow: bare ? 'none' : 'clamp(2px, 0.5vmin, 4px) clamp(2px, 0.5vmin, 4px) 0 #000',
         overflow: isOverlay ? 'hidden' : 'visible',
-        gap: isOverlay ? 4 : 6,
+        gap: isOverlay ? 0 : 6,
       }}
     >
       <div
@@ -71,13 +72,13 @@ export default function HardwareAsset({
           position: 'relative',
           width: isOverlay
             ? wideArt
-              ? 'min(100%, 80px)'
-              : 'min(100%, 52px)'
+              ? 'min(100%, 88px)'
+              : 'min(100%, 64px)'
             : wideArt
               ? 'clamp(100px, 20vw, 168px)'
               : 'clamp(72px, 14vw, 120px)',
           maxWidth: '100%',
-          maxHeight: isOverlay ? 'calc(100% - 28px)' : undefined,
+          maxHeight: isOverlay ? '90%' : undefined,
           aspectRatio: wideArt ? '5 / 4' : '64 / 96',
           display: 'flex',
           alignItems: 'center',
@@ -189,16 +190,14 @@ export default function HardwareAsset({
           </svg>
         )}
       </div>
-      {label ? (
+      {label && !isOverlay ? (
         <div
           className="asset-under-label hardware-under-label"
           style={{
             width: '100%',
-            maxWidth: isOverlay
-              ? '100%'
-              : wideArt
-                ? 'clamp(100px, 20vw, 168px)'
-                : 'clamp(72px, 14vw, 120px)',
+            maxWidth: wideArt
+              ? 'clamp(100px, 20vw, 168px)'
+              : 'clamp(72px, 14vw, 120px)',
             marginLeft: 'auto',
             marginRight: 'auto',
             textAlign: 'center',

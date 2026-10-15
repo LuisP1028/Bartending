@@ -1,0 +1,41 @@
+{
+  "ticket_id": "ticket-006",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Carousel Bottle Sizing, Inline Label Removal & Dialogue-Themed Item Name Popup",
+  "acceptance_criteria": ["AC-07", "AC-08"],
+  "modified_files": [
+    "src/data/hotspotGeometry.ts",
+    "src/components/BottleAsset.tsx",
+    "src/components/GlassAsset.tsx",
+    "src/components/GarnishAsset.tsx",
+    "src/components/RimmingAsset.tsx",
+    "src/components/HardwareAsset.tsx",
+    "src/components/CategoryOverlay.tsx",
+    "src/components/MagnificationCarousel.tsx",
+    "src/app/globals.css"
+  ],
+  "verification": {
+    "desktop_1280x800": {
+      "visibleInlineLabelCount": 0,
+      "bottleHeightRatioToFrame": 0.864,
+      "popupBgColor": "rgb(9, 19, 59)",
+      "popupInsidePlayfield": true,
+      "popupOverlapsBottle": false,
+      "initialLabel": "[SYRUP] AGAVE NECTAR",
+      "afterStepLabel": "[LIQUEUR] MARASCHINO",
+      "screenshot": ".playwright-mcp/ac07_desktop_carousel_popup.png"
+    },
+    "mobile_390x844": {
+      "visibleInlineLabelCount": 0,
+      "popupText": "[SYRUP] AGAVE NECTAR",
+      "popupInsidePlayfield": true,
+      "screenshot": ".playwright-mcp/ac07_mobile_carousel_popup.png"
+    },
+    "console_and_network_health": {
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0
+    }
+  }
+}

@@ -135,7 +135,7 @@ export async function generateDialogueCompletion(
       max_tokens: 120,
       temperature: 0.7,
     }),
-    signal: AbortSignal.timeout(4000),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!response.ok) {

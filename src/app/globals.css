@@ -497,13 +497,13 @@ body {
     box-sizing: border-box;
 }
 
-/* Assets must fit cell — never grow past parent */
+/* Assets must fit cell — fill ~94% of local carousel height cleanly */
 .carousel-container--local .carousel-item-wrapper .asset-art-root,
 .carousel-container--local .carousel-item-wrapper .rimming-asset-root {
     max-width: 100% !important;
-    max-height: 100% !important;
+    max-height: 94% !important;
     width: auto;
-    height: auto;
+    height: 94%;
     box-sizing: border-box;
 }
 
@@ -516,7 +516,7 @@ body {
     overflow: hidden;
 }
 
-/* Hardware: keep column stack (art + label) centered as one unit */
+/* Hardware: keep column stack centered as one unit */
 .carousel-item-wrapper .hardware-asset-root,
 .carousel-container--local .carousel-item-wrapper .hardware-asset-root {
     width: 100% !important;
@@ -532,9 +532,10 @@ body {
 }
 
 .carousel-container--local .carousel-item-wrapper .hardware-asset-root .hardware-art-root {
-    max-width: min(100%, 52px) !important;
-    max-height: calc(100% - 26px) !important;
-    width: min(100%, 52px) !important;
+    max-width: min(100%, 88px) !important;
+    max-height: 90% !important;
+    width: auto !important;
+    height: 90% !important;
     margin-left: auto;
     margin-right: auto;
     flex: 1 1 auto;
@@ -589,7 +590,7 @@ body {
         drop-shadow(0 0 8px rgba(255, 176, 0, 0.7));
 }
 
-/* Manifest label under catalog assets (accordion + POV carousels) */
+/* Manifest label under catalog assets (accordion rows only; suppressed in local stage carousel) */
 .asset-under-label {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -614,9 +615,78 @@ body {
 }
 
 .carousel-container--local .asset-under-label {
-    font-size: 8px;
-    margin-top: 2px;
-    max-height: 2.4em;
+    display: none !important;
+}
+
+/* FS114 (AC-07): Retro RPG Dialogue-themed item name popup for active local carousel */
+.carousel-dialogue-popup {
+    position: absolute;
+    z-index: 26;
+    pointer-events: none;
+    background-color: #09133b;
+    border: clamp(2px, 0.45cqi, 3px) solid #ffffff;
+    outline: clamp(1px, 0.25cqi, 2px) solid #000000;
+    box-shadow:
+        inset 0 0 0 clamp(1px, 0.25cqi, 2px) #000000,
+        0 clamp(2px, 0.6cqi, 4px) 0 rgba(0, 0, 0, 0.75);
+    padding: clamp(3px, 0.8cqb, 7px) clamp(8px, 2cqi, 14px);
+    min-width: clamp(68px, 18cqi, 130px);
+    max-width: min(74cqi, calc(var(--shell-glass-w, 100%) - 16px));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    image-rendering: pixelated;
+}
+
+.carousel-dialogue-popup__label {
+    font-family: 'Press Start 2P', 'Courier New', Courier, monospace;
+    font-size: clamp(6.5px, 1.65cqi, 10px);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.05em;
+    color: #f7ca18;
+    text-shadow:
+        1px 1px 0 #000000,
+        -1px 1px 0 #000000,
+        1px -1px 0 #000000,
+        -1px -1px 0 #000000;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.carousel-dialogue-popup__corner {
+    position: absolute;
+    width: clamp(3px, 0.6cqi, 5px);
+    height: clamp(3px, 0.6cqi, 5px);
+    background-color: #09133b;
+    border: 1px solid #ffffff;
+    box-shadow: 0 0 0 1px #000000;
+    pointer-events: none;
+}
+
+.carousel-dialogue-popup__corner--tl {
+    top: -2px;
+    left: -2px;
+}
+
+.carousel-dialogue-popup__corner--tr {
+    top: -2px;
+    right: -2px;
+}
+
+.carousel-dialogue-popup__corner--bl {
+    bottom: -2px;
+    left: -2px;
+}
+
+.carousel-dialogue-popup__corner--br {
+    bottom: -2px;
+    right: -2px;
 }
 
 /* Hotspot placement editor (dev tool) */
@@ -1347,19 +1417,22 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: clamp(1px, 0.4cqi, 3px);
-    /* FS60 coverage caps ≤12% W / ≤18% H of stage */
-    min-width: min(12cqi, max(44px, 8cqi));
-    min-height: min(18cqb, max(44px, 10cqb));
-    max-width: 12cqi;
-    max-height: 18cqb;
-    padding: clamp(3px, 0.9cqi, 8px) clamp(4px, 1.1cqi, 8px) clamp(4px, 1.1cqi, 8px);
+    justify-content: center;
+    gap: clamp(1px, 0.35cqb, 3px);
+    /* FS114 (AC-06 / INV-JIGGER-TEXT-01): unclipped icon + "JIGGER" + "0.50 oz" across all viewports */
+    width: max-content;
+    min-width: clamp(46px, 13.5cqi, 88px);
+    max-width: clamp(58px, 18cqi, 108px);
+    height: auto;
+    min-height: 0;
+    max-height: clamp(52px, 23cqb, 96px);
+    padding: clamp(2px, 0.7cqb, 6px) clamp(5px, 1.3cqi, 10px);
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     cursor: pointer;
     color: #ffe08a;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    line-height: 1.1;
+    line-height: 1.05;
     background:
         radial-gradient(ellipse 120% 80% at 50% -10%, rgba(255, 210, 80, 0.35) 0%, transparent 55%),
         linear-gradient(
@@ -1401,44 +1474,57 @@ body {
 .jigger-pour-icon {
     display: block;
     margin: 0 auto;
-    width: min(7cqi, 36px);
-    height: min(10cqb, 48px);
-    flex-shrink: 1;
+    width: clamp(14px, 5.2cqi, 28px);
+    height: clamp(16px, 6.8cqb, 34px);
+    flex: 0 1 auto;
     image-rendering: pixelated;
     filter: drop-shadow(0 0 clamp(2px, 0.6cqi, 6px) rgba(255, 200, 80, 0.35));
 }
 
 .jigger-pour-caption {
-    font-size: clamp(8px, 2.2cqi, 11px);
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    font-size: clamp(6.5px, 1.75cqi, 10.5px);
+    line-height: 1.05;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
     text-shadow:
         0 0 clamp(3px, 0.8cqi, 8px) rgba(255, 200, 60, 0.45),
         0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .jigger-pour-current {
-    font-size: clamp(9px, 2.4cqi, 12px);
+    display: block;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    font-size: clamp(6.5px, 1.75cqi, 10.5px);
+    line-height: 1.05;
+    letter-spacing: 0.01em;
     color: rgba(255, 255, 255, 0.92);
     font-weight: 600;
+    flex-shrink: 0;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-/* FS61 — open volume panel: stage cqi/cqb only (no px * scale) */
+/* FS61 / FS114 — open volume panel: stage cqi/cqb proportional sizing */
 .jigger-pour-panel {
     position: absolute;
     right: 0;
-    bottom: calc(100% + clamp(4px, 1cqi, 10px));
-    width: min(36cqi, 52vw, 200px);
-    max-width: min(36cqi, 52vw, 200px);
-    max-height: min(40cqb, 200px);
+    bottom: calc(100% + clamp(3px, 0.8cqb, 8px));
+    width: clamp(92px, 28cqi, 168px);
+    max-width: clamp(92px, 28cqi, 168px);
+    max-height: min(52cqb, calc(var(--shell-glass-h, 100%) - 64px));
     min-width: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: clamp(4px, 1.2cqi, 10px);
+    padding: clamp(3px, 1cqi, 8px);
     display: flex;
     flex-direction: column;
-    gap: clamp(3px, 0.8cqi, 6px);
+    gap: clamp(2px, 0.6cqb, 5px);
     box-sizing: border-box;
     z-index: 2;
     background:
@@ -1463,14 +1549,14 @@ body {
 
 .jigger-pour-panel-title {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: clamp(8px, 2.4cqi, 12px);
+    font-size: clamp(7px, 1.8cqi, 11px);
     font-weight: 700;
     color: rgba(255, 255, 255, 0.95);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     margin-bottom: clamp(1px, 0.3cqi, 3px);
-    line-height: 1.25;
+    line-height: 1.2;
     text-align: center;
-    white-space: normal;
+    white-space: nowrap;
     text-shadow:
         0 0 clamp(4px, 1cqi, 10px) rgba(255, 200, 60, 0.55),
         0 1px 2px rgba(0, 0, 0, 0.5);
@@ -1479,12 +1565,13 @@ body {
 .jigger-pour-option {
     width: 100%;
     box-sizing: border-box;
-    min-height: clamp(28px, 7cqb, 40px);
-    padding: clamp(4px, 1cqi, 8px) clamp(6px, 1.2cqi, 10px);
+    min-height: clamp(20px, 5.2cqb, 32px);
+    padding: clamp(2px, 0.7cqb, 6px) clamp(4px, 1cqi, 8px);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: clamp(10px, 2.8cqi, 14px);
+    font-size: clamp(8px, 2cqi, 12px);
     font-weight: 600;
     text-align: center;
+    white-space: nowrap;
     cursor: pointer;
     color: rgba(255, 255, 255, 0.88);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);

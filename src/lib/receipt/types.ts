@@ -3,7 +3,7 @@ import type { CocktailRecipe } from '@/data/RecipeManager';
 /** Fixed thermal white only — multi-color styles removed. */
 export type PaperStyleKey = 'white';
 
-export type ReceiptPhase = 'printing' | 'free';
+export type ReceiptPhase = 'queued' | 'printing' | 'free';
 
 export type ReceiptLine = {
   label: string;
@@ -50,6 +50,8 @@ export type ReceiptEntity = {
   seed: string;
   paperStyle: PaperStyleKey;
   ticket: CocktailRecipe;
+  /** FS114 (INV-FAILFAST-01): Non-empty patron display name attributed to this receipt */
+  patronName: string;
   issuedAt: Date;
   paid: boolean;
   /** Frozen priced order (menu-backed when upstream supplies prices). */
@@ -85,4 +87,7 @@ export type CreateReceiptOptions = {
   characterId?: string;
   /** FS51: bar_seat_* id bound at sit-complete print */
   seatId?: string;
+  /** FS114 (INV-FAILFAST-01): Required non-empty patron display name */
+  patronName: string;
 };
+

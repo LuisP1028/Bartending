@@ -1,0 +1,38 @@
+{
+  "ticket_id": "ticket-004",
+  "run_id": "20261014T210600-114-gbui",
+  "status": "complete",
+  "title": "Patron-Click Ticket Inspection, Temporary Patron Isolation & Red-Box Receipt Placement",
+  "acceptance_criteria": ["AC-04", "AC-05", "INV-PATRON-ISOLATION-01", "INV-RECEIPT-BOX-01"],
+  "modified_files": [
+    "src/components/PatronLayer.tsx",
+    "src/components/receipt/ReceiptSystem.tsx",
+    "src/components/receipt/ReceiptPaper.tsx",
+    "src/app/receipt.css",
+    "src/app/page.tsx"
+  ],
+  "verification": {
+    "desktop_1280x800": {
+      "visibleSeatsDuringInspect": ["bar_seat_1"],
+      "seatsAfterDismiss": ["bar_seat_4", "bar_seat_2", "bar_seat_1"],
+      "redBoxPlacement": {
+        "leftPct": 35,
+        "topPct": 14,
+        "widthPct": 35,
+        "heightPct": 58
+      },
+      "printerPhaseDuringInspect": "idle",
+      "screenshot": ".playwright-mcp/ac04_ac05_desktop_patron_inspect.png"
+    },
+    "mobile_390x844": {
+      "visibleSeatsDuringInspect": ["bar_seat_1"],
+      "redBoxPlacement": {
+        "leftPct": 35,
+        "topPct": 13.99,
+        "widthPct": 35,
+        "heightPct": 57.99
+      },
+      "screenshot": ".playwright-mcp/ac04_ac05_mobile_patron_inspect.png"
+    }
+  }
+}
