@@ -118,7 +118,7 @@ export async function generateDialogueCompletion(
     userPrompt = `The bartender served you the wrong drink. You ordered: ${recipe.name} in a ${recipe.vessel} with ${recipe.garnishes.join(', ') || 'no garnish'}. The drink had the following mistakes: ${discrepancies.join('; ')}. Deliver an in-character rejection line complaining specifically about the error(s).`;
   }
 
-  const model = process.env.HF_DIALOGUE_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
+  const model = process.env.HF_DIALOGUE_MODEL || 'meta-llama/Llama-3.3-70B-Instruct';
 
   const response = await fetch('https://router.huggingface.co/v1/chat/completions', {
     method: 'POST',
