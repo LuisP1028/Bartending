@@ -1,7 +1,18 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+  useRef,
+  useCallback,
+} from 'react';
 import styles from './RetroRpgDialogueBox.module.css';
+
+export interface RetroRpgDialogueBoxHandle {
+  interact: () => void;
+}
 
 export interface RetroRpgDialogueBoxProps {
   isOpen: boolean;
@@ -13,15 +24,21 @@ export interface RetroRpgDialogueBoxProps {
   speedMs?: number;
 }
 
-export default function RetroRpgDialogueBox({
-  isOpen,
-  speakerName,
-  portraitSrc,
-  message,
-  onAdvance,
-  onDismiss,
-  speedMs = 35,
-}: RetroRpgDialogueBoxProps) {
+const RetroRpgDialogueBox = forwardRef<
+  RetroRpgDialogueBoxHandle,
+  RetroRpgDialogueBoxProps
+>(function RetroRpgDialogueBox(
+  {
+    isOpen,
+    speakerName,
+    portraitSrc,
+    message,
+    onAdvance,
+    onDismiss,
+    speedMs = 35,
+  },
+  ref
+) {
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showArrow, setShowArrow] = useState(false);
@@ -71,9 +88,7 @@ export default function RetroRpgDialogueBox({
     return () => clearTimer();
   }, [isOpen, message, speedMs, clearTimer]);
 
-  if (!isOpen) return null;
-
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (isTyping) {
       clearTimer();
       setDisplayedText(message);
@@ -83,7 +98,17 @@ export default function RetroRpgDialogueBox({
       onAdvance?.();
       onDismiss?.();
     }
-  };
+  }, [isTyping, clearTimer, message, onAdvance, onDismiss]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      interact: handleClick,
+    }),
+    [handleClick]
+  );
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -213,4 +238,6 @@ export default function RetroRpgDialogueBox({
       </div>
     </div>
   );
-}
+});
+
+export default RetroRpgDialogueBox;

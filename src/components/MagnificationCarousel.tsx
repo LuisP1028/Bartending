@@ -16,12 +16,14 @@ interface MagnificationCarouselProps {
   layout?: 'page' | 'overlay' | 'local';
 }
 
-/** FS77: shell D-pad control of the open local carousel */
+/** FS77 / FS009: shell D-pad & B-button control of the open local carousel */
 export type MagnificationCarouselHandle = {
   /** -1 previous, +1 next; wraps at ends */
   step: (delta: -1 | 1) => void;
   goFirst: () => void;
   goLast: () => void;
+  /** Activate (click) the currently centered/focused carousel item */
+  activateFocused: () => void;
 };
 
 function getWrappers(container: HTMLElement) {
@@ -118,6 +120,18 @@ const MagnificationCarousel = forwardRef<
         );
         scrollLeftRef.current = container.scrollLeft;
         container.dispatchEvent(new Event('scroll'));
+      },
+      activateFocused() {
+        const container = containerRef.current;
+        if (!container) return;
+        const wrappers = getWrappers(container);
+        if (!wrappers.length) return;
+        const cur = nearestWrapperIndex(container);
+        if (cur < 0) return;
+        const wrapper = wrappers[cur];
+        const target =
+          (wrapper.firstElementChild as HTMLElement | null) ?? wrapper;
+        target.click();
       },
     }),
     []

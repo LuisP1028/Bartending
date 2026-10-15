@@ -73,7 +73,7 @@ export function talkSrcForCharacter(characterId: string): string {
   if (usesNestedPatronAssets(characterId)) {
     return `${PATRON_ASSETS_PUBLIC_BASE}${characterId}/talk.png`;
   }
-  return `${PATRON_ASSETS_PUBLIC_BASE}${characterId}_talk.png`;
+  return `${PATRON_ASSETS_PUBLIC_BASE}${characterId}_sit.png`;
 }
 
 export function buildWalkFrameSrcs(

@@ -2,13 +2,16 @@
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import GlobalSVGDefs from '@/components/GlobalSVGDefs';
-import BootIntro from '@/components/BootIntro';
-import MainMenu from '@/components/MainMenu';
+import BootIntro, { type BootIntroHandle } from '@/components/BootIntro';
+import MainMenu, { type MainMenuHandle } from '@/components/MainMenu';
 import JoinBarCommLink, {
   type JoinBarIdentity,
   type JoinBarCommLinkHandle,
 } from '@/components/JoinBarCommLink';
-import JoinBarCamera from '@/components/JoinBarCamera';
+import JoinBarCamera, {
+  type JoinBarCameraHandle,
+} from '@/components/JoinBarCamera';
+import GameBoy3DShell from '@/components/GameBoy3DShell';
 import BottleAsset from '@/components/BottleAsset';
 import GlassAsset from '@/components/GlassAsset';
 import GarnishAsset from '@/components/GarnishAsset';
@@ -41,7 +44,9 @@ import {
   pathWithStoredOffset,
 } from '@/components/HotspotPlacementEditor';
 import PatronLayer, { type PatronLayerHandle } from '@/components/PatronLayer';
-import RetroRpgDialogueBox from '@/components/RetroRpgDialogueBox';
+import RetroRpgDialogueBox, {
+  type RetroRpgDialogueBoxHandle,
+} from '@/components/RetroRpgDialogueBox';
 import { requireCharacter } from '@/data/characters';
 import { talkSrcForCharacter, sitSrcForCharacter } from '@/data/patronAssetPaths';
 // FS72: authoring editors commented out of UI — restore imports to re-enable
@@ -1026,6 +1031,17 @@ export default function Home() {
   const [joinStatusError, setJoinStatusError] = useState(false);
   /** FS93: Comm-Link D-pad / A bridge */
   const joinCommRef = useRef<JoinBarCommLinkHandle | null>(null);
+  const joinCameraRef = useRef<JoinBarCameraHandle | null>(null);
+  const bootIntroRef = useRef<BootIntroHandle | null>(null);
+  const mainMenuRef = useRef<MainMenuHandle | null>(null);
+  const dialogueBoxRef = useRef<RetroRpgDialogueBoxHandle | null>(null);
+
+  /**
+   * FS79/FS80/FS009 phase machine:
+   * intro (boot video) → menu (synthwave nav) → play (interactive game).
+   */
+  type AppPhase = 'intro' | 'menu' | 'play';
+  const [phase, setPhase] = useState<AppPhase>('intro');
 
   useEffect(() => {
     setHotspotOffsets(loadHotspotOffsets());
@@ -1103,7 +1119,7 @@ export default function Home() {
       clearTimeout(t3);
       window.removeEventListener('resize', measure);
     };
-  }, [state.vessel, vesselSlotStyle, drinkPlacementD, drinkBuildCardOpen]);
+  }, [state.vessel, vesselSlotStyle, drinkPlacementD, drinkBuildCardOpen, phase]);
 
   const drinkBuildTitle = activeTicket
     ? activeTicket.name
@@ -1250,8 +1266,21 @@ export default function Home() {
     ]
   );
 
-  /** FS71: A — open carousel for focused hotspot (does not toggle-close). */
-  const shellPressA = useCallback(() => {
+  /**
+   * FS009 (INV-BUTTON-01):
+   * - B button (`button-b`) = Interact / Confirm / Select:
+   *   Activates/applies the focused carousel item when a category carousel is open,
+   *   advances/dismisses patron dialogue when open, or opens the focused hotspot carousel.
+   */
+  const shellPressBInteract = useCallback(() => {
+    if (openCategory !== null) {
+      shellCarouselRef.current?.activateFocused();
+      return;
+    }
+    if (activeDialogueSeat !== null) {
+      dialogueBoxRef.current?.interact();
+      return;
+    }
     const list = shellNavigableHotspots;
     if (list.length === 0) return;
     const zoneId = shellFocusZoneId ?? list[0].zoneId;
@@ -1260,17 +1289,26 @@ export default function Home() {
     setShellFocusZoneId(h.zoneId);
     setOpenCategory(h.category);
     setActiveZoneId(h.zoneId);
-  }, [shellNavigableHotspots, shellFocusZoneId]);
+  }, [openCategory, activeDialogueSeat, shellNavigableHotspots, shellFocusZoneId]);
 
-  /** FS71: B — close open carousel; keep shell hotspot focus. */
-  const shellPressB = useCallback(() => {
-    if (openCategory === null) return;
-    setOpenCategory(null);
-    setActiveZoneId(null);
-    setFrameStyle(null);
-    setShellStagePan({ x: 0, y: 0 });
-    blurHotspotFocus();
-  }, [openCategory, blurHotspotFocus]);
+  /**
+   * FS009 (INV-BUTTON-01):
+   * - A button (`button-a`) = Back / Cancel / Dismiss:
+   *   Dismisses open DrinkBuildCard, open category carousel, or patron dialogue box.
+   */
+  const shellPressABack = useCallback(() => {
+    if (drinkBuildCardOpen) {
+      setDrinkBuildCardOpen(false);
+      return;
+    }
+    if (openCategory !== null) {
+      closeOverlay();
+      return;
+    }
+    if (activeDialogueSeat !== null) {
+      setActiveDialogueSeat(null);
+    }
+  }, [drinkBuildCardOpen, openCategory, closeOverlay, activeDialogueSeat]);
 
   /** Pointer: activate then blur path so browser bbox focus ring never lingers. */
   const onHotspotPointerActivate = useCallback(
@@ -1336,10 +1374,10 @@ export default function Home() {
       clearTimeout(t3);
       window.removeEventListener('resize', measure);
     };
-  }, [drinkPlacementD]);
+  }, [drinkPlacementD, phase]);
 
   /**
-   * FS75 / FS100: Keep jigger + receipt printer chrome anchored to the visible glass viewport.
+   * FS75 / FS100 / FS009: Keep jigger + receipt printer chrome anchored to the visible glass viewport.
    * Static geometry calculation: does NOT fluctuate when drawers are opened or closed.
    */
   useEffect(() => {
@@ -1383,13 +1421,24 @@ export default function Home() {
     });
     const t = window.setTimeout(updateHudNudge, 60);
     window.addEventListener('resize', updateHudNudge);
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateHudNudge)
+        : null;
+    if (povStageRef.current) {
+      ro?.observe(povStageRef.current);
+      if (povStageRef.current.parentElement) {
+        ro?.observe(povStageRef.current.parentElement);
+      }
+    }
     return () => {
       cancelled = true;
       cancelAnimationFrame(id);
       window.clearTimeout(t);
       window.removeEventListener('resize', updateHudNudge);
+      ro?.disconnect();
     };
-  }, []);
+  }, [phase, mode, manifest]);
 
   /**
    * FS100: Zero Stage Translation — bar stage remains strictly stationary on interaction.
@@ -1470,13 +1519,17 @@ export default function Home() {
       if (!target) return;
       if (frameRef.current?.contains(target)) return;
       if (target.closest?.('.hotspot-polygon') || target.closest?.('[data-zone]')) return;
-      // FS78: shell D-pad / A / B must not dismiss carousel (else FS77 nav never runs)
+      // FS78 / FS009 (INV-CAROUSEL-DISMISS-01): 3D Game Boy & shell controls must not dismiss carousel
       if (
+        target.closest?.('[data-gb-3d-canvas]') ||
+        target.closest?.('[data-gb-3d-controls]') ||
         target.closest?.('.gb-shell__controls') ||
         target.closest?.('.gb-shell__dpad') ||
         target.closest?.('.gb-shell__btn-a') ||
         target.closest?.('.gb-shell__btn-b') ||
-        target.closest?.('.gb-shell__btn-ab')
+        target.closest?.('.gb-shell__btn-ab') ||
+        target.closest?.('.gb-shell__btn-start') ||
+        target.closest?.('.gb-shell__btn-select')
       ) {
         return;
       }
@@ -1586,13 +1639,6 @@ export default function Home() {
     }
   };
 
-  /**
-   * FS79/FS80 phase machine:
-   * intro (boot video) → menu (synthwave nav) → play (interactive game).
-   * START during play returns to menu without full page reload (session state kept in hooks).
-   */
-  type AppPhase = 'intro' | 'menu' | 'play';
-  const [phase, setPhase] = useState<AppPhase>('intro');
   const onBootComplete = useCallback(() => setPhase('menu'), []);
   const onEnterPlay = useCallback(() => setPhase('play'), []);
   /** FS87: MODE SELECTION logo → set mode then enter play. */
@@ -1605,9 +1651,6 @@ export default function Home() {
     },
     [modeName, switchMode]
   );
-  const onOpenMenu = useCallback(() => {
-    setPhase('menu');
-  }, []);
 
   /** FS89: Join the bar! → Comm-Link first */
   const onOpenJoinBar = useCallback(() => {
@@ -1633,7 +1676,7 @@ export default function Home() {
   }, []);
 
   /**
-   * FS92/FS105 — Game Boy B / nested back for join stack:
+   * FS92/FS105/FS009 — Game Boy A (Back) for join stack:
    * camera → menu, comm → menu. Non-blocking during background generation.
    */
   const onShellBack = useCallback((): boolean => {
@@ -1648,22 +1691,108 @@ export default function Home() {
     return false;
   }, [joinStage, onCameraBack, onCloseJoin]);
 
-  /** FS93 — D-pad while Comm-Link open */
+  /** FS93/FS009 — D-pad while Comm-Link or Camera open */
   const onShellDpad = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right'): boolean => {
-      if (joinStage !== 'comm' || !joinCommRef.current) return false;
-      if (dir === 'up' || dir === 'left') joinCommRef.current.moveFocus(-1);
-      else joinCommRef.current.moveFocus(1);
-      return true;
+      const delta = dir === 'up' || dir === 'left' ? -1 : 1;
+      if (joinStage === 'comm' && joinCommRef.current) {
+        joinCommRef.current.moveFocus(delta);
+        return true;
+      }
+      if (joinStage === 'camera' && joinCameraRef.current) {
+        joinCameraRef.current.moveFocus(delta);
+        return true;
+      }
+      return false;
     },
     [joinStage]
   );
 
+  /** FS93/FS009 — B (Interact) while Comm-Link or Camera open */
   const onShellA = useCallback((): boolean => {
-    if (joinStage !== 'comm' || !joinCommRef.current) return false;
-    joinCommRef.current.activate();
-    return true;
+    if (joinStage === 'comm' && joinCommRef.current) {
+      joinCommRef.current.activate();
+      return true;
+    }
+    if (joinStage === 'camera' && joinCameraRef.current) {
+      joinCameraRef.current.activate();
+      return true;
+    }
+    return false;
   }, [joinStage]);
+
+  /**
+   * FS009 Unified 3D Console Physical Button Handlers:
+   * - D-Pad: Scrolls options in Menu / Comm-Link / Camera / Playfield Hotspots / Carousels
+   * - B (`button-b`): Interact / Confirm / Select
+   * - A (`button-a`): Back / Cancel / Dismiss
+   * - Start (`button-start`): Trigger game immediately (`play` phase)
+   * - Select / Options (`button-select`): Trigger menu with "Join the bar!" & "Mode Selection"
+   */
+  const handle3DDpad = useCallback(
+    (dir: 'up' | 'down' | 'left' | 'right') => {
+      if (phase === 'menu') {
+        mainMenuRef.current?.dpad(dir);
+        return;
+      }
+      if (phase === 'play') {
+        shellDpad(dir);
+      }
+    },
+    [phase, shellDpad]
+  );
+
+  const handle3DPressB = useCallback(() => {
+    if (phase === 'intro') {
+      bootIntroRef.current?.interactTap();
+      return;
+    }
+    if (phase === 'menu') {
+      mainMenuRef.current?.interact();
+      return;
+    }
+    if (phase === 'play') {
+      shellPressBInteract();
+    }
+  }, [phase, shellPressBInteract]);
+
+  const handle3DPressA = useCallback(() => {
+    if (phase === 'intro') {
+      bootIntroRef.current?.finish();
+      return;
+    }
+    if (phase === 'menu') {
+      mainMenuRef.current?.back();
+      return;
+    }
+    if (phase === 'play') {
+      shellPressABack();
+    }
+  }, [phase, shellPressABack]);
+
+  const handle3DPressStart = useCallback(() => {
+    if (joinStage !== null) {
+      onCloseJoin();
+    }
+    if (phase !== 'play') {
+      setPhase('play');
+      return;
+    }
+    if (drinkBuildCardOpen) {
+      setDrinkBuildCardOpen(false);
+    }
+    if (openCategory !== null) {
+      closeOverlay();
+    }
+  }, [joinStage, onCloseJoin, phase, drinkBuildCardOpen, openCategory, closeOverlay]);
+
+  const handle3DPressSelect = useCallback(() => {
+    if (phase === 'menu' && joinStage !== null) {
+      onCloseJoin();
+      return;
+    }
+    setPhase('menu');
+  }, [phase, joinStage, onCloseJoin]);
 
   const onJoinTransmit = useCallback((identity: JoinBarIdentity) => {
     setJoinIdentity(identity);
@@ -1796,131 +1925,99 @@ export default function Home() {
     [joinIdentity]
   );
 
-  if (phase === 'intro') {
-    return <BootIntro onComplete={onBootComplete} />;
-  }
-
-  if (phase === 'menu') {
-    const joinOverlay =
-      joinStage === 'comm' ? (
-        <JoinBarCommLink
-          ref={joinCommRef}
-          onTransmit={onJoinTransmit}
-          onClose={onCloseJoin}
-        />
-      ) : joinStage === 'camera' ? (
-        <JoinBarCamera
-          onCapture={onJoinCapture}
-          onClose={onCameraBack}
-          busy={joinBusy}
-          statusMessage={joinStatus}
-          statusError={joinStatusError}
-        />
-      ) : null;
-
-    return (
-      <MainMenu
-        onEnterPlay={onEnterPlay}
-        onSelectModeAndPlay={onSelectModeAndPlay}
-        onOpenJoinBar={onOpenJoinBar}
-        onShellBack={onShellBack}
-        onShellDpad={onShellDpad}
-        onShellA={onShellA}
-        joinOverlay={joinOverlay}
+  const joinOverlay =
+    joinStage === 'comm' ? (
+      <JoinBarCommLink
+        ref={joinCommRef}
+        onTransmit={onJoinTransmit}
+        onClose={onCloseJoin}
       />
-    );
-  }
-
-  if (!mode || !manifest) {
-    return (
-      <div className="terminal-frame">
-        <div className="sys-header">
-          {modeLoadError
-            ? `>> MODE LOAD ERROR: ${modeLoadError}`
-            : `>> LOADING MODE ${modeName}…`}
-        </div>
-        {modeLoadError ? (
-          <button type="button" className="sys-btn" onClick={reloadMode}>
-            RETRY
-          </button>
-        ) : null}
-      </div>
-    );
-  }
+    ) : joinStage === 'camera' ? (
+      <JoinBarCamera
+        ref={joinCameraRef}
+        onCapture={onJoinCapture}
+        onClose={onCameraBack}
+        busy={joinBusy}
+        statusMessage={joinStatus}
+        statusError={joinStatusError}
+      />
+    ) : null;
 
   return (
     <>
       <GlobalSVGDefs />
       <div className="terminal-frame">
-        <div className="sys-header" style={{ display: 'flex', alignItems: 'center' }}>
-          <span style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            {AVAILABLE_MODES.map((m) => {
-              const active = modeName === m;
-              if (m === 'OBELISCO') {
+        {phase === 'play' && mode && manifest ? (
+          <div className="sys-header" style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              {AVAILABLE_MODES.map((m) => {
+                const active = modeName === m;
+                if (m === 'OBELISCO') {
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`mode-btn mode-btn--obelisco${active ? ' mode-btn--active' : ''}`}
+                      disabled={active}
+                      aria-current={active ? 'true' : undefined}
+                      aria-label={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
+                      title={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
+                      onClick={() => switchMode(m)}
+                    >
+                      <img
+                        src={OBELISCO_MODE_LOGO_SRC}
+                        alt=""
+                        className="mode-btn-obelisco-logo"
+                        draggable={false}
+                      />
+                    </button>
+                  );
+                }
+                if (m === 'CLASSICS') {
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      className={`mode-btn mode-btn--classics${active ? ' mode-btn--active' : ''}`}
+                      disabled={active}
+                      aria-current={active ? 'true' : undefined}
+                      aria-label={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
+                      title={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
+                      onClick={() => switchMode(m)}
+                    >
+                      <img
+                        src={CLASSICS_MODE_LOGO_SRC}
+                        alt=""
+                        className="mode-btn-classics-logo"
+                        draggable={false}
+                      />
+                    </button>
+                  );
+                }
                 return (
                   <button
                     key={m}
                     type="button"
-                    className={`mode-btn mode-btn--obelisco${active ? ' mode-btn--active' : ''}`}
+                    className="sys-btn"
+                    style={{
+                      fontSize: 10,
+                      padding: '2px 8px',
+                      opacity: active ? 1 : 0.65,
+                      outline: active ? '1px solid var(--glass-amber)' : undefined,
+                      cursor: active ? 'default' : 'pointer',
+                    }}
                     disabled={active}
                     aria-current={active ? 'true' : undefined}
-                    aria-label={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
-                    title={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
                     onClick={() => switchMode(m)}
+                    title={active ? `Active mode: ${m}` : `Switch to ${m}`}
                   >
-                    <img
-                      src={OBELISCO_MODE_LOGO_SRC}
-                      alt=""
-                      className="mode-btn-obelisco-logo"
-                      draggable={false}
-                    />
+                    {m}
                   </button>
                 );
-              }
-              if (m === 'CLASSICS') {
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    className={`mode-btn mode-btn--classics${active ? ' mode-btn--active' : ''}`}
-                    disabled={active}
-                    aria-current={active ? 'true' : undefined}
-                    aria-label={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
-                    title={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
-                    onClick={() => switchMode(m)}
-                  >
-                    <img
-                      src={CLASSICS_MODE_LOGO_SRC}
-                      alt=""
-                      className="mode-btn-classics-logo"
-                      draggable={false}
-                    />
-                  </button>
-                );
-              }
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  className="sys-btn"
-                  style={{
-                    fontSize: 10,
-                    padding: '2px 8px',
-                    opacity: active ? 1 : 0.65,
-                    outline: active ? '1px solid var(--glass-amber)' : undefined,
-                    cursor: active ? 'default' : 'pointer',
-                  }}
-                  disabled={active}
-                  aria-current={active ? 'true' : undefined}
-                  onClick={() => switchMode(m)}
-                  title={active ? `Active mode: ${m}` : `Switch to ${m}`}
-                >
-                  {m}
-                </button>
-              );
-            })}
-          </span>
-        </div>
+              })}
+            </span>
+          </div>
+        ) : null}
 
         <ReceiptProvider
           key={modeName}
@@ -1942,470 +2039,437 @@ export default function Home() {
           }}
           onGenerate={() => {
             // Print only — do not change selected receipt, mat, or validate target (FS40)
-            if (handoffInProgressRef.current) return null;
+            if (handoffInProgressRef.current || !mode) return null;
             return mode.getRecipeManager().getRandomTicket();
           }}
         >
           {/*
-            FS65/FS67 — Game Boy shell (CSS-gated mobile portrait only).
-            Nest: .pov-stage + diegetic in full battery/screen housing
-            (.gb-shell__screen-cont), not tiny inner glass only.
-            Outside plastic: .sys-header (above) + ReceiptToolbar (below).
-            Shell controls decorative (pointer-events: none in CSS). De-branded.
+            FS009 — 3D Nintendo Game Boy Console Housing (`game-boy.glb`, 15 parts, baked textures)
+            with native-color DITHER-OS Bartending screen projection and physical button mapping:
+            D-Pad = Scroll options, B = Interact/Select, A = Back/Cancel, Start = Trigger Game,
+            Select/Options = Trigger Menu ("Join the bar!", Mode Selection).
           */}
-          <div className="gb-shell-slot">
-            <div className="gb-shell-scale">
-              <div className="gb-shell" aria-label="Game Boy presentation frame">
-                <div className="gb-shell__on-off" aria-hidden="true">
-                  {'< off-on >'}
+          <GameBoy3DShell
+            onDpad={handle3DDpad}
+            onPressB={handle3DPressB}
+            onPressA={handle3DPressA}
+            onPressStart={handle3DPressStart}
+            onPressSelect={handle3DPressSelect}
+          >
+            {phase === 'intro' ? (
+              <BootIntro
+                ref={bootIntroRef}
+                onComplete={onBootComplete}
+                embeddedIn3DShell
+              />
+            ) : phase === 'menu' ? (
+              <MainMenu
+                ref={mainMenuRef}
+                onEnterPlay={onEnterPlay}
+                onSelectModeAndPlay={onSelectModeAndPlay}
+                onOpenJoinBar={onOpenJoinBar}
+                onShellBack={onShellBack}
+                onShellDpad={onShellDpad}
+                onShellA={onShellA}
+                joinOverlay={joinOverlay}
+                embeddedIn3DShell
+              />
+            ) : !mode || !manifest ? (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  background: '#05070c',
+                  color: '#ffb000',
+                  padding: 16,
+                  textAlign: 'center',
+                }}
+              >
+                <div className="sys-header">
+                  {modeLoadError
+                    ? `>> MODE LOAD ERROR: ${modeLoadError}`
+                    : `>> LOADING MODE ${modeName}…`}
                 </div>
-                <div className="gb-shell__screen-cont">
-                  <div className="gb-shell__power" aria-hidden="true" />
-                  <div className="gb-shell__header" aria-hidden="true">
-                    DOT MATRIX WITH STEREO SOUND
-                  </div>
-                  <div className="gb-shell__playfield">
-                      {/* POV STAGE — fills battery/screen housing (FS67) */}
-                      <section className="pov-shell-section">
-                        <PovStageShell
-                          openCategory={openCategory}
-                          povStageRef={povStageRef}
-                          stagePan={shellStagePan}
-                          shellHudNudge={shellHudNudge}
-                        >
-                          <img
-                            src="/OBELISCO_POV.jpg"
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'block',
-                            }}
-                            alt="Obelisco bar point of view"
-                          />
-                          {/*
-                            Patrons: layout-driven path/size (PATRON EDIT).
-                            barCutoffD clips sprite to room-only so lower body sits behind the bar photo.
-                          */}
-                          <PatronLayer
-                            ref={patronLayerRef}
-                            seats={barSeatInputs}
-                            layoutOverrides={patronLayouts}
-                            editMode={patronEditOpen}
-                            highlightedSeatId={
-                              dragState.isDragging
-                                ? dragState.targetSeatId
-                                : null
-                            }
-                            barCutoffD={pathWithStoredOffset(
-                              POV_BAR_CUTOFF.zoneId,
-                              POV_BAR_CUTOFF.d,
-                              hotspotOffsets
-                            )}
-                            onSitComplete={handlePatronSitComplete}
-                            onServeDrinkToSeat={handleServeDrinkToSeat}
-                          />
-                          <svg
-                            className="pov-hotspot-svg"
-                            viewBox="0 0 1184 880"
-                            /* FS73: stage cover keeps 1184∶880; meet matches art 1:1 in that box.
-                               (FS70 non-uniform fill + meet caused hotspot drift.) */
-                            preserveAspectRatio="xMidYMid meet"
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              width: '100%',
-                              height: '100%',
-                              pointerEvents: 'none',
-                            }}
-                          >
-                            <defs>
-                              <filter
-                                id="spatial-glow"
-                                x="-50%"
-                                y="-50%"
-                                width="200%"
-                                height="200%"
-                              >
-                                <feDropShadow
-                                  dx="0"
-                                  dy="0"
-                                  stdDeviation="15"
-                                  floodColor="#FFB000"
-                                  floodOpacity="0.8"
-                                />
-                              </filter>
-                            </defs>
-                            {POV_CATEGORY_HOTSPOTS.map((hotspot) => (
-                              <path
-                                key={hotspot.zoneId}
-                                className={
-                                  shellFocusZoneId === hotspot.zoneId
-                                    ? 'hotspot-polygon hotspot-polygon--shell-focus'
-                                    : 'hotspot-polygon'
-                                }
-                                data-zone={hotspot.zoneId}
-                                aria-label={hotspot.ariaLabel}
-                                aria-current={
-                                  shellFocusZoneId === hotspot.zoneId
-                                    ? 'true'
-                                    : undefined
-                                }
-                                role="button"
-                                tabIndex={0}
-                                style={{
-                                  pointerEvents: 'auto',
-                                  outline: 'none',
-                                }}
-                                d={pathWithStoredOffset(
-                                  hotspot.zoneId,
-                                  hotspot.d,
-                                  hotspotOffsets
-                                )}
-                                onClick={(e) => {
-                                  if (!hotspot.category) return;
-                                  setShellFocusZoneId(hotspot.zoneId);
-                                  onHotspotPointerActivate(
-                                    hotspot.zoneId,
-                                    hotspot.category,
-                                    e.currentTarget
-                                  );
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    if (!hotspot.category) return;
-                                    setShellFocusZoneId(hotspot.zoneId);
-                                    onHotspotKeyboardActivate(
-                                      hotspot.zoneId,
-                                      hotspot.category
-                                    );
-                                  }
-                                }}
-                              />
-                            ))}
-                            {/* Drink pad measure path (not a category open target) */}
-                            <path
-                              data-zone={POV_VESSEL_PLACEMENT.zoneId}
-                              d={drinkPlacementD}
-                              fill="transparent"
-                              stroke="none"
-                              style={{ pointerEvents: 'none' }}
-                              aria-hidden="true"
-                            />
-                            {/* Geometry zones (e.g. bar_cutoff) — measure / future layers; no click */}
-                            {POV_GEOMETRY_HOTSPOTS.map((hotspot) => (
-                              <path
-                                key={hotspot.zoneId}
-                                data-zone={hotspot.zoneId}
-                                d={pathWithStoredOffset(
-                                  hotspot.zoneId,
-                                  hotspot.d,
-                                  hotspotOffsets
-                                )}
-                                fill="transparent"
-                                stroke="none"
-                                style={{ pointerEvents: 'none' }}
-                                aria-hidden="true"
-                              />
-                            ))}
-                          </svg>
-
-                          {/*
-                            FS72: HOTSPOT EDIT + PATRON EDIT UI commented out for play.
-                            Uncomment mounts (+ imports above) to restore authoring tools.
-                          */}
-                          {/*
-                          <HotspotPlacementEditor
-                            onOffsetsChange={setHotspotOffsets}
-                          />
-                          <PatronPlacementEditor
-                            seats={barSeatInputs}
-                            onLayoutChange={setPatronLayouts}
-                            onOpenChange={setPatronEditOpen}
-                            onCharacterChange={setActiveCharacterId}
-                          />
-                          */}
-
-                          {/* Diegetic receipt printer + paper (top-right, asset-only) */}
-                          <ReceiptStageOverlay />
-
-                          {/* Localized category carousel — centered on active hotspot */}
-                          {openCategory !== null && frameStyle && (
-                            <CategoryOverlay
-                              key={`${openCategory}-${activeZoneId}`}
-                              ref={frameRef}
-                              title={
-                                activeZoneId === 'juices'
-                                  ? 'JUICES'
-                                  : activeZoneId === 'speedrail'
-                                    ? 'SPEEDRAIL'
-                                    : activeZoneId === 'ice'
-                                      ? 'ICE'
-                                      : CATEGORY_TITLES[openCategory]
-                              }
-                              onClose={closeOverlay}
-                              isEmpty={
-                                activeZoneId != null &&
-                                ZONE_INVENTORY_IDS[activeZoneId] != null
-                                  ? openCategory === 'hardware'
-                                    ? getOverlayHardwareItems(activeZoneId)
-                                        .length === 0
-                                    : getOverlayBottleItems(
-                                        activeZoneId,
-                                        openCategory
-                                      ).length === 0
-                                  : itemsForCategory(openCategory).length === 0
-                              }
-                              frameStyle={frameStyle}
-                            >
-                              {renderOverlayCarousel(
-                                openCategory,
-                                activeZoneId
-                              )}
-                            </CategoryOverlay>
-                          )}
-
-                          {/* Live vessel on drink_placement pad — blank when no vessel */}
-                          {state.vessel && vesselSlotStyle ? (
-                            <div
-                              ref={vesselSlotRef}
-                              className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}${
-                                dragState.isDragging ? ' pov-active-vessel--dragging' : ''
-                              }${dragState.isSnappingBack ? ' pov-active-vessel--snapping' : ''}`}
-                              role="button"
-                              tabIndex={vesselHandoff ? -1 : 0}
-                              aria-label="Active vessel — view drink build"
-                              draggable={false}
-                              onPointerDown={handleVesselPointerDown}
-                              style={
-                                dragState.isDragging || dragState.isSnappingBack
-                                  ? {
-                                      position: 'absolute',
-                                      left: `${dragState.currentX}px`,
-                                      top: `${dragState.currentY}px`,
-                                      width: vesselSlotStyle.width,
-                                      height: vesselSlotStyle.height,
-                                      transform: 'translate(-50%, -50%)',
-                                      zIndex: 60,
-                                      touchAction: 'none',
-                                    }
-                                  : {
-                                      left: vesselSlotStyle.left,
-                                      top: vesselSlotStyle.top,
-                                      width: vesselSlotStyle.width,
-                                      height: vesselSlotStyle.height,
-                                      transform: vesselSlotStyle.transform,
-                                      touchAction: 'none',
-                                    }
-                              }
-                              onClick={() => {
-                                if (
-                                  vesselHandoff ||
-                                  dragState.isDragging ||
-                                  dragState.isSnappingBack
-                                )
-                                  return;
-                                setDrinkBuildCardOpen(true);
-                              }}
-                              onKeyDown={(e) => {
-                                if (vesselHandoff) return;
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  setDrinkBuildCardOpen(true);
-                                }
-                              }}
-                            >
-                              <GlassAsset
-                                presentation="overlay"
-                                animClass={state.animClass}
-                                outlineId={
-                                  glasses.find((g) => g.id === state.vessel)
-                                    ?.outlineId || ''
-                                }
-                                clipId={
-                                  glasses.find((g) => g.id === state.vessel)
-                                    ?.clipId || ''
-                                }
-                                label=""
-                                vesselId={state.vessel}
-                                currentVolumeOz={state.currentVolumeOz}
-                                maxOz={state.maxOz}
-                                liquidColor={state.liquidColor}
-                                ingredients={state.ingredients}
-                                garnishes={state.garnishes}
-                                agitation={state.agitation}
-                                iceType={state.iceType}
-                                rim={state.rim}
-                              />
-                            </div>
-                          ) : null}
-
-                          <JiggerPourControl
-                            pourVolumeOz={state.pourVolumeOz}
-                            onSelectVolume={setPourVolume}
-                          />
-
-                          {/* FS50: money flyby clipped to POV stage (not full browser) */}
-                          {moneyFlyby ? (
-                            <MoneyFanoutFlyby
-                              key={moneyFlyby.playId}
-                              playId={moneyFlyby.playId}
-                              total={moneyFlyby.total}
-                              onComplete={() => setMoneyFlyby(null)}
-                            />
-                          ) : null}
-
-                          {/* FS109/FS110: Retro RPG Dialogue Box */}
-                          {activeDialogueSeat && seatOrders[activeDialogueSeat] && (
-                            <RetroRpgDialogueBox
-                              isOpen={true}
-                              speakerName={requireCharacter(seatOrders[activeDialogueSeat].characterId).displayName}
-                              portraitSrc={
-                                talkSrcForCharacter(seatOrders[activeDialogueSeat].characterId) ||
-                                sitSrcForCharacter(seatOrders[activeDialogueSeat].characterId)
-                              }
-                              message={
-                                rejectionDialogues[activeDialogueSeat] ||
-                                seatOrders[activeDialogueSeat].rejectionDialogue ||
-                                seatOrders[activeDialogueSeat].activeDialogue ||
-                                seatOrders[activeDialogueSeat].orderDialogue ||
-                                'AWAITING ORDER...'
-                              }
-                              onDismiss={() => setActiveDialogueSeat(null)}
-                            />
-                          )}
-                        </PovStageShell>
-                      </section>
-                  </div>
-                </div>
-                <div className="gb-shell__controls">
-                  <div className="gb-shell__btn-direction">
-                    <div className="gb-shell__btn-direction-v" aria-hidden="true" />
-                    <div className="gb-shell__btn-direction-h" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="gb-shell__dpad gb-shell__dpad--up"
-                      aria-label="Carousel first item or previous hotspot up"
-                      onClick={() => shellDpad('up')}
-                    />
-                    <button
-                      type="button"
-                      className="gb-shell__dpad gb-shell__dpad--down"
-                      aria-label="Carousel last item or next hotspot down"
-                      onClick={() => shellDpad('down')}
-                    />
-                    <button
-                      type="button"
-                      className="gb-shell__dpad gb-shell__dpad--left"
-                      aria-label="Carousel previous item or previous hotspot left"
-                      onClick={() => shellDpad('left')}
-                    />
-                    <button
-                      type="button"
-                      className="gb-shell__dpad gb-shell__dpad--right"
-                      aria-label="Carousel next item or next hotspot right"
-                      onClick={() => shellDpad('right')}
-                    />
-                  </div>
-                  <div className="gb-shell__btn-ab">
-                    <button
-                      type="button"
-                      className="gb-shell__btn-b"
-                      aria-label="Close carousel"
-                      onClick={shellPressB}
-                    />
-                    <button
-                      type="button"
-                      className="gb-shell__btn-a"
-                      aria-label="Open carousel for focused hotspot"
-                      onClick={shellPressA}
-                    />
-                  </div>
-                  <div className="gb-shell__btn-start-select">
-                    <span className="gb-shell__btn-select" aria-hidden="true">
-                      SELECT
-                    </span>
-                    <button
-                      type="button"
-                      className="gb-shell__btn-start"
-                      aria-label="Open menu"
-                      onClick={onOpenMenu}
-                    />
-                  </div>
-                </div>
-                <div className="gb-shell__speakers" aria-hidden="true" />
-                <div className="gb-shell__phones" aria-hidden="true">
-                  phones
-                </div>
+                {modeLoadError ? (
+                  <button type="button" className="sys-btn" onClick={reloadMode}>
+                    RETRY
+                  </button>
+                ) : null}
               </div>
-            </div>
-          </div>
+            ) : (
+              <section className="pov-shell-section">
+                <PovStageShell
+                  openCategory={openCategory}
+                  povStageRef={povStageRef}
+                  stagePan={shellStagePan}
+                  shellHudNudge={shellHudNudge}
+                >
+                  <img
+                    src="/OBELISCO_POV.jpg"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'block',
+                    }}
+                    alt="Obelisco bar point of view"
+                  />
+                  {/*
+                    Patrons: layout-driven path/size (PATRON EDIT).
+                    barCutoffD clips sprite to room-only so lower body sits behind the bar photo.
+                  */}
+                  <PatronLayer
+                    ref={patronLayerRef}
+                    seats={barSeatInputs}
+                    layoutOverrides={patronLayouts}
+                    editMode={patronEditOpen}
+                    highlightedSeatId={
+                      dragState.isDragging
+                        ? dragState.targetSeatId
+                        : null
+                    }
+                    barCutoffD={pathWithStoredOffset(
+                      POV_BAR_CUTOFF.zoneId,
+                      POV_BAR_CUTOFF.d,
+                      hotspotOffsets
+                    )}
+                    onSitComplete={handlePatronSitComplete}
+                    onServeDrinkToSeat={handleServeDrinkToSeat}
+                  />
+                  <svg
+                    className="pov-hotspot-svg"
+                    viewBox="0 0 1184 880"
+                    /* FS73: stage cover keeps 1184∶880; meet matches art 1:1 in that box.
+                       (FS70 non-uniform fill + meet caused hotspot drift.) */
+                    preserveAspectRatio="xMidYMid meet"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <defs>
+                      <filter
+                        id="spatial-glow"
+                        x="-50%"
+                        y="-50%"
+                        width="200%"
+                        height="200%"
+                      >
+                        <feDropShadow
+                          dx="0"
+                          dy="0"
+                          stdDeviation="15"
+                          floodColor="#FFB000"
+                          floodOpacity="0.8"
+                        />
+                      </filter>
+                    </defs>
+                    {POV_CATEGORY_HOTSPOTS.map((hotspot) => (
+                      <path
+                        key={hotspot.zoneId}
+                        className={
+                          shellFocusZoneId === hotspot.zoneId
+                            ? 'hotspot-polygon hotspot-polygon--shell-focus'
+                            : 'hotspot-polygon'
+                        }
+                        data-zone={hotspot.zoneId}
+                        aria-label={hotspot.ariaLabel}
+                        aria-current={
+                          shellFocusZoneId === hotspot.zoneId
+                            ? 'true'
+                            : undefined
+                        }
+                        role="button"
+                        tabIndex={0}
+                        style={{
+                          pointerEvents: 'auto',
+                          outline: 'none',
+                        }}
+                        d={pathWithStoredOffset(
+                          hotspot.zoneId,
+                          hotspot.d,
+                          hotspotOffsets
+                        )}
+                        onClick={(e) => {
+                          if (!hotspot.category) return;
+                          setShellFocusZoneId(hotspot.zoneId);
+                          onHotspotPointerActivate(
+                            hotspot.zoneId,
+                            hotspot.category,
+                            e.currentTarget
+                          );
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (!hotspot.category) return;
+                            setShellFocusZoneId(hotspot.zoneId);
+                            onHotspotKeyboardActivate(
+                              hotspot.zoneId,
+                              hotspot.category
+                            );
+                          }
+                        }}
+                      />
+                    ))}
+                    {/* Drink pad measure path (not a category open target) */}
+                    <path
+                      data-zone={POV_VESSEL_PLACEMENT.zoneId}
+                      d={drinkPlacementD}
+                      fill="transparent"
+                      stroke="none"
+                      style={{ pointerEvents: 'none' }}
+                      aria-hidden="true"
+                    />
+                    {/* Geometry zones (e.g. bar_cutoff) — measure / future layers; no click */}
+                    {POV_GEOMETRY_HOTSPOTS.map((hotspot) => (
+                      <path
+                        key={hotspot.zoneId}
+                        data-zone={hotspot.zoneId}
+                        d={pathWithStoredOffset(
+                          hotspot.zoneId,
+                          hotspot.d,
+                          hotspotOffsets
+                        )}
+                        fill="transparent"
+                        stroke="none"
+                        style={{ pointerEvents: 'none' }}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </svg>
 
-          <DrinkBuildCard
-            open={drinkBuildCardOpen}
-            drinkTitle={drinkBuildTitle}
-            lines={drinkBuildLines}
-            sizePx={vesselBoxPx}
-            onClose={() => setDrinkBuildCardOpen(false)}
-            onTrash={() => {
-              trashDrink();
-              // Drop parked progress for the active order (paper stays)
-              const key = activeReceiptIdRef.current;
-              if (key) {
-                const next = { ...buildsRef.current };
-                delete next[key];
-                buildsRef.current = next;
-                setBuildsByReceiptId(next);
-              } else {
-                const next = { ...buildsRef.current };
-                delete next[FREESTYLE_BUILD_KEY];
-                buildsRef.current = next;
-                setBuildsByReceiptId(next);
-              }
-              setDrinkBuildCardOpen(false);
-            }}
-          />
+                  {/* Diegetic receipt printer + paper (top-right, asset-only) */}
+                  <ReceiptStageOverlay />
 
-          {/* Ticket controls outside POV corner art */}
-          <ReceiptToolbar
-            errors={errors}
-            validationPassed={
-              errors.length === 0 && !!activeTicket && !!state.vessel
-            }
-            onValidate={() => {
-              if (handoffInProgressRef.current) return;
-              // Selected order only: activeTicket + live mat (not parked builds)
-              if (!activeTicket) {
-                setErrors([]);
-                return;
-              }
-              const errs = mode
-                .getRecipeManager()
-                .validateDrink(state, activeTicket);
-              setErrors(errs);
-              if (errs.length > 0) return;
-              if (!state.vessel) return;
-              // FS49: money flyby for frozen receipt total (success only)
-              const rid = activeReceiptIdRef.current;
-              if (rid && getReceiptTotalRef.current) {
-                const total = getReceiptTotalRef.current(rid);
-                if (
-                  typeof total === 'number' &&
-                  Number.isFinite(total) &&
-                  Math.floor(total) > 0
-                ) {
-                  setMoneyFlyby({
-                    playId: `${rid}-${Date.now()}`,
-                    total,
-                  });
+                  {/* Localized category carousel — centered on active hotspot */}
+                  {openCategory !== null && frameStyle && (
+                    <CategoryOverlay
+                      key={`${openCategory}-${activeZoneId}`}
+                      ref={frameRef}
+                      title={
+                        activeZoneId === 'juices'
+                          ? 'JUICES'
+                          : activeZoneId === 'speedrail'
+                            ? 'SPEEDRAIL'
+                            : activeZoneId === 'ice'
+                              ? 'ICE'
+                              : CATEGORY_TITLES[openCategory]
+                      }
+                      onClose={closeOverlay}
+                      isEmpty={
+                        activeZoneId != null &&
+                        ZONE_INVENTORY_IDS[activeZoneId] != null
+                          ? openCategory === 'hardware'
+                            ? getOverlayHardwareItems(activeZoneId).length === 0
+                            : getOverlayBottleItems(activeZoneId, openCategory)
+                                .length === 0
+                          : itemsForCategory(openCategory).length === 0
+                      }
+                      frameStyle={frameStyle}
+                    >
+                      {renderOverlayCarousel(openCategory, activeZoneId)}
+                    </CategoryOverlay>
+                  )}
+
+                  {/* Live vessel on drink_placement pad — blank when no vessel */}
+                  {state.vessel && vesselSlotStyle ? (
+                    <div
+                      ref={vesselSlotRef}
+                      className={`pov-active-vessel${vesselHandoff ? ' pov-active-vessel--handoff' : ''}${
+                        dragState.isDragging ? ' pov-active-vessel--dragging' : ''
+                      }${dragState.isSnappingBack ? ' pov-active-vessel--snapping' : ''}`}
+                      role="button"
+                      tabIndex={vesselHandoff ? -1 : 0}
+                      aria-label="Active vessel — view drink build"
+                      draggable={false}
+                      onPointerDown={handleVesselPointerDown}
+                      style={
+                        dragState.isDragging || dragState.isSnappingBack
+                          ? {
+                              position: 'absolute',
+                              left: `${dragState.currentX}px`,
+                              top: `${dragState.currentY}px`,
+                              width: vesselSlotStyle.width,
+                              height: vesselSlotStyle.height,
+                              transform: 'translate(-50%, -50%)',
+                              zIndex: 60,
+                              touchAction: 'none',
+                            }
+                          : {
+                              left: vesselSlotStyle.left,
+                              top: vesselSlotStyle.top,
+                              width: vesselSlotStyle.width,
+                              height: vesselSlotStyle.height,
+                              transform: vesselSlotStyle.transform,
+                              touchAction: 'none',
+                            }
+                      }
+                      onClick={() => {
+                        if (
+                          vesselHandoff ||
+                          dragState.isDragging ||
+                          dragState.isSnappingBack
+                        )
+                          return;
+                        setDrinkBuildCardOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (vesselHandoff) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDrinkBuildCardOpen(true);
+                        }
+                      }}
+                    >
+                      <GlassAsset
+                        presentation="overlay"
+                        animClass={state.animClass}
+                        outlineId={
+                          glasses.find((g) => g.id === state.vessel)
+                            ?.outlineId || ''
+                        }
+                        clipId={
+                          glasses.find((g) => g.id === state.vessel)?.clipId ||
+                          ''
+                        }
+                        label=""
+                        vesselId={state.vessel}
+                        currentVolumeOz={state.currentVolumeOz}
+                        maxOz={state.maxOz}
+                        liquidColor={state.liquidColor}
+                        ingredients={state.ingredients}
+                        garnishes={state.garnishes}
+                        agitation={state.agitation}
+                        iceType={state.iceType}
+                        rim={state.rim}
+                      />
+                    </div>
+                  ) : null}
+
+                  <JiggerPourControl
+                    pourVolumeOz={state.pourVolumeOz}
+                    onSelectVolume={setPourVolume}
+                  />
+
+                  {/* FS50: money flyby clipped to POV stage (not full browser) */}
+                  {moneyFlyby ? (
+                    <MoneyFanoutFlyby
+                      key={moneyFlyby.playId}
+                      playId={moneyFlyby.playId}
+                      total={moneyFlyby.total}
+                      onComplete={() => setMoneyFlyby(null)}
+                    />
+                  ) : null}
+
+                  {/* FS109/FS110: Retro RPG Dialogue Box */}
+                  {activeDialogueSeat && seatOrders[activeDialogueSeat] && (
+                    <RetroRpgDialogueBox
+                      ref={dialogueBoxRef}
+                      isOpen={true}
+                      speakerName={
+                        requireCharacter(
+                          seatOrders[activeDialogueSeat].characterId
+                        ).displayName
+                      }
+                      portraitSrc={
+                        talkSrcForCharacter(
+                          seatOrders[activeDialogueSeat].characterId
+                        ) ||
+                        sitSrcForCharacter(
+                          seatOrders[activeDialogueSeat].characterId
+                        )
+                      }
+                      message={
+                        rejectionDialogues[activeDialogueSeat] ||
+                        seatOrders[activeDialogueSeat].rejectionDialogue ||
+                        seatOrders[activeDialogueSeat].activeDialogue ||
+                        seatOrders[activeDialogueSeat].orderDialogue ||
+                        'AWAITING ORDER...'
+                      }
+                      onDismiss={() => setActiveDialogueSeat(null)}
+                    />
+                  )}
+                </PovStageShell>
+              </section>
+            )}
+          </GameBoy3DShell>
+
+          {phase === 'play' && mode && manifest ? (
+            <>
+              <DrinkBuildCard
+                open={drinkBuildCardOpen}
+                drinkTitle={drinkBuildTitle}
+                lines={drinkBuildLines}
+                sizePx={vesselBoxPx}
+                onClose={() => setDrinkBuildCardOpen(false)}
+                onTrash={() => {
+                  trashDrink();
+                  // Drop parked progress for the active order (paper stays)
+                  const key = activeReceiptIdRef.current;
+                  if (key) {
+                    const next = { ...buildsRef.current };
+                    delete next[key];
+                    buildsRef.current = next;
+                    setBuildsByReceiptId(next);
+                  } else {
+                    const next = { ...buildsRef.current };
+                    delete next[FREESTYLE_BUILD_KEY];
+                    buildsRef.current = next;
+                    setBuildsByReceiptId(next);
+                  }
+                  setDrinkBuildCardOpen(false);
+                }}
+              />
+
+              {/* Ticket controls outside POV corner art */}
+              <ReceiptToolbar
+                errors={errors}
+                validationPassed={
+                  errors.length === 0 && !!activeTicket && !!state.vessel
                 }
-              }
-              // Success handoff: drink up + ticket away, then clear (FS37)
-              runSuccessHandoff();
-            }}
-          />
+                onValidate={() => {
+                  if (handoffInProgressRef.current) return;
+                  // Selected order only: activeTicket + live mat (not parked builds)
+                  if (!activeTicket) {
+                    setErrors([]);
+                    return;
+                  }
+                  const errs = mode
+                    .getRecipeManager()
+                    .validateDrink(state, activeTicket);
+                  setErrors(errs);
+                  if (errs.length > 0) return;
+                  if (!state.vessel) return;
+                  // FS49: money flyby for frozen receipt total (success only)
+                  const rid = activeReceiptIdRef.current;
+                  if (rid && getReceiptTotalRef.current) {
+                    const total = getReceiptTotalRef.current(rid);
+                    if (
+                      typeof total === 'number' &&
+                      Number.isFinite(total) &&
+                      Math.floor(total) > 0
+                    ) {
+                      setMoneyFlyby({
+                        playId: `${rid}-${Date.now()}`,
+                        total,
+                      });
+                    }
+                  }
+                  // Success handoff: drink up + ticket away, then clear (FS37)
+                  runSuccessHandoff();
+                }}
+              />
+            </>
+          ) : null}
         </ReceiptProvider>
-
       </div>
     </>
   );

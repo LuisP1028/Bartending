@@ -1,7 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import styles from './JoinBarCamera.module.css';
+
+export type JoinBarCameraHandle = {
+  moveFocus: (delta: -1 | 1) => void;
+  activate: () => void;
+};
 
 type Props = {
   /** Called when player confirms captured still. */
@@ -16,15 +28,22 @@ type Props = {
 /**
  * FS89 — Camera uplink (ported from cameratest.html) + capture shutter.
  */
-export default function JoinBarCamera({
-  onCapture,
-  onClose,
-  busy = false,
-  statusMessage = null,
-  statusError = false,
-}: Props) {
+const JoinBarCamera = forwardRef<JoinBarCameraHandle, Props>(function JoinBarCamera(
+  {
+    onCapture,
+    onClose,
+    busy = false,
+    statusMessage = null,
+    statusError = false,
+  },
+  ref
+) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const captureBtnRef = useRef<HTMLButtonElement>(null);
+  const retakeBtnRef = useRef<HTMLButtonElement>(null);
+  const usePhotoBtnRef = useRef<HTMLButtonElement>(null);
   const [live, setLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stillUrl, setStillUrl] = useState<string | null>(null);
@@ -150,6 +169,52 @@ export default function JoinBarCamera({
 
   const showingStill = !!stillUrl;
 
+  const getControls = useCallback((): HTMLButtonElement[] => {
+    const list = showingStill
+      ? [usePhotoBtnRef.current, retakeBtnRef.current, closeBtnRef.current]
+      : [captureBtnRef.current, closeBtnRef.current];
+    return list.filter((b): b is HTMLButtonElement => b != null && !b.disabled);
+  }, [showingStill]);
+
+  const moveFocus = useCallback(
+    (delta: -1 | 1) => {
+      const list = getControls();
+      if (!list.length) return;
+      const active = document.activeElement;
+      const curIdx = list.findIndex((el) => el === active);
+      const nextIdx =
+        curIdx === -1
+          ? delta > 0
+            ? 0
+            : list.length - 1
+          : (curIdx + delta + list.length) % list.length;
+      list[nextIdx]?.focus();
+    },
+    [getControls]
+  );
+
+  const activate = useCallback(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLButtonElement && !active.disabled) {
+      active.click();
+      return;
+    }
+    if (showingStill) {
+      if (!busy && stillBlob) usePhoto();
+    } else if (live && !busy) {
+      captureStill();
+    }
+  }, [busy, captureStill, live, showingStill, stillBlob, usePhoto]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      moveFocus,
+      activate,
+    }),
+    [moveFocus, activate]
+  );
+
   return (
     <div
       className={styles.overlay}
@@ -161,6 +226,7 @@ export default function JoinBarCamera({
         <div className={styles.headerRow}>
           <h1 className={styles.title}>Visual Uplink</h1>
           <button
+            ref={closeBtnRef}
             type="button"
             className={styles.closeBtn}
             onClick={handleClose}
@@ -230,6 +296,7 @@ export default function JoinBarCamera({
         <div className={styles.actions}>
           {!showingStill ? (
             <button
+              ref={captureBtnRef}
               type="button"
               className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
               onClick={captureStill}
@@ -240,6 +307,7 @@ export default function JoinBarCamera({
           ) : (
             <>
               <button
+                ref={retakeBtnRef}
                 type="button"
                 className={styles.actionBtn}
                 onClick={retake}
@@ -248,6 +316,7 @@ export default function JoinBarCamera({
                 Retake
               </button>
               <button
+                ref={usePhotoBtnRef}
                 type="button"
                 className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
                 onClick={usePhoto}
@@ -269,4 +338,6 @@ export default function JoinBarCamera({
       </main>
     </div>
   );
-}
+});
+
+export default JoinBarCamera;

@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 
 const BOOT_VIDEO_SRC = '/assets/boot/doom_gamestudio.mp4';
 /** Fail-open if video never ends (decode hang, network). */
@@ -10,16 +17,28 @@ const BOOT_SKIP_TAPS = 5;
 /** How long to keep retrying muted autoplay after mount. */
 const AUTOPLAY_RETRY_MS = 8_000;
 
+export type BootIntroHandle = {
+  /** B button: count toward skip tap / unlock playback */
+  interactTap: () => void;
+  /** Start / A / Select override: finish intro immediately */
+  finish: () => void;
+};
+
 type BootIntroProps = {
   onComplete: () => void;
+  /** When true, renders only the inner playfield content inside GameBoy3DShell */
+  embeddedIn3DShell?: boolean;
 };
 
 /**
- * FS79 — Full-viewport Game Boy chrome; intro MP4 plays only in the housing screen.
+ * FS79 / FS009 — Studio boot sequence inside the Game Boy screen.
  * No native controls / no system player UI (playsInline + muted + no controls).
- * Five taps on the housing screen skip the sequence.
+ * Five taps on the housing screen (or B button presses) skip the sequence; Start skips immediately to play.
  */
-export default function BootIntro({ onComplete }: BootIntroProps) {
+const BootIntro = forwardRef<BootIntroHandle, BootIntroProps>(function BootIntro(
+  { onComplete, embeddedIn3DShell = false },
+  ref
+) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const finishedRef = useRef(false);
   const skipTapsRef = useRef(0);
@@ -63,20 +82,32 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
     }
   }, [forceMutedInline]);
 
+  const interactTap = useCallback(() => {
+    tryPlay();
+    skipTapsRef.current += 1;
+    const n = skipTapsRef.current;
+    setSkipTaps(n);
+    if (n >= BOOT_SKIP_TAPS) {
+      finish();
+    }
+  }, [finish, tryPlay]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      interactTap,
+      finish,
+    }),
+    [interactTap, finish]
+  );
+
   const onScreenPointer = useCallback(
     (e: React.PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
-      // First interactions often unlock media — keep trying to play while counting skip.
-      tryPlay();
-      skipTapsRef.current += 1;
-      const n = skipTapsRef.current;
-      setSkipTaps(n);
-      if (n >= BOOT_SKIP_TAPS) {
-        finish();
-      }
+      interactTap();
     },
-    [finish, tryPlay],
+    [interactTap],
   );
 
   useEffect(() => {
@@ -122,6 +153,59 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
     };
   }, [finish, forceMutedInline, tryPlay]);
 
+  const playfieldContent = (
+    <>
+      <video
+        ref={videoRef}
+        className="boot-intro__video"
+        src={BOOT_VIDEO_SRC}
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        controls={false}
+        controlsList="nodownload nofullscreen noremoteplayback"
+        tabIndex={-1}
+        aria-hidden
+        onEnded={finish}
+        onError={finish}
+      />
+      <div
+        role="button"
+        tabIndex={0}
+        className="boot-intro__skip-hit"
+        aria-label={
+          skipTaps >= BOOT_SKIP_TAPS
+            ? 'Skipping intro'
+            : `Skip intro: tap ${BOOT_SKIP_TAPS - skipTaps} more time${
+                BOOT_SKIP_TAPS - skipTaps === 1 ? '' : 's'
+              }`
+        }
+        onPointerDown={onScreenPointer}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            interactTap();
+          }
+        }}
+      />
+    </>
+  );
+
+  if (embeddedIn3DShell) {
+    return (
+      <div
+        className="boot-intro__embedded"
+        role="dialog"
+        aria-label="Studio boot sequence"
+        style={{ position: 'relative', width: '100%', height: '100%' }}
+      >
+        {playfieldContent}
+      </div>
+    );
+  }
+
   return (
     <div className="boot-intro" role="dialog" aria-label="Studio boot sequence">
       <div className="boot-intro__slot gb-shell-slot">
@@ -136,45 +220,7 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
                 DOT MATRIX WITH STEREO SOUND
               </div>
               <div className="gb-shell__playfield boot-intro__playfield">
-                <video
-                  ref={videoRef}
-                  className="boot-intro__video"
-                  src={BOOT_VIDEO_SRC}
-                  autoPlay
-                  muted
-                  playsInline
-                  preload="auto"
-                  disablePictureInPicture
-                  controls={false}
-                  controlsList="nodownload nofullscreen noremoteplayback"
-                  tabIndex={-1}
-                  aria-hidden
-                  onEnded={finish}
-                  onError={finish}
-                />
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="boot-intro__skip-hit"
-                  aria-label={
-                    skipTaps >= BOOT_SKIP_TAPS
-                      ? 'Skipping intro'
-                      : `Skip intro: tap ${BOOT_SKIP_TAPS - skipTaps} more time${
-                          BOOT_SKIP_TAPS - skipTaps === 1 ? '' : 's'
-                        }`
-                  }
-                  onPointerDown={onScreenPointer}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      tryPlay();
-                      skipTapsRef.current += 1;
-                      const n = skipTapsRef.current;
-                      setSkipTaps(n);
-                      if (n >= BOOT_SKIP_TAPS) finish();
-                    }
-                  }}
-                />
+                {playfieldContent}
               </div>
             </div>
             <div className="gb-shell__controls" aria-hidden={false}>
@@ -193,7 +239,7 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
                 <button
                   type="button"
                   className="gb-shell__btn-start"
-                  aria-label="Open menu"
+                  aria-label="Start game immediately"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -211,4 +257,7 @@ export default function BootIntro({ onComplete }: BootIntroProps) {
       </div>
     </div>
   );
-}
+});
+
+export default BootIntro;
+

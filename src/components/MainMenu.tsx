@@ -1,6 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import styles from './MainMenu.module.css';
 
 /** Gold cutouts — same family as in-game sys-header mode controls (FS87). */
@@ -21,8 +28,16 @@ const MENU_ITEMS = [
 
 export type MenuPlayMode = 'OBELISCO' | 'CLASSICS';
 
+export type MainMenuHandle = {
+  dpad: (dir: 'up' | 'down' | 'left' | 'right') => void;
+  /** B button: Interact / Confirm / Select (FS009 INV-BUTTON-01) */
+  interact: () => void;
+  /** A button: Back / Cancel / Dismiss (FS009 INV-BUTTON-01) */
+  back: () => void;
+};
+
 type MainMenuProps = {
-  /** Enter play without changing mode (root B, START). */
+  /** Enter play without changing mode (root A back, START). */
   onEnterPlay: () => void;
   /** Enter play after selecting a mode from MODE SELECTION logos. */
   onSelectModeAndPlay: (mode: MenuPlayMode) => void;
@@ -34,32 +49,38 @@ type MainMenuProps = {
    */
   joinOverlay?: React.ReactNode;
   /**
-   * FS92: Game Boy B / Escape back handler.
+   * FS92/FS009: Game Boy A / Escape back handler.
    * Return true if the active nested screen consumed back (do not enter play).
    * Host owns the stack (e.g. camera → comm → menu).
    */
   onShellBack?: () => boolean;
   /**
-   * FS93: When join (or other) glass screen owns D-pad / A, host supplies handlers.
+   * FS93/FS009: When join (or other) glass screen owns D-pad / B-interact, host supplies handlers.
    * Return true if consumed (do not move main menu selection).
    */
   onShellDpad?: (dir: 'up' | 'down' | 'left' | 'right') => boolean;
   onShellA?: () => boolean;
+  /** When true, renders only the inner playfield content inside GameBoy3DShell */
+  embeddedIn3DShell?: boolean;
 };
 
 /**
- * FS80/82/87/89/90/92/93 — Full-viewport Game Boy chrome; synthwave bg + Navigator menu.
- * Shell: ↑↓ navigate, ←→ mode logos, A select, B = back (stack) or root → play.
+ * FS80/82/87/89/90/92/93/FS009 — Synthwave Navigator menu inside the Game Boy screen.
+ * Shell: ↑↓ navigate, ←→ mode logos, B interact/select, A = back (stack) or root → play.
  */
-export default function MainMenu({
-  onEnterPlay,
-  onSelectModeAndPlay,
-  onOpenJoinBar,
-  joinOverlay = null,
-  onShellBack,
-  onShellDpad,
-  onShellA,
-}: MainMenuProps) {
+const MainMenu = forwardRef<MainMenuHandle, MainMenuProps>(function MainMenu(
+  {
+    onEnterPlay,
+    onSelectModeAndPlay,
+    onOpenJoinBar,
+    joinOverlay = null,
+    onShellBack,
+    onShellDpad,
+    onShellA,
+    embeddedIn3DShell = false,
+  },
+  ref
+) {
   const navWrapperRef = useRef<HTMLElement>(null);
   const pointerRef = useRef<HTMLDivElement>(null);
   /** Focus targets for pointer snap: logo buttons when on MODE SELECTION, else row buttons. */
@@ -244,7 +265,7 @@ export default function MainMenu({
   }, [onEnterPlay]);
 
   /**
-   * FS92 — B / Escape: abstract shell back.
+   * FS92 / FS009 — A / Escape: abstract shell back.
    * 1) Host nested flow (join, etc.) via onShellBack
    * 2) Future in-menu screenStack pop
    * 3) Root menu only → enter play
@@ -257,6 +278,16 @@ export default function MainMenu({
     }
     onEnterPlay();
   }, [onEnterPlay, onShellBack, screenStack.length]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      dpad: shellDpad,
+      interact: activateCurrent,
+      back: goBack,
+    }),
+    [shellDpad, activateCurrent, goBack]
+  );
 
   const onLogoClick = useCallback(
     (index: number) => {
@@ -303,6 +334,161 @@ export default function MainMenu({
     [goBack, moveLogo, moveSelection]
   );
 
+  const playfieldContent = (
+    <>
+      <div className={styles.menuRoot}>
+        <nav
+          ref={navWrapperRef}
+          className={styles.synthwaveNav}
+          aria-label="Main Navigation Terminal"
+          onKeyDown={onNavKeyDown}
+          style={joinOverlay ? { visibility: 'hidden' } : undefined}
+          aria-hidden={joinOverlay ? true : undefined}
+        >
+          <div className={styles.scanlines} aria-hidden="true" />
+          <div
+            ref={pointerRef}
+            className={styles.pointerGraphic}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+              <rect x="36" y="20" width="4" height="12" />
+              <rect x="40" y="24" width="4" height="4" />
+              <rect x="14" y="24" width="22" height="4" />
+              <rect x="10" y="14" width="4" height="24" />
+              <rect x="14" y="14" width="8" height="4" />
+              <rect x="14" y="34" width="8" height="4" />
+              <rect x="18" y="18" width="4" height="4" />
+              <rect x="18" y="30" width="4" height="4" />
+              <rect x="4" y="44" width="2" height="6" />
+              <rect x="2" y="46" width="6" height="2" />
+              <rect x="16" y="48" width="2" height="6" />
+              <rect x="14" y="50" width="6" height="2" />
+              <rect x="28" y="46" width="2" height="6" />
+              <rect x="26" y="48" width="6" height="2" />
+            </svg>
+          </div>
+          <ul className={styles.navList} role="menu">
+            {MENU_ITEMS.map((item, index) => {
+              if (item.isModeSelection) {
+                const rowActive = index === activeIndex;
+                return (
+                  <li
+                    key={item.id}
+                    role="none"
+                    className={styles.modeSelectionItem}
+                  >
+                    <div
+                      className={`${styles.modeSelectionBlock}${
+                        rowActive ? ` ${styles.modeSelectionBlockActive}` : ''
+                      }`}
+                      aria-label="Mode selection"
+                    >
+                      <div
+                        className={`${styles.modeSelectionTitle}${
+                          rowActive ? ` ${styles.active}` : ''
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {item.label}
+                      </div>
+                      <div className={styles.modeLogoRow} role="group">
+                        {MODE_LOGOS.map((logo, li) => {
+                          const focused = rowActive && logoIndex === li;
+                          return (
+                            <button
+                              key={logo.mode}
+                              type="button"
+                              role="menuitem"
+                              ref={(el) => {
+                                logoButtonRefs.current[li] = el;
+                                if (li === 0) {
+                                  focusTargetRefs.current[index] = el;
+                                }
+                              }}
+                              className={`${styles.modeLogoBtn}${
+                                focused ? ` ${styles.modeLogoBtnActive}` : ''
+                              }`}
+                              aria-label={logo.label}
+                              aria-selected={focused}
+                              onClick={() => onLogoClick(li)}
+                              onFocus={() => {
+                                setActiveIndex(MODE_SELECTION_INDEX);
+                                activeIndexRef.current = MODE_SELECTION_INDEX;
+                                setLogoIndex(li);
+                                logoIndexRef.current = li;
+                                if (logoButtonRefs.current[li]) {
+                                  snapPointer(logoButtonRefs.current[li]!, true);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  activateModeLogo(li);
+                                }
+                              }}
+                            >
+                              <img
+                                src={logo.src}
+                                alt=""
+                                draggable={false}
+                                className={styles.modeLogoImg}
+                                onLoad={() => snapToCurrent(true)}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </li>
+                );
+              }
+
+              return (
+                <li key={item.id} role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    ref={(el) => {
+                      focusTargetRefs.current[index] = el;
+                    }}
+                    className={index === activeIndex ? styles.active : undefined}
+                    aria-selected={index === activeIndex}
+                    onClick={() => onStubClick(index)}
+                    onFocus={() => selectIndex(index, true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (item.opensJoinBar) onOpenJoinBar();
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </div>
+      {/* FS90: Join overlays fill the glass hole (playfield), not the browser window */}
+      {joinOverlay}
+    </>
+  );
+
+  if (embeddedIn3DShell) {
+    return (
+      <div
+        className="main-menu__embedded"
+        role="dialog"
+        aria-label="Main menu"
+        style={{ position: 'relative', width: '100%', height: '100%' }}
+      >
+        {playfieldContent}
+      </div>
+    );
+  }
+
   return (
     <div className="main-menu" role="dialog" aria-label="Main menu">
       <div className="main-menu__slot gb-shell-slot">
@@ -317,146 +503,7 @@ export default function MainMenu({
                 DOT MATRIX WITH STEREO SOUND
               </div>
               <div className="gb-shell__playfield main-menu__playfield">
-                <div className={styles.menuRoot}>
-                  <nav
-                    ref={navWrapperRef}
-                    className={styles.synthwaveNav}
-                    aria-label="Main Navigation Terminal"
-                    onKeyDown={onNavKeyDown}
-                    style={joinOverlay ? { visibility: 'hidden' } : undefined}
-                    aria-hidden={joinOverlay ? true : undefined}
-                  >
-                    <div className={styles.scanlines} aria-hidden="true" />
-                    <div
-                      ref={pointerRef}
-                      className={styles.pointerGraphic}
-                      aria-hidden="true"
-                    >
-                      <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="36" y="20" width="4" height="12" />
-                        <rect x="40" y="24" width="4" height="4" />
-                        <rect x="14" y="24" width="22" height="4" />
-                        <rect x="10" y="14" width="4" height="24" />
-                        <rect x="14" y="14" width="8" height="4" />
-                        <rect x="14" y="34" width="8" height="4" />
-                        <rect x="18" y="18" width="4" height="4" />
-                        <rect x="18" y="30" width="4" height="4" />
-                        <rect x="4" y="44" width="2" height="6" />
-                        <rect x="2" y="46" width="6" height="2" />
-                        <rect x="16" y="48" width="2" height="6" />
-                        <rect x="14" y="50" width="6" height="2" />
-                        <rect x="28" y="46" width="2" height="6" />
-                        <rect x="26" y="48" width="6" height="2" />
-                      </svg>
-                    </div>
-                    <ul className={styles.navList} role="menu">
-                      {MENU_ITEMS.map((item, index) => {
-                        if (item.isModeSelection) {
-                          const rowActive = index === activeIndex;
-                          return (
-                            <li
-                              key={item.id}
-                              role="none"
-                              className={styles.modeSelectionItem}
-                            >
-                              <div
-                                className={`${styles.modeSelectionBlock}${
-                                  rowActive ? ` ${styles.modeSelectionBlockActive}` : ''
-                                }`}
-                                aria-label="Mode selection"
-                              >
-                                <div
-                                  className={`${styles.modeSelectionTitle}${
-                                    rowActive ? ` ${styles.active}` : ''
-                                  }`}
-                                  aria-hidden="true"
-                                >
-                                  {item.label}
-                                </div>
-                                <div className={styles.modeLogoRow} role="group">
-                                  {MODE_LOGOS.map((logo, li) => {
-                                    const focused =
-                                      rowActive && logoIndex === li;
-                                    return (
-                                      <button
-                                        key={logo.mode}
-                                        type="button"
-                                        role="menuitem"
-                                        ref={(el) => {
-                                          logoButtonRefs.current[li] = el;
-                                          if (li === 0) {
-                                            focusTargetRefs.current[index] = el;
-                                          }
-                                        }}
-                                        className={`${styles.modeLogoBtn}${
-                                          focused ? ` ${styles.modeLogoBtnActive}` : ''
-                                        }`}
-                                        aria-label={logo.label}
-                                        aria-selected={focused}
-                                        onClick={() => onLogoClick(li)}
-                                        onFocus={() => {
-                                          setActiveIndex(MODE_SELECTION_INDEX);
-                                          activeIndexRef.current = MODE_SELECTION_INDEX;
-                                          setLogoIndex(li);
-                                          logoIndexRef.current = li;
-                                          if (logoButtonRefs.current[li]) {
-                                            snapPointer(logoButtonRefs.current[li]!, true);
-                                          }
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            activateModeLogo(li);
-                                          }
-                                        }}
-                                      >
-                                        <img
-                                          src={logo.src}
-                                          alt=""
-                                          draggable={false}
-                                          className={styles.modeLogoImg}
-                                          onLoad={() => snapToCurrent(true)}
-                                        />
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        }
-
-                        return (
-                          <li key={item.id} role="none">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              ref={(el) => {
-                                focusTargetRefs.current[index] = el;
-                              }}
-                              className={
-                                index === activeIndex ? styles.active : undefined
-                              }
-                              aria-selected={index === activeIndex}
-                              onClick={() => onStubClick(index)}
-                              onFocus={() => selectIndex(index, true)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  if (item.opensJoinBar) onOpenJoinBar();
-                                }
-                              }}
-                            >
-                              {item.label}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </nav>
-                </div>
-                {/* FS90: Join overlays fill the glass hole (playfield), not the browser window */}
-                {joinOverlay}
+                {playfieldContent}
               </div>
             </div>
             <div className="gb-shell__controls">
@@ -492,14 +539,14 @@ export default function MainMenu({
                 <button
                   type="button"
                   className="gb-shell__btn-b"
-                  aria-label="Back"
-                  onClick={goBack}
+                  aria-label="Interact / Select"
+                  onClick={activateCurrent}
                 />
                 <button
                   type="button"
                   className="gb-shell__btn-a"
-                  aria-label="Select"
-                  onClick={activateCurrent}
+                  aria-label="Back"
+                  onClick={goBack}
                 />
               </div>
               <div className="gb-shell__btn-start-select">
@@ -523,4 +570,7 @@ export default function MainMenu({
       </div>
     </div>
   );
-}
+});
+
+export default MainMenu;
+
