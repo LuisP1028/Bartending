@@ -75,18 +75,11 @@ import { type PatronLayout } from '@/data/patronLayout';
 import {
   ReceiptProvider,
   ReceiptStageOverlay,
-  ReceiptToolbar,
   useReceiptStageFlags,
   type PatronReceiptMeta,
   type ReceiptInspectController,
 } from '@/components/receipt/ReceiptSystem';
 import MoneyFanoutFlyby from '@/components/receipt/MoneyFanoutFlyby';
-
-const AVAILABLE_MODES = ['OBELISCO', 'CLASSICS'] as const;
-/** Gold cutout for OBELISCO mode control (sys-header). */
-const OBELISCO_MODE_LOGO_SRC = '/assets/logos/obelisco/obelisco-logo-gold.png';
-/** Gold script cutout for CLASSICS mode control (sys-header). */
-const CLASSICS_MODE_LOGO_SRC = '/assets/logos/classics/classics-logo-gold.png';
 
 export type ShellGlassHudMetrics = {
   tx: number;
@@ -2341,78 +2334,6 @@ export default function Home() {
     <>
       <GlobalSVGDefs />
       <div className="terminal-frame">
-        {phase === 'play' && mode && manifest ? (
-          <div className="sys-header" style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              {AVAILABLE_MODES.map((m) => {
-                const active = modeName === m;
-                if (m === 'OBELISCO') {
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`mode-btn mode-btn--obelisco${active ? ' mode-btn--active' : ''}`}
-                      disabled={active}
-                      aria-current={active ? 'true' : undefined}
-                      aria-label={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
-                      title={active ? 'Active mode: OBELISCO' : 'Switch to OBELISCO'}
-                      onClick={() => switchMode(m)}
-                    >
-                      <img
-                        src={OBELISCO_MODE_LOGO_SRC}
-                        alt=""
-                        className="mode-btn-obelisco-logo"
-                        draggable={false}
-                      />
-                    </button>
-                  );
-                }
-                if (m === 'CLASSICS') {
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`mode-btn mode-btn--classics${active ? ' mode-btn--active' : ''}`}
-                      disabled={active}
-                      aria-current={active ? 'true' : undefined}
-                      aria-label={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
-                      title={active ? 'Active mode: CLASSICS' : 'Switch to CLASSICS'}
-                      onClick={() => switchMode(m)}
-                    >
-                      <img
-                        src={CLASSICS_MODE_LOGO_SRC}
-                        alt=""
-                        className="mode-btn-classics-logo"
-                        draggable={false}
-                      />
-                    </button>
-                  );
-                }
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    className="sys-btn"
-                    style={{
-                      fontSize: 10,
-                      padding: '2px 8px',
-                      opacity: active ? 1 : 0.65,
-                      outline: active ? '1px solid var(--glass-amber)' : undefined,
-                      cursor: active ? 'default' : 'pointer',
-                    }}
-                    disabled={active}
-                    aria-current={active ? 'true' : undefined}
-                    onClick={() => switchMode(m)}
-                    title={active ? `Active mode: ${m}` : `Switch to ${m}`}
-                  >
-                    {m}
-                  </button>
-                );
-              })}
-            </span>
-          </div>
-        ) : null}
-
         <ReceiptProvider
           key={modeName}
           modeName={modeName}
@@ -2829,49 +2750,6 @@ export default function Home() {
               </section>
             )}
           </GameBoy3DShell>
-
-          {phase === 'play' && mode && manifest ? (
-            <>
-              {/* Ticket controls outside POV corner art */}
-              <ReceiptToolbar
-                errors={errors}
-                validationPassed={
-                  errors.length === 0 && !!activeTicket && !!state.vessel
-                }
-                onValidate={() => {
-                  if (handoffInProgressRef.current) return;
-                  // Selected order only: activeTicket + live mat (not parked builds)
-                  if (!activeTicket) {
-                    setErrors([]);
-                    return;
-                  }
-                  const errs = mode
-                    .getRecipeManager()
-                    .validateDrink(state, activeTicket);
-                  setErrors(errs);
-                  if (errs.length > 0) return;
-                  if (!state.vessel) return;
-                  // FS49: money flyby for frozen receipt total (success only)
-                  const rid = activeReceiptIdRef.current;
-                  if (rid && getReceiptTotalRef.current) {
-                    const total = getReceiptTotalRef.current(rid);
-                    if (
-                      typeof total === 'number' &&
-                      Number.isFinite(total) &&
-                      Math.floor(total) > 0
-                    ) {
-                      setMoneyFlyby({
-                        playId: `${rid}-${Date.now()}`,
-                        total,
-                      });
-                    }
-                  }
-                  // Success handoff: drink up + ticket away, then clear (FS37)
-                  runSuccessHandoff();
-                }}
-              />
-            </>
-          ) : null}
         </ReceiptProvider>
       </div>
     </>

@@ -117,6 +117,8 @@ export default function GameBoy3DShell({
 }: GameBoy3DShellProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const screenContRef = useRef<HTMLDivElement>(null);
+  const controlsContRef = useRef<HTMLDivElement>(null);
 
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [powerOn, setPowerOn] = useState(true);
@@ -135,10 +137,16 @@ export default function GameBoy3DShell({
   const onPressSelectRef = useRef(onPressSelect);
   onPressSelectRef.current = onPressSelect;
 
-  // Refs to animate 3D parts on press/release
+  // Refs to animate 3D parts on press/release and console 3D axis rotation (FS120)
   const partsRef = useRef<Partial<Record<PartName, THREE.Object3D>>>({});
   const startPositionsRef = useRef<Partial<Record<PartName, THREE.Vector3>>>({});
   const crossGroupRef = useRef<THREE.Group | null>(null);
+  const localScreenBoxRef = useRef<THREE.Box3 | null>(null);
+  const baseScreenRectRef = useRef<ProjectedRect | null>(null);
+  const targetRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const currentRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isSpinDraggingRef = useRef(false);
+  const motionPermissionRequestedRef = useRef(false);
   const targetCrossRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const targetBtnOffsetRef = useRef<Record<string, number>>({
     'button-a': 0,
@@ -148,6 +156,26 @@ export default function GameBoy3DShell({
   });
   const powerOnRef = useRef(true);
   powerOnRef.current = powerOn;
+
+  const resetRotationToOrigin = useCallback(() => {
+    let cy = currentRotRef.current.y;
+    cy = ((((cy + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+    currentRotRef.current.y = cy;
+    targetRotRef.current = { x: 0, y: 0 };
+  }, []);
+
+  const requestMotionPermissionIfNeeded = useCallback(() => {
+    if (motionPermissionRequestedRef.current || typeof window === 'undefined') return;
+    const DME = (window as unknown as {
+      DeviceMotionEvent?: { requestPermission?: () => Promise<string> };
+    }).DeviceMotionEvent;
+    if (DME && typeof DME.requestPermission === 'function') {
+      motionPermissionRequestedRef.current = true;
+      DME.requestPermission().catch(() => {
+        /* ignore permission denial on non-HTTPS or user decline */
+      });
+    }
+  }, []);
 
   const pulseButton3D = useCallback((partName: 'button-a' | 'button-b' | 'button-select' | 'button-start', dist: number) => {
     targetBtnOffsetRef.current[partName] = dist;
@@ -195,6 +223,70 @@ export default function GameBoy3DShell({
     onPressSelectRef.current?.();
   }, [pulseButton3D]);
 
+  // FS120 — Device shake-to-center reset to (0, 0, 0)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let lastGx: number | null = null;
+    let lastGy: number | null = null;
+    let lastGz: number | null = null;
+    let lastShakeMs = 0;
+
+    const onDeviceMotion = (e: DeviceMotionEvent) => {
+      const now = Date.now();
+      if (now - lastShakeMs < 350) return;
+
+      const acc = e.acceleration;
+      if (acc && (acc.x != null || acc.y != null || acc.z != null)) {
+        const linMag = Math.hypot(acc.x || 0, acc.y || 0, acc.z || 0);
+        if (linMag >= 14) {
+          lastShakeMs = now;
+          resetRotationToOrigin();
+          return;
+        }
+      }
+
+      const accG = e.accelerationIncludingGravity;
+      if (accG && (accG.x != null || accG.y != null || accG.z != null)) {
+        const gx = accG.x || 0;
+        const gy = accG.y || 0;
+        const gz = accG.z || 0;
+        if (lastGx !== null && lastGy !== null && lastGz !== null) {
+          const deltaMag = Math.hypot(gx - lastGx, gy - lastGy, gz - lastGz);
+          if (deltaMag >= 14) {
+            lastShakeMs = now;
+            lastGx = gx;
+            lastGy = gy;
+            lastGz = gz;
+            resetRotationToOrigin();
+            return;
+          }
+        } else {
+          const totalMag = Math.hypot(gx, gy, gz);
+          if (totalMag >= 22) {
+            lastShakeMs = now;
+            resetRotationToOrigin();
+            return;
+          }
+        }
+        lastGx = gx;
+        lastGy = gy;
+        lastGz = gz;
+      }
+    };
+
+    const onCustomShakeReset = () => {
+      resetRotationToOrigin();
+    };
+
+    window.addEventListener('devicemotion', onDeviceMotion);
+    window.addEventListener('gb-shake-reset', onCustomShakeReset);
+    return () => {
+      window.removeEventListener('devicemotion', onDeviceMotion);
+      window.removeEventListener('gb-shake-reset', onCustomShakeReset);
+    };
+  }, [resetRotationToOrigin]);
+
   useEffect(() => {
     const host = hostRef.current;
     const canvas = canvasRef.current;
@@ -215,6 +307,7 @@ export default function GameBoy3DShell({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     const gameBoyRoot = new THREE.Group();
+    gameBoyRoot.rotation.order = 'YXZ';
     scene.add(gameBoyRoot);
 
     const textureLoader = new THREE.TextureLoader();
@@ -282,10 +375,16 @@ export default function GameBoy3DShell({
       const parts = partsRef.current;
       if (!parts.screen) return;
 
+      // Compute base unrotated screen and button rects at (0, 0, 0)
+      const savedRx = gameBoyRoot.rotation.x;
+      const savedRy = gameBoyRoot.rotation.y;
+      gameBoyRoot.rotation.set(0, 0, 0);
       gameBoyRoot.updateMatrixWorld(true);
 
       const screenBox = new THREE.Box3().setFromObject(parts.screen);
+      localScreenBoxRef.current = screenBox.clone();
       const nextScreenRect = projectBoxToViewport(screenBox, camera, w, h);
+      baseScreenRectRef.current = nextScreenRect;
       setScreenRect((prev) => {
         if (
           prev &&
@@ -318,6 +417,10 @@ export default function GameBoy3DShell({
         }
       }
       setButtonRects(nextBtnRects);
+
+      gameBoyRoot.rotation.x = savedRx;
+      gameBoyRoot.rotation.y = savedRy;
+      gameBoyRoot.updateMatrixWorld(true);
     };
 
     Promise.all([
@@ -411,56 +514,139 @@ export default function GameBoy3DShell({
         }
       });
 
-    // Raycaster for direct 3D mesh clicks on the WebGL canvas
+    // Raycaster & pointer-drag 3D axis spin controller (FS120)
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
 
-    const onCanvasPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
+    let activePointerId: number | null = null;
+    let startClientX = 0;
+    let startClientY = 0;
+    let lastClientX = 0;
+    let lastClientY = 0;
+    let downHitPart: PartName | undefined = undefined;
+    let downCameFromDomButton = false;
+
+    const raycastPartAt = (clientX: number, clientY: number): PartName | undefined => {
       const rect = canvas.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) return;
-
-      pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
+      if (rect.width <= 0 || rect.height <= 0) return undefined;
+      pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointerNdc, camera);
       const hits = raycaster.intersectObjects(gameBoyRoot.children, true);
-      if (hits.length === 0) return;
+      if (hits.length === 0) return undefined;
+      return hits[0].object.userData?.partType as PartName | undefined;
+    };
 
-      const hitPart = hits[0].object.userData?.partType as PartName | undefined;
+    const dispatchPartAction = (hitPart: PartName | undefined) => {
       if (!hitPart) return;
-
       if (hitPart === 'button-b') {
-        e.preventDefault();
         triggerB();
       } else if (hitPart === 'button-a') {
-        e.preventDefault();
         triggerA();
       } else if (hitPart === 'button-start') {
-        e.preventDefault();
         triggerStart();
       } else if (hitPart === 'button-select') {
-        e.preventDefault();
         triggerSelect();
       } else if (hitPart === 'button-cross-up') {
-        e.preventDefault();
         triggerDpad('up');
       } else if (hitPart === 'button-cross-down') {
-        e.preventDefault();
         triggerDpad('down');
       } else if (hitPart === 'button-cross-left') {
-        e.preventDefault();
         triggerDpad('left');
       } else if (hitPart === 'button-cross-right') {
-        e.preventDefault();
         triggerDpad('right');
       } else if (hitPart === 'power-button' || hitPart === 'power-button-frame') {
-        e.preventDefault();
         setPowerOn((prev) => !prev);
       }
     };
 
-    canvas.addEventListener('pointerdown', onCanvasPointerDown);
+    const onHostPointerDown = (e: PointerEvent) => {
+      requestMotionPermissionIfNeeded();
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+      const targetEl = e.target as HTMLElement | null;
+      const normYDown =
+        ((((currentRotRef.current.y + Math.PI) % (Math.PI * 2)) + Math.PI * 2) %
+          (Math.PI * 2)) -
+        Math.PI;
+      const isNearFront =
+        Math.abs(currentRotRef.current.x) < 0.35 && Math.abs(normYDown) < 0.35;
+      if (
+        isNearFront &&
+        powerOnRef.current &&
+        screenContRef.current &&
+        targetEl &&
+        screenContRef.current.contains(targetEl)
+      ) {
+        return;
+      }
+
+      activePointerId = e.pointerId;
+      startClientX = e.clientX;
+      startClientY = e.clientY;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+      isSpinDraggingRef.current = false;
+      downCameFromDomButton = Boolean(
+        controlsContRef.current && targetEl && controlsContRef.current.contains(targetEl)
+      );
+      downHitPart = raycastPartAt(e.clientX, e.clientY);
+    };
+
+    const onWindowPointerMove = (e: PointerEvent) => {
+      if (activePointerId === null || e.pointerId !== activePointerId) return;
+
+      const totalDx = e.clientX - startClientX;
+      const totalDy = e.clientY - startClientY;
+
+      if (!isSpinDraggingRef.current) {
+        if (Math.hypot(totalDx, totalDy) < 5) return;
+        isSpinDraggingRef.current = true;
+        try {
+          host.setPointerCapture(e.pointerId);
+        } catch {
+          /* ignore if pointer capture unavailable */
+        }
+      }
+
+      const stepDx = e.clientX - lastClientX;
+      const stepDy = e.clientY - lastClientY;
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+
+      // Spin continuously around Y axis and apply bounded tilt around X axis
+      targetRotRef.current.y += stepDx * 0.011;
+      targetRotRef.current.x = THREE.MathUtils.clamp(
+        targetRotRef.current.x + stepDy * 0.008,
+        -0.65,
+        0.65
+      );
+    };
+
+    const onWindowPointerUp = (e: PointerEvent) => {
+      if (activePointerId === null || e.pointerId !== activePointerId) return;
+      const wasDragging = isSpinDraggingRef.current;
+      activePointerId = null;
+      isSpinDraggingRef.current = false;
+      try {
+        if (host.hasPointerCapture(e.pointerId)) {
+          host.releasePointerCapture(e.pointerId);
+        }
+      } catch {
+        /* ignore */
+      }
+
+      if (!wasDragging && !downCameFromDomButton && downHitPart) {
+        dispatchPartAction(downHitPart);
+      }
+      downHitPart = undefined;
+      downCameFromDomButton = false;
+    };
+
+    host.addEventListener('pointerdown', onHostPointerDown);
+    window.addEventListener('pointermove', onWindowPointerMove);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('pointercancel', onWindowPointerUp);
     window.addEventListener('resize', updateLayoutAndProjections);
     const ro =
       typeof ResizeObserver !== 'undefined'
@@ -468,12 +654,137 @@ export default function GameBoy3DShell({
         : null;
     ro?.observe(host);
 
+    const mvpMatrix = new THREE.Matrix4();
+    const vpMatrix = new THREE.Matrix4();
+    const worldCenterVec = new THREE.Vector3();
+    const worldNormalVec = new THREE.Vector3();
+    const toCamVec = new THREE.Vector3();
+    const p0Vec = new THREE.Vector4();
+    const euVec = new THREE.Vector4();
+    const evVec = new THREE.Vector4();
+
     const animate = () => {
       if (disposed) return;
       rafId = requestAnimationFrame(animate);
 
       const parts = partsRef.current;
       const starts = startPositionsRef.current;
+
+      // Smoothly interpolate 3D console axis rotation (FS120)
+      currentRotRef.current.x +=
+        (targetRotRef.current.x - currentRotRef.current.x) * 0.22;
+      currentRotRef.current.y +=
+        (targetRotRef.current.y - currentRotRef.current.y) * 0.22;
+      if (Math.abs(targetRotRef.current.x - currentRotRef.current.x) < 0.0001) {
+        currentRotRef.current.x = targetRotRef.current.x;
+      }
+      if (Math.abs(targetRotRef.current.y - currentRotRef.current.y) < 0.0001) {
+        currentRotRef.current.y = targetRotRef.current.y;
+      }
+      gameBoyRoot.rotation.x = currentRotRef.current.x;
+      gameBoyRoot.rotation.y = currentRotRef.current.y;
+      gameBoyRoot.updateMatrixWorld(true);
+
+      host.setAttribute('data-rotation-x', currentRotRef.current.x.toFixed(4));
+      host.setAttribute('data-rotation-y', currentRotRef.current.y.toFixed(4));
+
+      // Synchronize 3D screen homography & back-face occlusion
+      const sBox = localScreenBoxRef.current;
+      const baseRect = baseScreenRectRef.current;
+      const screenEl = screenContRef.current;
+      const controlsEl = controlsContRef.current;
+
+      if (sBox && baseRect && screenEl) {
+        worldCenterVec
+          .set(
+            (sBox.min.x + sBox.max.x) * 0.5,
+            (sBox.min.y + sBox.max.y) * 0.5,
+            sBox.max.z
+          )
+          .applyMatrix4(gameBoyRoot.matrixWorld);
+        worldNormalVec
+          .set(0, 0, 1)
+          .applyQuaternion(gameBoyRoot.quaternion)
+          .normalize();
+        toCamVec.copy(camera.position).sub(worldCenterVec).normalize();
+
+        const facingDot = worldNormalVec.dot(toCamVec);
+        const isFrontVisible = facingDot > 0.08;
+        host.setAttribute('data-screen-visible', isFrontVisible ? 'true' : 'false');
+
+        if (!isFrontVisible) {
+          screenEl.style.visibility = 'hidden';
+          screenEl.style.opacity = '0';
+          screenEl.style.pointerEvents = 'none';
+          if (controlsEl) {
+            controlsEl.style.visibility = 'hidden';
+            controlsEl.style.pointerEvents = 'none';
+          }
+        } else {
+          screenEl.style.visibility = 'visible';
+          screenEl.style.opacity = powerOnRef.current ? '1' : '0.04';
+
+          const normY =
+            ((((currentRotRef.current.y + Math.PI) % (Math.PI * 2)) + Math.PI * 2) %
+              (Math.PI * 2)) -
+            Math.PI;
+          const isNearZero =
+            Math.abs(currentRotRef.current.x) < 0.0005 && Math.abs(normY) < 0.0005;
+          const isInteractiveFront =
+            powerOnRef.current &&
+            !isSpinDraggingRef.current &&
+            Math.abs(currentRotRef.current.x) < 0.35 &&
+            Math.abs(normY) < 0.35;
+
+          screenEl.style.pointerEvents = isInteractiveFront ? 'auto' : 'none';
+          if (controlsEl) {
+            controlsEl.style.visibility = isNearZero ? 'visible' : 'hidden';
+          }
+
+          if (isNearZero) {
+            screenEl.style.transformOrigin = '0 0';
+            screenEl.style.transform = 'perspective(2000px) rotateX(0.01deg)';
+          } else {
+            const vw = Math.max(1, host.clientWidth);
+            const vh = Math.max(1, host.clientHeight);
+            vpMatrix.multiplyMatrices(
+              camera.projectionMatrix,
+              camera.matrixWorldInverse
+            );
+            mvpMatrix.multiplyMatrices(vpMatrix, gameBoyRoot.matrixWorld);
+
+            p0Vec
+              .set(sBox.min.x, sBox.max.y, sBox.max.z, 1)
+              .applyMatrix4(mvpMatrix);
+            euVec
+              .set((sBox.max.x - sBox.min.x) / baseRect.width, 0, 0, 0)
+              .applyMatrix4(mvpMatrix);
+            evVec
+              .set(0, (sBox.min.y - sBox.max.y) / baseRect.height, 0, 0)
+              .applyMatrix4(mvpMatrix);
+
+            const w0 = Math.abs(p0Vec.w) > 1e-6 ? p0Vec.w : 1e-6;
+            const h31 = euVec.w / w0;
+            const h32 = evVec.w / w0;
+            const raw11 = (0.5 * vw * (euVec.x + euVec.w)) / w0;
+            const raw12 = (0.5 * vw * (evVec.x + evVec.w)) / w0;
+            const raw13 = (0.5 * vw * (p0Vec.x + p0Vec.w)) / w0;
+            const raw21 = (0.5 * vh * (-euVec.y + euVec.w)) / w0;
+            const raw22 = (0.5 * vh * (-evVec.y + evVec.w)) / w0;
+            const raw23 = (0.5 * vh * (-p0Vec.y + p0Vec.w)) / w0;
+
+            const h11 = raw11 - baseRect.left * h31;
+            const h12 = raw12 - baseRect.left * h32;
+            const h13 = raw13 - baseRect.left;
+            const h21 = raw21 - baseRect.top * h31;
+            const h22 = raw22 - baseRect.top * h32;
+            const h23 = raw23 - baseRect.top;
+
+            screenEl.style.transformOrigin = '0 0';
+            screenEl.style.transform = `matrix3d(${h11},${h21},0,${h31},${h12},${h22},0,${h32},0,0,1,0,${h13},${h23},0,1)`;
+          }
+        }
+      }
 
       // Smoothly animate 3D button depressions (A, B, Start, Select)
       for (const btnName of ['button-a', 'button-b', 'button-select', 'button-start'] as const) {
@@ -513,12 +824,22 @@ export default function GameBoy3DShell({
     return () => {
       disposed = true;
       cancelAnimationFrame(rafId);
-      canvas.removeEventListener('pointerdown', onCanvasPointerDown);
+      host.removeEventListener('pointerdown', onHostPointerDown);
+      window.removeEventListener('pointermove', onWindowPointerMove);
+      window.removeEventListener('pointerup', onWindowPointerUp);
+      window.removeEventListener('pointercancel', onWindowPointerUp);
       window.removeEventListener('resize', updateLayoutAndProjections);
       ro?.disconnect();
       renderer.dispose();
     };
-  }, [triggerA, triggerB, triggerDpad, triggerSelect, triggerStart]);
+  }, [
+    requestMotionPermissionIfNeeded,
+    triggerA,
+    triggerB,
+    triggerDpad,
+    triggerSelect,
+    triggerStart,
+  ]);
 
   if (fatalError) {
     return (
@@ -547,6 +868,9 @@ export default function GameBoy3DShell({
     <div
       ref={hostRef}
       className="gb-shell-slot gb-3d-shell-host"
+      data-rotation-x="0.0000"
+      data-rotation-y="0.0000"
+      data-screen-visible="true"
       style={{
         position: 'relative',
         width: '100%',
@@ -555,6 +879,7 @@ export default function GameBoy3DShell({
         overflow: 'hidden',
         background: 'radial-gradient(circle at 50% 42%, #242636 0%, #10111a 100%)',
         userSelect: 'none',
+        touchAction: 'none',
       }}
     >
       {/* WebGL Canvas rendering the 15-part 3D Nintendo Game Boy (Snokke/game-boy-challenge) */}
@@ -568,13 +893,15 @@ export default function GameBoy3DShell({
           height: '100%',
           display: 'block',
           zIndex: 1,
-          cursor: 'pointer',
+          cursor: 'grab',
+          touchAction: 'none',
         }}
       />
 
       {/* Native-Color DITHER-OS Bartending Screen mounted strictly on the projected 3D `screen` mesh */}
       {screenRect && (
         <div
+          ref={screenContRef}
           className="gb-shell__screen-cont gb-3d-screen-projection"
           style={{
             position: 'absolute',
@@ -592,7 +919,8 @@ export default function GameBoy3DShell({
             flexDirection: 'column',
             opacity: powerOn ? 1 : 0.04,
             pointerEvents: powerOn ? 'auto' : 'none',
-            transition: 'opacity 0.18s ease-out',
+            transformOrigin: '0 0',
+            transform: 'perspective(2000px) rotateX(0.01deg)',
           }}
         >
           <div
@@ -632,6 +960,7 @@ export default function GameBoy3DShell({
 
       {/* Projected 3D Physical Control Hit Targets (registered 1:1 with the 3D button meshes) */}
       <div
+        ref={controlsContRef}
         className="gb-shell__controls"
         data-gb-3d-controls="true"
         style={{
