@@ -47,6 +47,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       storage: 'gcs-postgres',
+      fallback: false,
       characters: characters.map(serializeRosterCharacter),
       runtimeCount: extras.length,
     });

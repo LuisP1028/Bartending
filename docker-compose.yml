@@ -1,0 +1,37 @@
+services:
+  bartending-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bartending-app:local
+    container_name: bartending-app-local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=7860
+      - HOSTNAME=0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "0.0.0.0:3001:7860"
+    volumes:
+      - ./data:/home/node/app/data
+      - ./public/assets/patrons:/home/node/app/public/assets/patrons
+    networks:
+      - bartending-net
+
+  bartending-https-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: bartending-https-tunnel
+    restart: unless-stopped
+    depends_on:
+      - bartending-app
+    command: tunnel --no-autoupdate --url http://bartending-app-local:7860
+    networks:
+      - bartending-net
+
+networks:
+  bartending-net:
+    name: bartending-net
+    driver: bridge

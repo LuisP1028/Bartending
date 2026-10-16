@@ -75,7 +75,7 @@
       <div class="frame-wrap">
         <p class="hint">
           Loading game…<br />
-          Connecting to DITHER-OS Bartending Mac Server Runtime (<code>https://talk-gst-routers-insulation.trycloudflare.com</code>).
+          Connecting to DITHER-OS Bartending Mac Server Runtime (<code id="tunnel-url-label">https://talk-gst-routers-insulation.trycloudflare.com</code>).
         </p>
         <!--
           FS91 / FS021: camera must be delegated to the Mac server HTTPS iframe or getUserMedia
@@ -92,17 +92,47 @@
       </div>
     </div>
     <script>
-      (function() {
+      (async function() {
         const DEFAULT_MAC_SERVER_URL = 'https://talk-gst-routers-insulation.trycloudflare.com';
+        const frameEl = document.getElementById('game');
+        const labelEl = document.getElementById('tunnel-url-label');
         const params = new URLSearchParams(window.location.search);
         const explicitTarget = params.get('target');
-        let targetUrl = DEFAULT_MAC_SERVER_URL;
-        if (explicitTarget) {
-          targetUrl = explicitTarget;
-        } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          targetUrl = window.location.port === '3001' ? window.location.origin : 'http://localhost:3001';
+
+        function bindTarget(url) {
+          const clean = String(url || '').trim().replace(/\/+$/, '');
+          if (labelEl) labelEl.textContent = clean;
+          if (frameEl) frameEl.src = clean;
         }
-        document.getElementById("game").src = targetUrl;
+
+        if (explicitTarget && /^https?:\/\//i.test(explicitTarget.trim())) {
+          bindTarget(explicitTarget);
+          return;
+        }
+
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          bindTarget(window.location.port === '3001' ? window.location.origin : 'http://localhost:3001');
+          return;
+        }
+
+        try {
+          const res = await fetch('./tunnel.json?t=' + Date.now(), {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const candidate = (data && (data.url || data.public_https_url || data.backend_url)) || '';
+            if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim())) {
+              bindTarget(candidate);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('[Bartending] Dynamic tunnel.json lookup failed, falling back to default:', err);
+        }
+
+        bindTarget(DEFAULT_MAC_SERVER_URL);
       })();
     </script>
   </body>
