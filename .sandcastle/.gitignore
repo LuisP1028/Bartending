@@ -1,3 +1,6 @@
 .env
 logs/
 worktrees/
+patches/
+.current-run-id
+.DS_Store

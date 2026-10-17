@@ -1,7 +1,7 @@
 ---
 name: wayfinder-test-plan
 hostname: local-workspace
-description: Authoritative Wayfinder test-planning meta-prompt for the test-planning node; ingests upstream feature planning, initial implementation, and post-review manifests, enforces strict payload and assertion laws against actual codebase schemas with zero mocks, charts deterministic integration test decision tickets, and atomically overwrites handoff/{{RUN_ID}}/test-plan.txt without writing test code until explicitly authorized.
+description: Authoritative Wayfinder test-planning meta-prompt for the test-planning node; ingests upstream feature planning, initial implementation, and post-review manifests, enforces strict payload and assertion laws against actual codebase schemas and authentic observed payloads with zero mocks, charts deterministic integration test decision tickets, and atomically overwrites handoff/{{RUN_ID}}/test-plan.txt without writing test code until explicitly authorized.
 disable-model-invocation: true
 ---
 
@@ -21,6 +21,30 @@ This invocation is strictly **`read-and-plan`**. Do not write tests in this sess
 ## Upstream Implementation Manifest (Modified & Created Components)
 
 !`cat handoff/{{RUN_ID}}/implementer.txt`
+
+## Upstream Post-Review Manifest
+
+!`cat handoff/{{RUN_ID}}/reviewer.txt 2>/dev/null || echo "(handoff/{{RUN_ID}}/reviewer.txt not yet written)"`
+
+## Iteration & Worktree State Pre-Prompt Context (Branch: `{{BRANCH}}`, Max Iterations: 5)
+
+### Recent Branch Commits
+!`git log -n 10 --oneline 2>/dev/null || true`
+
+### Current Worktree Status
+!`git status --short 2>/dev/null || true`
+
+### Existing Run Wayfinder Artifacts (`wayfinder/{{RUN_ID}}/`)
+!`ls -1 wayfinder/{{RUN_ID}}/ wayfinder/{{RUN_ID}}/tickets/ 2>/dev/null || echo "(no wayfinder/{{RUN_ID}} artifacts yet)"`
+
+### Current Test-Plan Handoff Manifest (`handoff/{{RUN_ID}}/test-plan.txt`)
+!`cat handoff/{{RUN_ID}}/test-plan.txt 2>/dev/null || echo "(handoff/{{RUN_ID}}/test-plan.txt not yet written)"`
+
+### Multi-Iteration Continuation Protocol
+- This stage executes across up to `5` iterations on branch `{{BRANCH}}`.
+- At the start of each iteration, inspect the pre-prompted commits, worktree status, and existing `wayfinder/{{RUN_ID}}/tickets/` & `handoff/{{RUN_ID}}/test-plan.txt` state above.
+- Do not recreate or duplicate test decision tickets already charted and committed in prior iterations; resume from remaining open test decision tickets/matrices and atomically overwrite `handoff/{{RUN_ID}}/test-plan.txt` with all test-plan artifacts for this run.
+- Emit `<promise>COMPLETE</promise>` only when all test planning deliverables and `handoff/{{RUN_ID}}/test-plan.txt` are committed and `git status --porcelain` is empty.
 
 ## Visual assets
 
@@ -57,10 +81,13 @@ The agent must load and obey artifacts in this strict, unbending hierarchy:
 1. **[`LANGUAGE.md`](file:///Users/diesel/Desktop/POLYMARKET/LANGUAGE.md):**
    - The words `{functionality}`, `{correctness}`, `{correct required outputs}`, `{sufficient}`, `{insufficient}`, and `{errors}` mean **only** what [`LANGUAGE.md`](file:///Users/diesel/Desktop/POLYMARKET/LANGUAGE.md) defines.
    - Do not paraphrase them. Do not replace them with colloquial approximations such as "passes", "realistic", "mock", or "good enough".
-2. **Every `functional_specification_*.md` in scope (newest product law first):**
+2. **MCP Tool Registry (`.sandcastle/mcp.md`):**
+   - Read this file to understand active external services. 
+   - Remote execution states verified via MCP (e.g., checking a live Colab notebook or Drive file) are valid test oracles and are NOT considered synthetic mocks.
+3. **Every `functional_specification_*.md` in scope (newest product law first):**
    - A functional specification states desired `{functionality}` only. It is not an implementation guide.
    - Refer to each specification explicitly by its full filename.
-3. **The Wayfinder Map (`wayfinder/{{RUN_ID}}/map.md`) and its Ticket Files (`wayfinder/{{RUN_ID}}/tickets/`):**
+4. **The Wayfinder Map (`wayfinder/{{RUN_ID}}/map.md`) and its Ticket Files (`wayfinder/{{RUN_ID}}/tickets/`):**
    - Refer to each ticket by its descriptive title.
    - A ticket is a decision, not a slice of code.
    - Do not re-open a resolved ticket.
@@ -77,12 +104,12 @@ Throughout this workflow, every assessment of `{errors}`, `{correctness}`, `{fun
   - Missing, empty, or unreadable upstream manifests `handoff/{{RUN_ID}}/wayfinder-read-and-plan.txt`, `handoff/{{RUN_ID}}/implementer.txt`, or `handoff/{{RUN_ID}}/reviewer.txt` (`INV-HANDOFF-01`).
   - Missing or empty `{{RUN_ID}}` substitution.
   - Synthesized test payloads, dummy JSON fixtures, placeholder objects, or renamed fields (`INV-PAYLOAD-01`).
-  - Assertions written against handwritten expected blobs not mandated by the functional specification (`INV-ASSERTION-01`).
+  - Assertions written against handwritten expected blobs not mandated by the functional specification or observed payload contracts (`INV-ASSERTION-01`).
   - A field the schema does not carry, or a required output the specification does not name.
   - Violation of the strict "DO NOT CODE YET" gate prior to explicit operator authorization (`INV-BOUNDARY-01`).
   - Silent exception handling, empty fallbacks, or temporary patch hacks violating workspace rules.
 - **`{correctness}`**: Measured exclusively by [`LANGUAGE.md`](file:///Users/diesel/Desktop/POLYMARKET/LANGUAGE.md):
-  - Exact relational key, column name, and data type alignment between planned test payloads and active codebase interfaces/schemas.
+  - Exact relational key, column name, and data type alignment between planned test payloads and active codebase interfaces/schemas or authentic observed payloads from live API endpoints.
   - 100% schema fidelity: payloads contain only authentic field names with exact optionality and typing.
 - **`{functionality}`**: The broader, global system objective: planning an integration test architecture that verifies the components implemented in `handoff/{{RUN_ID}}/implementer.txt` and post-review states in `handoff/{{RUN_ID}}/reviewer.txt` against real system states without relying on brittle, synthetic mocks.
 - **`{correct required outputs}`**: Objectively measurable artifacts produced by this planning workflow:
@@ -90,7 +117,7 @@ Throughout this workflow, every assessment of `{errors}`, `{correctness}`, `{fun
   - Authoritative Integration Test Matrix mapping components, schemas, admissible payloads, and required assertions.
   - Dedicated role handoff manifest at `handoff/{{RUN_ID}}/test-plan.txt` atomically overwritten with one repository-relative path per line.
   - Exactly zero lines of test execution code, fixtures, parsers, or dummy payloads written.
-- **`{sufficient}`**: The state of documentation where every asserted field name is a real schema field, every asserted output is a `{correct required output}`, and absolutely zero ambiguity remains for the future test authoring session.
+- **`{sufficient}`**: The state of documentation where every asserted field name is a real schema field or authentic observed payload field, every asserted output is a `{correct required output}`, and absolutely zero ambiguity remains for the future test authoring session.
 - **`{insufficient}`**: Any test plan where inputs are synthesized (even if the resulting test would pass/be green), where payloads carry unverified fields, where assertion oracles are hand-invented, or where fallback mechanisms are injected without specification authority.
 
 ---
@@ -100,14 +127,16 @@ Throughout this workflow, every assessment of `{errors}`, `{correctness}`, `{fun
 In strict accordance with workspace rules and architectural mandates:
 
 ### 2.1 Payload Law (`INV-PAYLOAD-01`)
-- **Schema Admissibility:** The only admissible payload is one whose field names, types, and optionality are the component's actual payload schema, as named in the functional specification and as present on the component's real input or output.
-- **Observed Payloads:** An observed payload (captured from the real producer or from the component's real parsed object) may be frozen. Freezing does not authorize synthesis.
+- **Schema Admissibility:** The only admissible payload is one whose field names, types, and optionality are grounded in either:
+  1. The component's actual local codebase types/schemas, as named in the functional specification and active code.
+  2. Authentic observed payloads captured from live API endpoints or authoritative responses during the reconnaissance phase by scanner agents (stored in `assets/{{RUN_ID}}/`).
+- **Observed Payloads:** An authentic observed payload (captured from a live endpoint, real producer, or verified response) may be frozen as a ground-truth test fixture. Freezing does not authorize synthesis or mutation.
 - **Sparse & Optional Packing:** A missing or sparse field that the schema marks optional is observed packing. Do not fill it.
-- **Synthesized Payloads Forbidden:** A synthesized payload is forbidden. That includes placeholder objects, example JSON, renamed fields, added fields, and any stand-in value that the schema does not carry.
-- **Zero-Tolerance Sufficiency Rule:** A test whose inputs are synthesized is `{insufficient}`, even if it is green.
+- **Synthesized Payloads Strictly Forbidden:** Hand-synthesized, mocked, fabricated, or assumed payloads remain strictly prohibited. That includes placeholder objects, fake JSON fixtures, renamed fields, added fields, and any stand-in value not observed in real payloads or codebase schemas.
+- **Zero-Tolerance Sufficiency Rule:** A test whose inputs are synthesized or ungrounded is `{insufficient}`, even if it is green.
 
 ### 2.2 Assertion Law (`INV-ASSERTION-01`)
-- **Specification Oracles:** Assert `{correct required outputs}` of the named component against the functional specification and the locked ticket resolutions. Do not assert against a handwritten expected blob that the specification does not require.
+- **Specification & Contract Oracles:** Assert `{correct required outputs}` of the named component against the functional specification, locked ticket resolutions, and verified API data structures. Test decision tickets are authorized to validate data parsing, schema contract conformance, status codes, and error handling against live or captured API payloads.
 - **Schema Boundary:** `{correctness}` is measured only by [`LANGUAGE.md`](file:///Users/diesel/Desktop/POLYMARKET/LANGUAGE.md). A field the schema does not have, or a required output the specification does not name, is an `{error}`.
 - **Sufficiency Condition:** `{sufficient}` only if every asserted field name is a real schema field and every asserted output is a `{correct required output}`. Otherwise `{insufficient}`.
 
@@ -140,7 +169,7 @@ flowchart TD
     subgraph STAGE_2["Stage 2: Schema Discovery & Payload Admissibility Audit"]
         AUDIT_COMPONENTS["Identify Touched Components from\nhandoff/{{RUN_ID}}/implementer.txt & handoff/{{RUN_ID}}/reviewer.txt"]
         DISCOVER_SCHEMAS["Extract Authentic Codebase Schemas & Types\n(Zero Mocks Allowed)"]
-        EVAL_PAYLOADS["Audit Payloads Under Payload Law:\n- Real Fields & Types Only\n- Optional Packing Unfilled\n- Synthesis Strictly Forbidden"]
+        EVAL_PAYLOADS["Audit Payloads Under Payload Law:\n- Codebase Interfaces OR Authentic Observed Payloads (assets/{{RUN_ID}}/)\n- Optional Packing Unfilled\n- Synthesis Strictly Forbidden"]
         INGEST_SPECS --> AUDIT_COMPONENTS --> DISCOVER_SCHEMAS --> EVAL_PAYLOADS
     end
 
@@ -174,12 +203,13 @@ flowchart TD
 ---
 
 ### Step 2: Codebase Schema Discovery & Payload Admissibility Audit
-1. **Locate Real Interfaces:**
+1. **Locate Real Interfaces & Observed Payloads:**
    - Inspect the actual source code of the touched components named in `handoff/{{RUN_ID}}/implementer.txt` and post-review refinements in `handoff/{{RUN_ID}}/reviewer.txt`.
+   - Inspect authentic observed payload samples captured in `assets/{{RUN_ID}}/` by scanner agents.
    - Extract the real input/output schemas, TypeScript interfaces, database types, or API models.
 2. **Apply Payload Law:**
-   - Verify that any proposed test payload contains **exclusively** authentic field names, types, and optionality present in the real schema.
-   - If freezing observed payloads, verify they originate from real producers or real parsed objects. Do not fill sparse optional fields.
+   - Verify that any proposed test payload contains **exclusively** authentic field names, types, and optionality present in the real schema or observed payload.
+   - If freezing observed payloads, verify they originate from real producers, captured API responses, or real parsed objects. Do not fill sparse optional fields.
    - Immediately reject and eliminate any synthetic JSON approximations, mock objects, or renamed fields (`INV-PAYLOAD-01`).
 
 ---
@@ -188,7 +218,7 @@ flowchart TD
 1. **Identify Required Decisions:**
    - Determine the remaining decisions needed before integration tests can be written:
      - Which specific component is targeted.
-     - Which actual codebase schema governs inputs and outputs.
+     - Which actual codebase schema or observed API schema governs inputs and outputs.
      - Which observed payloads are admissible under Payload Law.
      - Which output states constitute `{correct required outputs}` per the specification.
      - Which schema deviations, missing fields, or contract violations constitute `{errors}`.
@@ -236,9 +266,10 @@ Every execution of this skill must return a structured report comprising:
 
 ## Save the work
 
-1. All file writes for this session are finished. Do not write another file after this block.
-2. Run `git status --porcelain`. If it is empty, skip the commit.
-3. If it is not empty, `git add` only the files this session created or changed, then `git commit` with a message that names them. Do not push.
-4. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
-5. If it is empty, output `<promise>COMPLETE</promise>`.
+1. All in-scope file writes for this session are finished (including `handoff/{{RUN_ID}}/test-plan.txt`). Do not write another file after this block.
+2. Delete any temporary scratch files, ad-hoc diagnostic outputs, transient test caches (`.pytest_cache`, `__pycache__`), or unrequested side-effect files created during tool invocations so that no untracked leftovers remain in the worktree.
+3. Run `git status --porcelain`. If it is empty, skip the commit.
+4. If it is not empty, `git add` all in-scope files this session created or changed (including `handoff/{{RUN_ID}}/test-plan.txt`, `wayfinder/{{RUN_ID}}/map.md`, `wayfinder/{{RUN_ID}}/tickets/ticket-NNNN.md`, and any test matrices under `wayfinder/{{RUN_ID}}/`), then `git commit` with a message that names them. Do not push.
+5. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
+6. If it is empty, output `<promise>COMPLETE</promise>`.
 

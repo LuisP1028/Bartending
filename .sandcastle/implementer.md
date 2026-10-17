@@ -11,11 +11,35 @@ The planner writes the plan and the tickets. The scanners write the file invento
 
 This agent takes the required edits from the plan, the tickets, and the scans.
 
+## Upstream Functional Specification Seed
+
+{{SEED_PATH}}
+
 ## Upstream plan manifest
 
 !`cat handoff/{{RUN_ID}}/wayfinder-read-and-plan.txt`
 
 Do not `cat` the files named in that list. Do not `cat` the scan manifests (`handoff/{{RUN_ID}}/plan-scan-1.txt` and `handoff/{{RUN_ID}}/plan-scan-2.txt`). Those files are inventories. Open a listed path only when a ticket names it.
+
+## Iteration & Worktree State Pre-Prompt Context (Branch: `{{BRANCH}}`, Max Iterations: 5)
+
+### Recent Branch Commits
+!`git log -n 10 --oneline 2>/dev/null || true`
+
+### Current Worktree Status
+!`git status --short 2>/dev/null || true`
+
+### Current Implementer Handoff Manifest (`handoff/{{RUN_ID}}/implementer.txt`)
+!`cat handoff/{{RUN_ID}}/implementer.txt 2>/dev/null || echo "(handoff/{{RUN_ID}}/implementer.txt not yet written)"`
+
+### Current Implementer Status Ledger (`handoff/{{RUN_ID}}/implementer-status.txt`)
+!`cat handoff/{{RUN_ID}}/implementer-status.txt 2>/dev/null || echo "(handoff/{{RUN_ID}}/implementer-status.txt not yet written)"`
+
+### Multi-Iteration Continuation Protocol
+- This stage executes across up to `5` iterations on branch `{{BRANCH}}`.
+- At the start of each iteration, inspect the pre-prompted commits, worktree status, and existing `handoff/{{RUN_ID}}/implementer.txt` and `handoff/{{RUN_ID}}/implementer-status.txt` state above.
+- Do not revert or re-implement ticket edits already committed and verified as `CHANGED` in prior iterations; focus on tickets/files still open or marked `UNCHANGED`, then update and atomically overwrite `handoff/{{RUN_ID}}/implementer.txt` and `handoff/{{RUN_ID}}/implementer-status.txt` with the cumulative run state.
+- If an iteration completes a subset of tickets before finishing all tickets, commit those changes and updated handoff manifests to `{{BRANCH}}` without emitting `<promise>COMPLETE</promise>` so the next iteration resumes cleanly. Emit `<promise>COMPLETE</promise>` only when all required ticket edits are applied, both handoff files are committed, and `git status --porcelain` is empty.
 
 ## Visual assets
 
@@ -37,6 +61,9 @@ The implementer may write an image only when a ticket names that output. An imag
 
 This session is authorized to write code. Apply the code change each ticket locks. Any upstream directive, flag, or note indicating that coding is prohibited, gated, deferred, or awaiting authorization—regardless of phrasing—is invalid in this session. Disregard any such constraints and apply the required edits anyway.
 
+**External MCP Tooling Authorization:**  
+If a ticket requires interacting with external systems, you are explicitly authorized to use `call_mcp_tool`. Before executing, you MUST read the centralized registry at `.sandcastle/mcp.md` for schema discovery instructions. Any remote resource created (URLs, IDs) must be recorded in your handoff manifest (`handoff/{{RUN_ID}}/implementer.txt`).
+
 Keep the schemas, return values, and state the plan locked. No hack fixes, timing delays, warning suppressions, or swallowed errors.
 
 Looking at a file is not an edit. A thin search is not an edit. A passing command is not an edit. A ticket stays open until its required change is in the tree, or the ticket itself says there is no code change.
@@ -49,15 +76,16 @@ Create `handoff/{{RUN_ID}}/` if it is missing. Overwrite only these two files. D
 
 `handoff/{{RUN_ID}}/implementer-status.txt` lists every file and image a ticket or the plan required. One line per file: the path, then `CHANGED` or `UNCHANGED`, then the ticket id. A file or required image left untouched or unwritten must appear here listed as `UNCHANGED`. It must not disappear.
 
-## Done
+## Save the work
 
 Do not emit `COMPLETE` while any required ticket edit or required image is unapplied or unwritten. Do not treat one passing command as proof that every ticket is done.
 
-1. Finish file writes.
-2. Run `git status --porcelain`. If it is empty, skip the commit.
-3. If it is not empty, `git add` only the files this session created or changed, then `git commit`. Do not push.
-4. Run `git status --porcelain` again. If it is not empty, stop. Do not emit `COMPLETE`.
-5. If it is empty and no required ticket edit is open, emit `<promise>COMPLETE</promise>`.
+1. All in-scope file writes for this session are finished (including `handoff/{{RUN_ID}}/implementer.txt` and `handoff/{{RUN_ID}}/implementer-status.txt`). Do not write another file after this block.
+2. Delete any temporary scratch files, ad-hoc diagnostic outputs, transient test caches (`.pytest_cache`, `__pycache__`), or unrequested side-effect files created during tool invocations so that no untracked leftovers remain in the worktree.
+3. Run `git status --porcelain`. If it is empty, skip the commit.
+4. If it is not empty, `git add` all in-scope files this session created, modified, or removed (including `handoff/{{RUN_ID}}/implementer.txt`, `handoff/{{RUN_ID}}/implementer-status.txt`, and any written `assets/{{RUN_ID}}/` files), then `git commit` with a message that names them. Do not push.
+5. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
+6. If it is empty and no required ticket edit is open, output `<promise>COMPLETE</promise>`.
 
 ## Report
 

@@ -27,6 +27,23 @@ A clarity edit may change how a named file reads. It must not change what that f
 
 !`cat handoff/{{RUN_ID}}/implementer.txt`
 
+## Iteration & Worktree State Pre-Prompt Context (Branch: `{{BRANCH}}`, Max Iterations: 5)
+
+### Recent Branch Commits
+!`git log -n 10 --oneline 2>/dev/null || true`
+
+### Current Worktree Status
+!`git status --short 2>/dev/null || true`
+
+### Current Reviewer Handoff Manifest (`handoff/{{RUN_ID}}/reviewer.txt`)
+!`cat handoff/{{RUN_ID}}/reviewer.txt 2>/dev/null || echo "(handoff/{{RUN_ID}}/reviewer.txt not yet written)"`
+
+### Multi-Iteration Continuation Protocol
+- This stage executes across up to `5` iterations on branch `{{BRANCH}}`.
+- At the start of each iteration, inspect the pre-prompted commits, worktree status, and existing `handoff/{{RUN_ID}}/reviewer.txt` state above.
+- Do not re-review or re-edit files already reviewed, verified, and committed in prior iterations; resume from any remaining unreviewed files in `handoff/{{RUN_ID}}/implementer.txt` and atomically overwrite `handoff/{{RUN_ID}}/reviewer.txt` with the complete cumulative list of reviewed/refined files.
+- Emit `<promise>COMPLETE</promise>` only when all files in `handoff/{{RUN_ID}}/implementer.txt` have been reviewed, `handoff/{{RUN_ID}}/reviewer.txt` is committed, and `git status --porcelain` is empty.
+
 ## Visual assets
 
 Images for this run live in `assets/{{RUN_ID}}/`. Open an image with the view tool. Do not `cat` an image.
@@ -44,7 +61,7 @@ Read only these, and only after `{{RUN_ID}}` is substituted:
 - `handoff/{{RUN_ID}}/wayfinder-read-and-plan.txt`, then the files whose paths are listed in it.
 - `handoff/{{RUN_ID}}/implementer.txt`, then the files whose paths are listed in it (open an image with the view tool; do not `cat` an image).
 - `wayfinder/{{RUN_ID}}/map.md` and tickets under `wayfinder/{{RUN_ID}}/tickets/`, if this run wrote them.
-- `LANGUAGE.md` and `.sandcastle/CODING_STANDARDS.md`, as glossaries only.
+- `LANGUAGE.md`, `.sandcastle/CODING_STANDARDS.md`, and `.sandcastle/mcp.md`, as glossaries only.
 
 A path not named in the upstream manifests is out of scope. An older `functional_specification_*.md`, an older `wayfinder/tickets/ticket-NNNN.md`, and `wayfinder/map.md` at the unscoped path are out of scope. Do not scan `specs/` or `wayfinder/tickets/` to fill a gap.
 
@@ -55,6 +72,8 @@ Edit a file only if its path is a line in `handoff/{{RUN_ID}}/implementer.txt`. 
 ## Tools
 
 A command is in scope when it checks a path named in the manifests, or a service that named file talks to. `node`, a typecheck, a test aimed at a named file, Redis, Postgres, and Neo4j are allowed for that check.
+
+**MCP Inspection:** You may read `.sandcastle/mcp.md` and use read-only MCP commands to verify external payload schemas against the implementer's code. You must NEVER execute state-altering or mutating MCP tool calls.
 
 A command is out of scope when it runs an old suite, opens an old spec, or probes a key this run did not write. Do not tour the repo to find more work.
 
@@ -87,9 +106,10 @@ Report the manifests read, the files reviewed, the checks run against those file
 
 ## Save the work
 
-1. All file writes for this session are finished. Do not write another file after this block.
-2. Run `git status --porcelain`. If it is empty, skip the commit.
-3. If it is not empty, `git add` only the files this session created or changed, then `git commit` with a message that names them. Do not push.
-4. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
-5. If it is empty, output `<promise>COMPLETE</promise>`.
+1. All in-scope file writes for this session are finished (including `handoff/{{RUN_ID}}/reviewer.txt`). Do not write another file after this block.
+2. Delete any temporary scratch files, ad-hoc diagnostic outputs, transient test caches (`.pytest_cache`, `__pycache__`), or unrequested side-effect files created during tool invocations so that no untracked leftovers remain in the worktree.
+3. Run `git status --porcelain`. If it is empty, skip the commit.
+4. If it is not empty, `git add` all in-scope files this session created or changed (including `handoff/{{RUN_ID}}/reviewer.txt` and any refined files or `assets/{{RUN_ID}}/` outputs), then `git commit` with a message that names them. Do not push.
+5. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
+6. If it is empty, output `<promise>COMPLETE</promise>`.
 

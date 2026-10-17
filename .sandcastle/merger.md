@@ -11,6 +11,23 @@ Role: merger. This is the last step. The open folder is the project you normally
 
 Do not redo planning, scanning, implementation, review, or testing. Do not close GitHub issues. Do not push.
 
+## Iteration & Worktree State Pre-Prompt Context (Target Plan Branch: `{{PLAN_BRANCH}}`, Run ID: `{{RUN_ID}}`, Max Iterations: 5)
+
+### Active Branch
+!`git branch --show-current 2>/dev/null || true`
+
+### Recent Commits on Active Branch
+!`git log -n 5 --oneline 2>/dev/null || true`
+
+### Current Working Tree & Merge Status
+!`git status --short 2>/dev/null || true`
+
+### Multi-Iteration Continuation Protocol
+- This stage executes across up to `5` iterations to merge `{{PLAN_BRANCH}}` into the open project branch for run `{{RUN_ID}}`.
+- At the start of each iteration, inspect the active branch, recent commits, and working tree status above.
+- If `{{PLAN_BRANCH}}` is already merged into the active branch and `git status --porcelain` is empty, do not create a duplicate commit; immediately emit `<promise>COMPLETE</promise>`.
+- If a prior iteration left an in-progress merge with unresolved conflicts, continue resolving the remaining conflicts deterministically under `INV-CONFLICT-FIDELITY-01`, stage and commit the join, and emit `<promise>COMPLETE</promise>` once `git status --porcelain` is empty.
+
 ## Join
 
 1. Run `git status` and `git branch --show-current`. The current branch must be the open project branch. If it is `{{PLAN_BRANCH}}`, stop.
@@ -243,9 +260,10 @@ Every execution of this skill must return a structured summary report comprising
 
 ## Save the work
 
-1. All file writes for this session are finished. Do not write another file after this block.
-2. Run `git status --porcelain`. If it is empty, or if `git merge` already saved the join, skip the commit.
-3. If it is not empty (and `git merge` did not already save the join), `git add` only the files this session created or changed, then `git commit` with a message that names them. Do not push.
-4. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
-5. If it is empty, output `<promise>COMPLETE</promise>`.
+1. All in-scope file writes for this session are finished. Do not write another file after this block.
+2. Delete any temporary scratch files, ad-hoc diagnostic outputs, or unrequested side-effect files created during tool invocations so that no untracked leftovers remain in the worktree.
+3. Run `git status --porcelain`. If it is empty, or if `git merge` already saved the join and the working tree is clean, skip the commit.
+4. If it is not empty (and `git merge` did not already save the join), `git add` only the files this session created or changed, then `git commit` with a message that names them (`join {{PLAN_BRANCH}}`). Do not push.
+5. Run `git status --porcelain` again. If it is not empty, stop. Do not output `<promise>COMPLETE</promise>`.
+6. If it is empty, output `<promise>COMPLETE</promise>`.
 

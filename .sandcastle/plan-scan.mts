@@ -1,287 +1,193 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { run } from "@ai-hero/sandcastle";
-import type { AgentProvider } from "@ai-hero/sandcastle";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
+import {
+    IDLE_TIMEOUT_SECONDS,
+    MAX_ITERATIONS,
+    type ActiveRunState,
+    antigravity,
+    assertClean,
+    assertPreFlightReady,
+    assertStageManifest,
+    bootstrapGrepShim,
+    commitLeftovers,
+    finalizeRunCleanup,
+    ignoreMissing,
+    isBranchAncestor,
+    mergeInto,
+    mintRunId,
+    removeWorktreeDir,
+    runStageWithManifestGate,
+    runWithLockRetry,
+    teardownWorktree,
+    worktreeDir,
+} from "./plan-skill-implement-review-test-merge.mts";
+
+export * from "./plan-skill-implement-review-test-merge.mts";
 
 // Ultra path: agy runs on the host so the macOS keychain session is used.
 // Do not set GEMINI_API_KEY or modelProvider=gemini. That switches off Ultra.
-// Run with: npx tsx .sandcastle/main.mts
-//
-// handoff/authored.txt must already be committed on main.
-// Start this script from main. The merger runs in that folder.
-// Each run uses new branch names, so old copies are not reopened.
-// Plan and both scans run together. Scans are joined into the plan save
-// only after all three finish, inside the plan worktree already open.
-// The merger then joins that into the open project.
-// Do not pass TARGET_BRANCH.
-// Model slugs come from `agy models`. A display name fails the run.
-// A git lock is retried, not treated as failure.
-// Each run waits 25 minutes of silence before Sandcastle's idle timeout fires.
+// Run with: npx tsx .sandcastle/plan-scan.mts
 
-const IDLE_TIMEOUT_SECONDS = 25 * 60;
-
-function shellQuote(value: string): string {
-    return `'${value.replace(/'/g, `'\\''`)}'`;
+if (existsSync(resolve(process.cwd(), ".sandcastle"))) {
+    bootstrapGrepShim(process.cwd());
 }
 
-function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
+export async function runPlanScanPipeline(authoredPath = "handoff/authored.txt"): Promise<void> {
+    const seeds = assertPreFlightReady(authoredPath, process.cwd());
+    mkdirSync(".sandcastle/logs", { recursive: true });
 
-function errorText(error: unknown): string {
-    if (error instanceof Error) {
-        return `${error.message}\n${error.cause instanceof Error ? error.cause.message : String(error.cause ?? "")}`;
-    }
-    return String(error);
-}
+    for (const seed of seeds) {
+        assertPreFlightReady(authoredPath, process.cwd());
 
-function isGitLock(error: unknown) {
-    const text = errorText(error);
-    return (
-        text.includes("could not lock config file") ||
-        text.includes("index.lock") ||
-        text.includes("config.lock") ||
-        text.includes(".lock")
-    );
-}
+        const runId = mintRunId();
+        const planBranch = `agent/plan-${runId}`;
+        const scanBranch1 = `agent/plan-scan-1-${runId}`;
+        const scanBranch2 = `agent/plan-scan-2-${runId}`;
 
-type StreamEvent =
-    | { type: "text"; text: string }
-    | { type: "result"; result: string }
-    | { type: "tool_call"; name: string; args: string };
+        const runState: ActiveRunState = {
+            runId,
+            planBranch,
+            scanBranch1,
+            scanBranch2,
+            scan1MergedIntoPlan: false,
+            scan2MergedIntoPlan: false,
+            planMergedAndVerifiedOnMain: false,
+        };
 
-function antigravity(model: string): AgentProvider {
-    const streamedSteps = new Set<number>();
-    return {
-        name: "antigravity",
-        env: {},
-        captureSessions: false,
-        buildPrintCommand({ prompt }) {
-            return {
-                command: [
-                    "agy",
-                    "-p",
-                    shellQuote(prompt),
-                    "--model",
-                    shellQuote(model),
-                    "--output-format",
-                    "stream-json",
-                    "--dangerously-skip-permissions",
-                ].join(" "),
-            };
-        },
-        parseStreamLine(line) {
-            try {
-                const ev = JSON.parse(line) as {
-                    event?: string;
-                    step_update?: {
-                        step_index?: number;
-                        state?: string;
-                        step_type?: string;
-                        tool_name?: string;
-                        text_delta?: string;
-                        thought?: string;
-                        thinking?: string;
-                        reasoning?: string;
-                        tool_info?: unknown;
-                    };
-                    result?: { response?: string; error?: string };
+        try {
+            function fileLog(name: string) {
+                return {
+                    type: "file" as const,
+                    verbose: true,
+                    path: `.sandcastle/logs/${runId}-${name}.log`,
                 };
-                if (ev.event === "result") {
-                    const response = ev.result?.response;
-                    const error = ev.result?.error;
-                    const resultText =
-                        typeof response === "string" && response.length > 0
-                            ? response
-                            : (error ?? "");
-                    return [
-                        {
-                            type: "result",
-                            result: resultText,
-                        },
-                    ];
-                }
-                if (ev.event !== "step_update" || !ev.step_update) return [];
+            }
 
-                const step = ev.step_update;
-                const events: StreamEvent[] = [];
-                const thought = [step.thought, step.thinking, step.reasoning].find(
-                    (value) => typeof value === "string" && value.length > 0,
-                );
-                if (thought) {
-                    events.push({ type: "text", text: `[thought] ${thought}` });
+            const parallel = [
+                {
+                    name: "plan",
+                    branch: planBranch,
+                    promptFile: "./.sandcastle/plan.md",
+                    model: "gemini-3.8-flash-high",
+                    manifest: `handoff/${runId}/wayfinder-read-and-plan.txt`,
+                },
+                {
+                    name: "plan-scan-1",
+                    branch: scanBranch1,
+                    promptFile: "./.sandcastle/plan-scan-1.md",
+                    model: "gemini-3.8-flash-high",
+                    manifest: `handoff/${runId}/plan-scan-1.txt`,
+                },
+                {
+                    name: "plan-scan-2",
+                    branch: scanBranch2,
+                    promptFile: "./.sandcastle/plan-scan-2.md",
+                    model: "gemini-3.8-flash-high",
+                    manifest: `handoff/${runId}/plan-scan-2.txt`,
+                },
+            ];
+
+            const settled = await Promise.allSettled(
+                parallel.map((agent) =>
+                    runStageWithManifestGate(agent.name, agent.branch, agent.manifest, () =>
+                        run({
+                            name: agent.name,
+                            agent: antigravity(agent.model),
+                            sandbox: noSandbox(),
+                            maxIterations: 5,
+                            promptFile: agent.promptFile,
+                            promptArgs: { BRANCH: agent.branch, RUN_ID: runId, SEED_PATH: seed },
+                            branchStrategy: { type: "branch", branch: agent.branch },
+                            logging: fileLog(agent.name),
+                            idleTimeoutSeconds: IDLE_TIMEOUT_SECONDS,
+                        }),
+                    ),
+                ),
+            );
+
+            for (const agent of parallel) {
+                const wtDir = worktreeDir(agent.branch);
+                if (existsSync(wtDir)) {
+                    commitLeftovers(wtDir, agent.branch, agent.name);
                 }
-                if (
-                    step.step_type === "agent_response" &&
-                    typeof step.text_delta === "string" &&
-                    step.text_delta.length > 0
-                ) {
-                    const index = step.step_index ?? -1;
-                    const alreadyStreamed = streamedSteps.has(index);
-                    if (step.state === "ACTIVE") {
-                        streamedSteps.add(index);
-                        events.push({ type: "text", text: step.text_delta });
-                    } else if (!alreadyStreamed) {
-                        events.push({ type: "text", text: step.text_delta });
-                    }
-                }
-                if (step.step_type === "tool") {
-                    events.push({
-                        type: "tool_call",
-                        name: step.tool_name ?? "tool",
-                        args: JSON.stringify(step.tool_info ?? {}),
+            }
+
+            for (const [index, result] of settled.entries()) {
+                const agent = parallel[index];
+                if (result.status === "rejected") {
+                    throw new Error(`${agent.name} (${agent.branch}) failed for ${seed}`, {
+                        cause: result.reason,
                     });
                 }
-                return events;
-            } catch {
-                // Non-JSON log lines are ignored. verbose still keeps the raw line.
             }
-            return [];
-        },
-    };
-}
 
-function ignoreMissing(command: string[], cwd?: string) {
-    try {
-        execFileSync(command[0], command.slice(1), { cwd, stdio: "inherit" });
-    } catch {
-        // The temporary merge folder is already gone.
-    }
-}
+            mergeInto(planBranch, scanBranch1);
+            runState.scan1MergedIntoPlan = isBranchAncestor(scanBranch1, planBranch);
 
-function worktreeDir(branch: string) {
-    return `.sandcastle/worktrees/${branch.replaceAll("/", "-")}`;
-}
+            mergeInto(planBranch, scanBranch2);
+            runState.scan2MergedIntoPlan = isBranchAncestor(scanBranch2, planBranch);
 
-function commitLeftovers(dir: string, branch: string) {
-    const status = execFileSync("git", ["status", "--porcelain"], {
-        cwd: dir,
-        encoding: "utf8",
-    });
-    if (status.trim().length === 0) return;
-    execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "inherit" });
-    execFileSync(
-        "git",
-        ["commit", "-m", `chore: keep uncommitted plan files on ${branch}`],
-        { cwd: dir, stdio: "inherit" },
-    );
-}
+            assertStageManifest("parallel-join", planBranch, [
+                `handoff/${runId}/wayfinder-read-and-plan.txt`,
+                `handoff/${runId}/plan-scan-1.txt`,
+                `handoff/${runId}/plan-scan-2.txt`,
+            ]);
 
-function mergeInto(branch: string, fromBranch: string) {
-    const existing = worktreeDir(branch);
-    if (!existsSync(existing)) {
-        throw new Error(
-            `${branch} has no worktree at ${existing}. Refusing a second checkout.`,
-        );
-    }
-    commitLeftovers(existing, branch);
-    try {
-        execFileSync("git", ["merge", "--no-ff", "--no-edit", fromBranch], {
-            cwd: existing,
-            stdio: "inherit",
-        });
-    } catch (error) {
-        ignoreMissing(["git", "merge", "--abort"], existing);
-        throw error;
-    }
-}
+            teardownWorktree(scanBranch1, {
+                deleteBranch: runState.scan1MergedIntoPlan,
+                verifiedTargetRef: planBranch,
+                requireCleanHost: false,
+            });
+            teardownWorktree(scanBranch2, {
+                deleteBranch: runState.scan2MergedIntoPlan,
+                verifiedTargetRef: planBranch,
+                requireCleanHost: false,
+            });
 
-async function runWithLockRetry(
-    name: string,
-    branch: string,
-    launch: () => Promise<{ commits: unknown[] }>,
-) {
-    for (let attempt = 1; attempt <= 6; attempt++) {
-        try {
-            const result = await launch();
-            console.log(`${name} (${branch}) commits: ${result.commits.length}`);
-            return result;
-        } catch (error) {
-            if (!isGitLock(error) || attempt === 6) throw error;
-            console.log(`${name} hit a git lock, retry ${attempt}/5`);
-            await sleep(500 * attempt);
+            removeWorktreeDir(planBranch, { consolidateBeforeRemove: true });
+            ignoreMissing(["git", "worktree", "prune"]);
+
+            const merger = await runWithLockRetry("merger", "main", () =>
+                run({
+                    name: "merger",
+                    agent: antigravity("gemini-3.8-flash-high"),
+                    sandbox: noSandbox(),
+                    maxIterations: 5,
+                    promptFile: "./.sandcastle/merger.md",
+                    promptArgs: { PLAN_BRANCH: planBranch, RUN_ID: runId },
+                    branchStrategy: { type: "head" },
+                    logging: fileLog("merger"),
+                    idleTimeoutSeconds: IDLE_TIMEOUT_SECONDS,
+                }),
+            );
+            console.log(`merger (main) commits: ${merger.commits.length}`);
+            if (!isBranchAncestor(planBranch, "HEAD")) {
+                throw new Error(
+                    `merger failed verification: ${planBranch} is not an ancestor of HEAD on main.`,
+                );
+            }
+            assertClean(planBranch);
+            runState.planMergedAndVerifiedOnMain = true;
+            console.log(`plan branch: ${planBranch}`);
+        } finally {
+            finalizeRunCleanup(runState, process.cwd());
         }
     }
-    throw new Error(`${name} (${branch}) failed after git lock retries`);
 }
 
-const runId = `${new Date().toISOString().replace(/[-:]/g, "").replace(/\..+$/, "")}-${String(Date.now() % 1000).padStart(3, "0")}-${Math.random().toString(36).slice(2, 6)}`;
-const planBranch = `agent/plan-${runId}`;
-const scanBranch1 = `agent/plan-scan-1-${runId}`;
-const scanBranch2 = `agent/plan-scan-2-${runId}`;
-
-mkdirSync(".sandcastle/logs", { recursive: true });
-
-function fileLog(name: string) {
-    return {
-        type: "file" as const,
-        verbose: true,
-        path: `.sandcastle/logs/${runId}-${name}.log`,
-    };
-}
-
-const parallel = [
-    {
-        name: "plan",
-        branch: planBranch,
-        promptFile: "./.sandcastle/plan.md",
-        model: "gemini-3.8-flash-high",
-    },
-    {
-        name: "plan-scan-1",
-        branch: scanBranch1,
-        promptFile: "./.sandcastle/plan-scan-1.md",
-        model: "gemini-3.8-flash-high",
-    },
-    {
-        name: "plan-scan-2",
-        branch: scanBranch2,
-        promptFile: "./.sandcastle/plan-scan-2.md",
-        model: "gemini-3.8-flash-high",
-    },
-];
-
-const settled = await Promise.allSettled(
-    parallel.map((agent) =>
-        runWithLockRetry(agent.name, agent.branch, () =>
-            run({
-                name: agent.name,
-                agent: antigravity(agent.model),
-                sandbox: noSandbox(),
-                promptFile: agent.promptFile,
-                promptArgs: { BRANCH: agent.branch, RUN_ID: runId },
-                branchStrategy: { type: "branch", branch: agent.branch },
-                logging: fileLog(agent.name),
-                idleTimeoutSeconds: IDLE_TIMEOUT_SECONDS,
-            }),
-        ),
-    ),
-);
-
-for (const [index, result] of settled.entries()) {
-    const agent = parallel[index];
-    if (result.status === "rejected") {
-        throw new Error(`${agent.name} (${agent.branch}) failed`, {
-            cause: result.reason,
-        });
+function isMainEntry(): boolean {
+    if (!process.argv[1]) return false;
+    try {
+        return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]));
+    } catch {
+        return resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
     }
 }
 
-mergeInto(planBranch, scanBranch1);
-mergeInto(planBranch, scanBranch2);
-
-const merger = await runWithLockRetry("merger", "main", () =>
-    run({
-        name: "merger",
-        agent: antigravity("gemini-3.8-flash-high"),
-        sandbox: noSandbox(),
-        promptFile: "./.sandcastle/merger.md",
-        promptArgs: { PLAN_BRANCH: planBranch, RUN_ID: runId },
-        branchStrategy: { type: "head" },
-        logging: fileLog("merger"),
-        idleTimeoutSeconds: IDLE_TIMEOUT_SECONDS,
-    }),
-);
-console.log(`merger (main) commits: ${merger.commits.length}`);
-console.log(`plan branch: ${planBranch}`);
+if (isMainEntry()) {
+    await runPlanScanPipeline("handoff/authored.txt");
+}
