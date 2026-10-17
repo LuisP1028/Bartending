@@ -137,14 +137,19 @@ export default function GameBoy3DShell({
   const onPressSelectRef = useRef(onPressSelect);
   onPressSelectRef.current = onPressSelect;
 
-  // Refs to animate 3D parts on press/release and console 3D axis rotation (FS120)
+  // Refs to animate 3D parts on press/release, console 3D axis rotation (FS120), and mobile screen zoom (FS121)
   const partsRef = useRef<Partial<Record<PartName, THREE.Object3D>>>({});
   const startPositionsRef = useRef<Partial<Record<PartName, THREE.Vector3>>>({});
   const crossGroupRef = useRef<THREE.Group | null>(null);
   const localScreenBoxRef = useRef<THREE.Box3 | null>(null);
+  const localButtonBoxesRef = useRef<Record<string, THREE.Box3>>({});
   const baseScreenRectRef = useRef<ProjectedRect | null>(null);
+  const liveButtonRectsRef = useRef<Record<string, ProjectedRect>>({});
   const targetRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const currentRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isScreenZoomedRef = useRef(false);
+  const targetZoomRef = useRef(0);
+  const currentZoomRef = useRef(0);
   const isSpinDraggingRef = useRef(false);
   const motionPermissionRequestedRef = useRef(false);
   const targetCrossRotRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -156,6 +161,20 @@ export default function GameBoy3DShell({
   });
   const powerOnRef = useRef(true);
   powerOnRef.current = powerOn;
+
+  const isMobileViewport = useCallback((): boolean => {
+    if (typeof window === 'undefined') return false;
+    const w = hostRef.current?.clientWidth || window.innerWidth;
+    if (w <= 768) return true;
+    if (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(hover: none) and (pointer: coarse)').matches &&
+      w <= 920
+    ) {
+      return true;
+    }
+    return false;
+  }, []);
 
   const resetRotationToOrigin = useCallback(() => {
     let cy = currentRotRef.current.y;
@@ -197,28 +216,40 @@ export default function GameBoy3DShell({
 
   const triggerDpad = useCallback(
     (dir: DpadDirection) => {
+      if (isSpinDraggingRef.current) return;
       pulseCross3D(dir);
+      // FS121 (INV-MOBILE-DPAD-ZOOM-01 / AC-01): On mobile viewports, D-Pad activation
+      // enters the Screen-Zoomed Camera State and centers any console tilt to (0, 0, 0).
+      if (isMobileViewport()) {
+        isScreenZoomedRef.current = true;
+        targetZoomRef.current = 1;
+        resetRotationToOrigin();
+      }
       onDpadRef.current?.(dir);
     },
-    [pulseCross3D]
+    [isMobileViewport, pulseCross3D, resetRotationToOrigin]
   );
 
   const triggerB = useCallback(() => {
+    if (isSpinDraggingRef.current) return;
     pulseButton3D('button-b', 0.055);
     onPressBRef.current?.();
   }, [pulseButton3D]);
 
   const triggerA = useCallback(() => {
+    if (isSpinDraggingRef.current) return;
     pulseButton3D('button-a', 0.055);
     onPressARef.current?.();
   }, [pulseButton3D]);
 
   const triggerStart = useCallback(() => {
+    if (isSpinDraggingRef.current) return;
     pulseButton3D('button-start', 0.039);
     onPressStartRef.current?.();
   }, [pulseButton3D]);
 
   const triggerSelect = useCallback(() => {
+    if (isSpinDraggingRef.current) return;
     pulseButton3D('button-select', 0.039);
     onPressSelectRef.current?.();
   }, [pulseButton3D]);
@@ -342,49 +373,77 @@ export default function GameBoy3DShell({
       uMixPercent: { value: number };
     } | null = null;
 
-    const updateLayoutAndProjections = () => {
-      if (disposed || !host) return;
-      const w = Math.max(1, host.clientWidth);
-      const h = Math.max(1, host.clientHeight);
+    const interactiveNames: PartName[] = [
+      'button-b',
+      'button-a',
+      'button-start',
+      'button-select',
+      'button-cross-up',
+      'button-cross-down',
+      'button-cross-left',
+      'button-cross-right',
+    ];
 
-      renderer.setSize(w, h, false);
+    const applyCameraFramingForZoom = (w: number, h: number, zoom: number) => {
       camera.aspect = w / h;
 
+      // 1. Normal Full-Console Framing (zoom = 0):
       // Frame the Game Boy so the screen AND physical control cluster (D-Pad, B, A, Start, Select)
       // fit comfortably inside any desktop or mobile viewport while maximizing screen legibility.
       const targetMinY = -1.55;
       const targetMaxY = 1.92;
-      const targetCenterY = (targetMinY + targetMaxY) * 0.5; // +0.185
+      const normalCenterX = 0;
+      const normalCenterY = (targetMinY + targetMaxY) * 0.5; // +0.185
       const spanY = (targetMaxY - targetMinY) * 1.04; // ~3.61 units
       const spanX = 2.38; // full width of Game Boy body (2.251) + margin
       const frontZ = 0.355;
 
       const vFovRad = THREE.MathUtils.degToRad(camera.fov);
       const tanHalfVFov = Math.tan(vFovRad * 0.5);
-      const tanHalfHFov = tanHalfVFov * camera.aspect;
+      const tanHalfHFov = Math.max(0.05, tanHalfVFov * camera.aspect);
 
       const distForHeight = (spanY * 0.5) / tanHalfVFov;
-      const distForWidth = (spanX * 0.5) / Math.max(0.05, tanHalfHFov);
-      const camDist = Math.max(distForHeight, distForWidth);
+      const distForWidth = (spanX * 0.5) / tanHalfHFov;
+      const normalCamDist = Math.max(distForHeight, distForWidth);
+      const normalCamZ = frontZ + normalCamDist;
 
-      camera.position.set(0, targetCenterY, frontZ + camDist);
-      camera.lookAt(0, targetCenterY, 0);
+      // 2. Screen-Zoomed Framing (zoom = 1, FS121):
+      // Center vertically and horizontally on the 3D Game Boy screen aperture and move closer
+      // so the 3D Game Boy screen fills ~94% of the mobile viewport width (>= 90% per AC-01)
+      // while the surrounding 3D Game Boy shell/bezel remains diegetically visible around it.
+      const sBox = localScreenBoxRef.current;
+      let zoomCenterX = normalCenterX;
+      let zoomCenterY = normalCenterY;
+      let zoomCamZ = normalCamZ;
+
+      if (sBox) {
+        zoomCenterX = (sBox.min.x + sBox.max.x) * 0.5;
+        zoomCenterY = (sBox.min.y + sBox.max.y) * 0.5;
+        const screenFrontZ = sBox.max.z;
+        const screenW = Math.max(0.1, sBox.max.x - sBox.min.x);
+        const screenH = Math.max(0.1, sBox.max.y - sBox.min.y);
+        const zoomSpanX = screenW / 0.94;
+        const zoomSpanY = screenH / 0.90;
+        const zoomDistForWidth = (zoomSpanX * 0.5) / tanHalfHFov;
+        const zoomDistForHeight = (zoomSpanY * 0.5) / tanHalfVFov;
+        const zoomCamDist = Math.max(zoomDistForWidth, zoomDistForHeight);
+        zoomCamZ = screenFrontZ + zoomCamDist;
+      }
+
+      const camX = THREE.MathUtils.lerp(normalCenterX, zoomCenterX, zoom);
+      const camY = THREE.MathUtils.lerp(normalCenterY, zoomCenterY, zoom);
+      const camZ = THREE.MathUtils.lerp(normalCamZ, zoomCamZ, zoom);
+
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(camX, camY, 0);
       camera.updateMatrixWorld(true);
       camera.updateProjectionMatrix();
+    };
 
-      const parts = partsRef.current;
-      if (!parts.screen) return;
-
-      // Compute base unrotated screen and button rects at (0, 0, 0)
-      const savedRx = gameBoyRoot.rotation.x;
-      const savedRy = gameBoyRoot.rotation.y;
-      gameBoyRoot.rotation.set(0, 0, 0);
-      gameBoyRoot.updateMatrixWorld(true);
-
-      const screenBox = new THREE.Box3().setFromObject(parts.screen);
-      localScreenBoxRef.current = screenBox.clone();
-      const nextScreenRect = projectBoxToViewport(screenBox, camera, w, h);
-      baseScreenRectRef.current = nextScreenRect;
+    const syncProjectedRectsToReactState = (
+      nextScreenRect: ProjectedRect,
+      nextBtnRects: Record<string, ProjectedRect>
+    ) => {
       setScreenRect((prev) => {
         if (
           prev &&
@@ -397,30 +456,85 @@ export default function GameBoy3DShell({
         }
         return nextScreenRect;
       });
+      setButtonRects((prev) => {
+        for (const name of interactiveNames) {
+          const a = prev[name];
+          const b = nextBtnRects[name];
+          if (!a && !b) continue;
+          if (
+            !a ||
+            !b ||
+            Math.abs(a.left - b.left) >= 0.5 ||
+            Math.abs(a.top - b.top) >= 0.5 ||
+            Math.abs(a.width - b.width) >= 0.5 ||
+            Math.abs(a.height - b.height) >= 0.5
+          ) {
+            return { ...nextBtnRects };
+          }
+        }
+        return prev;
+      });
+    };
 
-      const interactiveNames: PartName[] = [
-        'button-b',
-        'button-a',
-        'button-start',
-        'button-select',
-        'button-cross-up',
-        'button-cross-down',
-        'button-cross-left',
-        'button-cross-right',
-      ];
+    const updateLayoutAndProjections = () => {
+      if (disposed || !host) return;
+      const w = Math.max(1, host.clientWidth);
+      const h = Math.max(1, host.clientHeight);
+
+      renderer.setSize(w, h, false);
+
+      // FS121 (INV-DESKTOP-STABILITY-01): If resized to desktop, exit mobile screen zoom
+      if (!isMobileViewport() && isScreenZoomedRef.current) {
+        isScreenZoomedRef.current = false;
+        targetZoomRef.current = 0;
+        currentZoomRef.current = 0;
+      }
+
+      const parts = partsRef.current;
+      if (!parts.screen) {
+        applyCameraFramingForZoom(w, h, currentZoomRef.current);
+        return;
+      }
+
+      // Ensure unrotated local 3D bounding boxes are cached at (0, 0, 0)
+      if (!localScreenBoxRef.current) {
+        const savedRx = gameBoyRoot.rotation.x;
+        const savedRy = gameBoyRoot.rotation.y;
+        gameBoyRoot.rotation.set(0, 0, 0);
+        gameBoyRoot.updateMatrixWorld(true);
+
+        localScreenBoxRef.current = new THREE.Box3().setFromObject(parts.screen);
+        const btnBoxes: Record<string, THREE.Box3> = {};
+        for (const name of interactiveNames) {
+          const obj = parts[name];
+          if (obj) {
+            btnBoxes[name] = new THREE.Box3().setFromObject(obj);
+          }
+        }
+        localButtonBoxesRef.current = btnBoxes;
+
+        gameBoyRoot.rotation.x = savedRx;
+        gameBoyRoot.rotation.y = savedRy;
+        gameBoyRoot.updateMatrixWorld(true);
+      }
+
+      applyCameraFramingForZoom(w, h, currentZoomRef.current);
+
+      const sBox = localScreenBoxRef.current;
+      if (!sBox) return;
+
+      const nextScreenRect = projectBoxToViewport(sBox, camera, w, h);
+      baseScreenRectRef.current = nextScreenRect;
+
       const nextBtnRects: Record<string, ProjectedRect> = {};
       for (const name of interactiveNames) {
-        const obj = parts[name];
-        if (obj) {
-          const box = new THREE.Box3().setFromObject(obj);
-          nextBtnRects[name] = projectBoxToViewport(box, camera, w, h);
+        const bBox = localButtonBoxesRef.current[name];
+        if (bBox) {
+          nextBtnRects[name] = projectBoxToViewport(bBox, camera, w, h);
         }
       }
-      setButtonRects(nextBtnRects);
-
-      gameBoyRoot.rotation.x = savedRx;
-      gameBoyRoot.rotation.y = savedRy;
-      gameBoyRoot.updateMatrixWorld(true);
+      liveButtonRectsRef.current = nextBtnRects;
+      syncProjectedRectsToReactState(nextScreenRect, nextBtnRects);
     };
 
     Promise.all([
@@ -514,7 +628,7 @@ export default function GameBoy3DShell({
         }
       });
 
-    // Raycaster & pointer-drag 3D axis spin controller (FS120)
+    // Raycaster & pointer-drag 3D axis spin controller (FS120 & FS121)
     const raycaster = new THREE.Raycaster();
     const pointerNdc = new THREE.Vector2();
 
@@ -602,6 +716,12 @@ export default function GameBoy3DShell({
       if (!isSpinDraggingRef.current) {
         if (Math.hypot(totalDx, totalDy) < 5) return;
         isSpinDraggingRef.current = true;
+        // FS121 (INV-ROTATE-UNZOOM-01 / AC-03): Console rotation drag immediately exits
+        // the Screen-Zoomed Camera State and smoothly zooms back out to normal framing.
+        if (isScreenZoomedRef.current) {
+          isScreenZoomedRef.current = false;
+          targetZoomRef.current = 0;
+        }
         try {
           host.setPointerCapture(e.pointerId);
         } catch {
@@ -627,7 +747,6 @@ export default function GameBoy3DShell({
       if (activePointerId === null || e.pointerId !== activePointerId) return;
       const wasDragging = isSpinDraggingRef.current;
       activePointerId = null;
-      isSpinDraggingRef.current = false;
       try {
         if (host.hasPointerCapture(e.pointerId)) {
           host.releasePointerCapture(e.pointerId);
@@ -641,6 +760,9 @@ export default function GameBoy3DShell({
       }
       downHitPart = undefined;
       downCameFromDomButton = false;
+      window.setTimeout(() => {
+        isSpinDraggingRef.current = false;
+      }, 0);
     };
 
     host.addEventListener('pointerdown', onHostPointerDown);
@@ -669,6 +791,32 @@ export default function GameBoy3DShell({
 
       const parts = partsRef.current;
       const starts = startPositionsRef.current;
+      const vw = Math.max(1, host.clientWidth);
+      const vh = Math.max(1, host.clientHeight);
+
+      // Smoothly interpolate mobile screen-zoom state (FS121)
+      const mobile = isMobileViewport();
+      if (!mobile && isScreenZoomedRef.current) {
+        isScreenZoomedRef.current = false;
+        targetZoomRef.current = 0;
+      }
+      const targetZoom = isScreenZoomedRef.current && mobile ? 1 : 0;
+      targetZoomRef.current = targetZoom;
+      const prevZoom = currentZoomRef.current;
+      currentZoomRef.current += (targetZoom - currentZoomRef.current) * 0.22;
+      if (Math.abs(targetZoom - currentZoomRef.current) < 0.0005) {
+        currentZoomRef.current = targetZoom;
+      }
+      const zoomChanged = Math.abs(currentZoomRef.current - prevZoom) > 1e-6;
+
+      host.setAttribute(
+        'data-screen-zoomed',
+        isScreenZoomedRef.current && mobile ? 'true' : 'false'
+      );
+      host.setAttribute('data-camera-zoom', currentZoomRef.current.toFixed(4));
+
+      // Update camera framing for current zoom progress
+      applyCameraFramingForZoom(vw, vh, currentZoomRef.current);
 
       // Smoothly interpolate 3D console axis rotation (FS120)
       currentRotRef.current.x +=
@@ -688,13 +836,81 @@ export default function GameBoy3DShell({
       host.setAttribute('data-rotation-x', currentRotRef.current.x.toFixed(4));
       host.setAttribute('data-rotation-y', currentRotRef.current.y.toFixed(4));
 
-      // Synchronize 3D screen homography & back-face occlusion
+      // Synchronize 1:1 screen & button projections + 3D screen homography & back-face occlusion
       const sBox = localScreenBoxRef.current;
-      const baseRect = baseScreenRectRef.current;
       const screenEl = screenContRef.current;
       const controlsEl = controlsContRef.current;
 
-      if (sBox && baseRect && screenEl) {
+      if (sBox && screenEl) {
+        const liveRect = projectBoxToViewport(sBox, camera, vw, vh);
+        baseScreenRectRef.current = liveRect;
+
+        screenEl.style.left = `${liveRect.left}px`;
+        screenEl.style.top = `${liveRect.top}px`;
+        screenEl.style.width = `${liveRect.width}px`;
+        screenEl.style.height = `${liveRect.height}px`;
+
+        if (controlsEl) {
+          const nextBtnRects: Record<string, ProjectedRect> = {};
+          for (const name of interactiveNames) {
+            const bBox = localButtonBoxesRef.current[name];
+            if (!bBox) continue;
+            nextBtnRects[name] = projectBoxToViewport(bBox, camera, vw, vh);
+          }
+
+          // When zoomed into the screen on mobile, keep the 4 D-Pad cross hit targets
+          // translated together inside the lower viewport shell area so subsequent D-Pad taps
+          // remain directly reachable inside the viewport without overlapping the screen.
+          if (currentZoomRef.current > 0.01) {
+            const crossNames = [
+              'button-cross-up',
+              'button-cross-down',
+              'button-cross-left',
+              'button-cross-right',
+            ] as const;
+            let cMinX = Infinity;
+            let cMaxY = -Infinity;
+            for (const cn of crossNames) {
+              const r = nextBtnRects[cn];
+              if (!r) continue;
+              if (r.left < cMinX) cMinX = r.left;
+              if (r.top + r.height > cMaxY) cMaxY = r.top + r.height;
+            }
+            const dx = cMinX < 4 ? 4 - cMinX : 0;
+            const dy = cMaxY > vh - 4 ? vh - 4 - cMaxY : 0;
+            if (dx !== 0 || dy !== 0) {
+              for (const cn of crossNames) {
+                const r = nextBtnRects[cn];
+                if (!r) continue;
+                nextBtnRects[cn] = {
+                  left: r.left + dx,
+                  top: r.top + dy,
+                  width: r.width,
+                  height: r.height,
+                };
+              }
+            }
+          }
+
+          for (const name of interactiveNames) {
+            const r = nextBtnRects[name];
+            if (!r) continue;
+            const btnEl = controlsEl.querySelector(
+              `[data-part="${name}"]`
+            ) as HTMLElement | null;
+            if (btnEl) {
+              btnEl.style.left = `${r.left}px`;
+              btnEl.style.top = `${r.top}px`;
+              btnEl.style.width = `${r.width}px`;
+              btnEl.style.height = `${r.height}px`;
+            }
+          }
+          liveButtonRectsRef.current = nextBtnRects;
+          if (zoomChanged && Math.abs(targetZoom - currentZoomRef.current) === 0) {
+            syncProjectedRectsToReactState(liveRect, nextBtnRects);
+          }
+        }
+
         worldCenterVec
           .set(
             (sBox.min.x + sBox.max.x) * 0.5,
@@ -738,15 +954,13 @@ export default function GameBoy3DShell({
 
           screenEl.style.pointerEvents = isInteractiveFront ? 'auto' : 'none';
           if (controlsEl) {
-            controlsEl.style.visibility = isNearZero ? 'visible' : 'hidden';
+            controlsEl.style.visibility = isInteractiveFront ? 'visible' : 'hidden';
           }
 
           if (isNearZero) {
             screenEl.style.transformOrigin = '0 0';
             screenEl.style.transform = 'perspective(2000px) rotateX(0.01deg)';
           } else {
-            const vw = Math.max(1, host.clientWidth);
-            const vh = Math.max(1, host.clientHeight);
             vpMatrix.multiplyMatrices(
               camera.projectionMatrix,
               camera.matrixWorldInverse
@@ -757,10 +971,10 @@ export default function GameBoy3DShell({
               .set(sBox.min.x, sBox.max.y, sBox.max.z, 1)
               .applyMatrix4(mvpMatrix);
             euVec
-              .set((sBox.max.x - sBox.min.x) / baseRect.width, 0, 0, 0)
+              .set((sBox.max.x - sBox.min.x) / liveRect.width, 0, 0, 0)
               .applyMatrix4(mvpMatrix);
             evVec
-              .set(0, (sBox.min.y - sBox.max.y) / baseRect.height, 0, 0)
+              .set(0, (sBox.min.y - sBox.max.y) / liveRect.height, 0, 0)
               .applyMatrix4(mvpMatrix);
 
             const w0 = Math.abs(p0Vec.w) > 1e-6 ? p0Vec.w : 1e-6;
@@ -773,12 +987,12 @@ export default function GameBoy3DShell({
             const raw22 = (0.5 * vh * (-evVec.y + evVec.w)) / w0;
             const raw23 = (0.5 * vh * (-p0Vec.y + p0Vec.w)) / w0;
 
-            const h11 = raw11 - baseRect.left * h31;
-            const h12 = raw12 - baseRect.left * h32;
-            const h13 = raw13 - baseRect.left;
-            const h21 = raw21 - baseRect.top * h31;
-            const h22 = raw22 - baseRect.top * h32;
-            const h23 = raw23 - baseRect.top;
+            const h11 = raw11 - liveRect.left * h31;
+            const h12 = raw12 - liveRect.left * h32;
+            const h13 = raw13 - liveRect.left;
+            const h21 = raw21 - liveRect.top * h31;
+            const h22 = raw22 - liveRect.top * h32;
+            const h23 = raw23 - liveRect.top;
 
             screenEl.style.transformOrigin = '0 0';
             screenEl.style.transform = `matrix3d(${h11},${h21},0,${h31},${h12},${h22},0,${h32},0,0,1,0,${h13},${h23},0,1)`;
@@ -833,6 +1047,7 @@ export default function GameBoy3DShell({
       renderer.dispose();
     };
   }, [
+    isMobileViewport,
     requestMotionPermissionIfNeeded,
     triggerA,
     triggerB,
@@ -864,6 +1079,12 @@ export default function GameBoy3DShell({
     );
   }
 
+  const activeScreenRect = baseScreenRectRef.current ?? screenRect;
+  const activeBtnRects =
+    Object.keys(liveButtonRectsRef.current).length > 0
+      ? liveButtonRectsRef.current
+      : buttonRects;
+
   return (
     <div
       ref={hostRef}
@@ -871,6 +1092,8 @@ export default function GameBoy3DShell({
       data-rotation-x="0.0000"
       data-rotation-y="0.0000"
       data-screen-visible="true"
+      data-screen-zoomed="false"
+      data-camera-zoom="0.0000"
       style={{
         position: 'relative',
         width: '100%',
@@ -899,16 +1122,16 @@ export default function GameBoy3DShell({
       />
 
       {/* Native-Color DITHER-OS Bartending Screen mounted strictly on the projected 3D `screen` mesh */}
-      {screenRect && (
+      {activeScreenRect && (
         <div
           ref={screenContRef}
           className="gb-shell__screen-cont gb-3d-screen-projection"
           style={{
             position: 'absolute',
-            left: `${screenRect.left}px`,
-            top: `${screenRect.top}px`,
-            width: `${screenRect.width}px`,
-            height: `${screenRect.height}px`,
+            left: `${activeScreenRect.left}px`,
+            top: `${activeScreenRect.top}px`,
+            width: `${activeScreenRect.width}px`,
+            height: `${activeScreenRect.height}px`,
             margin: 0,
             padding: 0,
             background: '#0b0b0e',
@@ -971,19 +1194,20 @@ export default function GameBoy3DShell({
           zIndex: 4,
         }}
       >
-        {buttonRects['button-cross-up'] && (
+        {activeBtnRects['button-cross-up'] && (
           <button
             type="button"
+            data-part="button-cross-up"
             className="gb-shell__dpad gb-shell__dpad--up"
             aria-label="Scroll Up (D-Pad Up)"
             title="Scroll Up (D-Pad Up)"
             onClick={() => triggerDpad('up')}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-cross-up'].left}px`,
-              top: `${buttonRects['button-cross-up'].top}px`,
-              width: `${buttonRects['button-cross-up'].width}px`,
-              height: `${buttonRects['button-cross-up'].height}px`,
+              left: `${activeBtnRects['button-cross-up'].left}px`,
+              top: `${activeBtnRects['button-cross-up'].top}px`,
+              width: `${activeBtnRects['button-cross-up'].width}px`,
+              height: `${activeBtnRects['button-cross-up'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -997,19 +1221,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-cross-down'] && (
+        {activeBtnRects['button-cross-down'] && (
           <button
             type="button"
+            data-part="button-cross-down"
             className="gb-shell__dpad gb-shell__dpad--down"
             aria-label="Scroll Down (D-Pad Down)"
             title="Scroll Down (D-Pad Down)"
             onClick={() => triggerDpad('down')}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-cross-down'].left}px`,
-              top: `${buttonRects['button-cross-down'].top}px`,
-              width: `${buttonRects['button-cross-down'].width}px`,
-              height: `${buttonRects['button-cross-down'].height}px`,
+              left: `${activeBtnRects['button-cross-down'].left}px`,
+              top: `${activeBtnRects['button-cross-down'].top}px`,
+              width: `${activeBtnRects['button-cross-down'].width}px`,
+              height: `${activeBtnRects['button-cross-down'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1023,19 +1248,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-cross-left'] && (
+        {activeBtnRects['button-cross-left'] && (
           <button
             type="button"
+            data-part="button-cross-left"
             className="gb-shell__dpad gb-shell__dpad--left"
             aria-label="Scroll Left (D-Pad Left)"
             title="Scroll Left (D-Pad Left)"
             onClick={() => triggerDpad('left')}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-cross-left'].left}px`,
-              top: `${buttonRects['button-cross-left'].top}px`,
-              width: `${buttonRects['button-cross-left'].width}px`,
-              height: `${buttonRects['button-cross-left'].height}px`,
+              left: `${activeBtnRects['button-cross-left'].left}px`,
+              top: `${activeBtnRects['button-cross-left'].top}px`,
+              width: `${activeBtnRects['button-cross-left'].width}px`,
+              height: `${activeBtnRects['button-cross-left'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1049,19 +1275,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-cross-right'] && (
+        {activeBtnRects['button-cross-right'] && (
           <button
             type="button"
+            data-part="button-cross-right"
             className="gb-shell__dpad gb-shell__dpad--right"
             aria-label="Scroll Right (D-Pad Right)"
             title="Scroll Right (D-Pad Right)"
             onClick={() => triggerDpad('right')}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-cross-right'].left}px`,
-              top: `${buttonRects['button-cross-right'].top}px`,
-              width: `${buttonRects['button-cross-right'].width}px`,
-              height: `${buttonRects['button-cross-right'].height}px`,
+              left: `${activeBtnRects['button-cross-right'].left}px`,
+              top: `${activeBtnRects['button-cross-right'].top}px`,
+              width: `${activeBtnRects['button-cross-right'].width}px`,
+              height: `${activeBtnRects['button-cross-right'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1075,19 +1302,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-b'] && (
+        {activeBtnRects['button-b'] && (
           <button
             type="button"
+            data-part="button-b"
             className="gb-shell__btn-b"
             aria-label="Back / Close (B Button)"
             title="Back / Close (B Button)"
             onClick={triggerB}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-b'].left}px`,
-              top: `${buttonRects['button-b'].top}px`,
-              width: `${buttonRects['button-b'].width}px`,
-              height: `${buttonRects['button-b'].height}px`,
+              left: `${activeBtnRects['button-b'].left}px`,
+              top: `${activeBtnRects['button-b'].top}px`,
+              width: `${activeBtnRects['button-b'].width}px`,
+              height: `${activeBtnRects['button-b'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1101,19 +1329,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-a'] && (
+        {activeBtnRects['button-a'] && (
           <button
             type="button"
+            data-part="button-a"
             className="gb-shell__btn-a"
             aria-label="Interact / Select (A Button)"
             title="Interact / Select (A Button)"
             onClick={triggerA}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-a'].left}px`,
-              top: `${buttonRects['button-a'].top}px`,
-              width: `${buttonRects['button-a'].width}px`,
-              height: `${buttonRects['button-a'].height}px`,
+              left: `${activeBtnRects['button-a'].left}px`,
+              top: `${activeBtnRects['button-a'].top}px`,
+              width: `${activeBtnRects['button-a'].width}px`,
+              height: `${activeBtnRects['button-a'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1127,19 +1356,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-select'] && (
+        {activeBtnRects['button-select'] && (
           <button
             type="button"
+            data-part="button-select"
             className="gb-shell__btn-select"
             aria-label="Options / Menu (Select Button)"
             title="Options / Menu (Select Button)"
             onClick={triggerSelect}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-select'].left}px`,
-              top: `${buttonRects['button-select'].top}px`,
-              width: `${buttonRects['button-select'].width}px`,
-              height: `${buttonRects['button-select'].height}px`,
+              left: `${activeBtnRects['button-select'].left}px`,
+              top: `${activeBtnRects['button-select'].top}px`,
+              width: `${activeBtnRects['button-select'].width}px`,
+              height: `${activeBtnRects['button-select'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
@@ -1153,19 +1383,20 @@ export default function GameBoy3DShell({
             }}
           />
         )}
-        {buttonRects['button-start'] && (
+        {activeBtnRects['button-start'] && (
           <button
             type="button"
+            data-part="button-start"
             className="gb-shell__btn-start"
             aria-label="Start Game Immediately (Start Button)"
             title="Start Game Immediately (Start Button)"
             onClick={triggerStart}
             style={{
               position: 'absolute',
-              left: `${buttonRects['button-start'].left}px`,
-              top: `${buttonRects['button-start'].top}px`,
-              width: `${buttonRects['button-start'].width}px`,
-              height: `${buttonRects['button-start'].height}px`,
+              left: `${activeBtnRects['button-start'].left}px`,
+              top: `${activeBtnRects['button-start'].top}px`,
+              width: `${activeBtnRects['button-start'].width}px`,
+              height: `${activeBtnRects['button-start'].height}px`,
               background: 'transparent',
               border: 'none',
               boxShadow: 'none',
